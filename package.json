@@ -1,0 +1,52 @@
+{
+  "name": "household-services",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 3001",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview --port 3001",
+    "security-check": "node .security-check.js",
+    "security-audit": "npm audit --audit-level=moderate",
+    "security-full": "npm run security-check && npm run security-audit && npm run lint",
+    "pre-commit": "npm run security-full",
+    "prepare": "husky install",
+    "start:backend": "cd backend && python3 -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8001",
+    "start:backend:debug": "cd backend && python3 -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8001 --log-level debug",
+    "dev:instructions": "echo '1. Run: npm run start:backend (in one terminal)' && echo '2. Run: npm run dev (in another terminal)' && echo 'Frontend: http://localhost:3001' && echo 'Backend: http://localhost:8001'"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.17.0",
+    "@tanstack/react-query-devtools": "^5.17.0",
+    "axios": "^1.6.5",
+    "clsx": "^2.0.0",
+    "date-fns": "^3.0.6",
+    "jwt-decode": "^4.0.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "react-error-boundary": "^4.0.13",
+    "react-hook-form": "^7.48.2",
+    "react-icons": "^4.12.0",
+    "react-router-dom": "^6.21.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.33.0",
+    "@types/react": "^19.1.10",
+    "@types/react-dom": "^19.1.7",
+    "@vitejs/plugin-react": "^5.0.0",
+    "autoprefixer": "^10.4.16",
+    "eslint": "^9.33.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.20",
+    "globals": "^16.3.0",
+    "postcss": "^8.4.32",
+    "tailwindcss": "^3.4.0",
+    "terser": "^5.16.0",
+    "typescript": "~5.8.3",
+    "typescript-eslint": "^8.39.1",
+    "vite": "^7.1.2"
+  }
+}

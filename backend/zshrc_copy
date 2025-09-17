@@ -1,0 +1,72 @@
+export PATH="/usr/local/bin:$PATH"
+export PATH="/usr/local/opt/python@3.12/bin:$PATH"
+
+# >>> conda initialize >>>
+# !! Contents within this block are managed by 'conda init' !!
+__conda_setup="$('/opt/anaconda3/bin/conda' 'shell.zsh' 'hook' 2> /dev/null)"
+if [ $? -eq 0 ]; then
+    eval "$__conda_setup"
+else
+    if [ -f "/opt/anaconda3/etc/profile.d/conda.sh" ]; then
+        . "/opt/anaconda3/etc/profile.d/conda.sh"
+    else
+        export PATH="/opt/anaconda3/bin:$PATH"
+    fi
+fi
+unset __conda_setup
+# <<< conda initialize <<<
+
+export PYENV_ROOT="$HOME/.pyenv"
+export PATH="$PYENV_ROOT/bin:$PATH"
+eval "$(pyenv init --path)"
+eval "$(pyenv virtualenv-init -)"
+export PYENV_ROOT="$HOME/.pyenv"
+export PATH="$PYENV_ROOT/bin:$PATH"
+eval "$(pyenv init --path)"
+eval "$(pyenv init -)"
+eval "$(pyenv virtualenv-init -)"
+# NOTE: If you manage multiple AWS accounts you may *not* want to do this here and do it in your terminal before invoking Claude
+export AWS_PROFILE=default
+
+# Enable Bedrock integration
+export CLAUDE_CODE_USE_BEDROCK=1
+
+# The AWS region that has Bedrock access for your account
+export AWS_REGION=us-east-1   # change if you enabled Bedrock elsewhere
+
+# Primary Claude model to use (must be enabled in Bedrock model access)
+export ANTHROPIC_MODEL="us.anthropic.claude-sonnet-4-20250514-v1:0"
+
+# Optional: keep output tokens reasonable to avoid throttling
+export CLAUDE_CODE_MAX_OUTPUT_TOKENS=16384
+
+# Optional: Limit thinking tokens to prevent runaway quota usage
+export MAX_THINKING_TOKENS=1024
+
+# Enable telemetry
+export CLAUDE_CODE_ENABLE_TELEMETRY=1
+
+# Configure exporters
+export OTEL_METRICS_EXPORTER=otlp
+
+# Splunk ingest endpoint (replace <REALM> with your Splunk realm)
+export OTEL_EXPORTER_OTLP_ENDPOINT=https://ingest.us1.signalfx.com
+
+# Authentication - use your Splunk access token
+export OTEL_EXPORTER_OTLP_HEADERS="X-SF-TOKEN=MR_VBS94WUOt16g0QHQNgw"
+
+# Protocol
+export OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+
+# Separate endpoints for metrics and logs if needed
+export OTEL_EXPORTER_OTLP_METRICS_ENDPOINT="https://ingest.us1.signalfx.com/v2/datapoint/otlp"
+export OTEL_EXPORTER_OTLP_LOGS_ENDPOINT="https://ingest.us1.signalfx.com/v1/logs"
+
+export OTEL_RESOURCE_ATTRIBUTES="organization=Cisco,manager=raghuk2,cec=supanda"
+# Add to your ~/.zshrc
+alias ccs="claude-code-safe"
+
+
+
+# Created by `pipx` on 2025-08-01 12:47:42
+export PATH="$PATH:/Users/sunilkumarpanda/.local/bin"
