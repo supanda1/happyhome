@@ -178,7 +178,7 @@ class SecurityChecker {
 
     console.log('📚 Resources:');
     console.log('- Security Guidelines: ./SECURITY.md');
-    console.log('- Project Documentation: ./CLAUDE.md'); 
+    console.log('- Project Documentation: ./PROJECT.md');
     console.log('- ESLint Security Rules: ./eslint.config.js\\n');
 
     return false;
