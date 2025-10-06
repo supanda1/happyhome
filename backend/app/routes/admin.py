@@ -1959,3 +1959,656 @@ async def get_detailed_system_health(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve detailed health information"
         )
+
+
+# ============================================================================
+# AUTOMATED ASSIGNMENT - Super Admin Management
+# ============================================================================
+
+@router.post("/assignments/auto-assign/{booking_id}")
+async def auto_assign_employee_to_booking(
+    booking_id: str,
+    assignment_request: dict,
+    current_user: User = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db_session)
+):
+    """
+    Automatically assign employee to booking using intelligent algorithms.
+    
+    Request body:
+    {
+        "strategy": "best_fit|location_only|availability_only|location_and_availability|round_robin",
+        "manualEmployeeId": "optional-employee-id-for-manual",
+        "config": {
+            "maxDistanceKm": 25.0,
+            "requireExpertiseMatch": true,
+            "maxDailyAssignments": 8,
+            "priorityWeights": {
+                "location": 0.3,
+                "availability": 0.25,
+                "expertise": 0.2,
+                "rating": 0.15,
+                "workload": 0.1
+            }
+        }
+    }
+    """
+    logger.info("Auto assignment request", booking_id=booking_id, admin_id=str(current_user.id))
+    
+    try:
+        from ..services.assignment_service import (
+            AutomatedAssignmentService,
+            AssignmentStrategy,
+            AssignmentConfiguration,
+            AssignmentPriority,
+            AssignmentConfigurationManager
+        )
+        
+        assignment_service = AutomatedAssignmentService()
+        
+        # Parse strategy
+        strategy_str = assignment_request.get("strategy", "best_fit")
+        try:
+            strategy = AssignmentStrategy(strategy_str)
+        except ValueError:
+            strategy = AssignmentStrategy.BEST_FIT
+        
+        # Parse manual employee ID
+        manual_employee_id = assignment_request.get("manualEmployeeId")
+        if manual_employee_id:
+            try:
+                manual_employee_id = UUID(manual_employee_id)
+                strategy = AssignmentStrategy.MANUAL
+            except ValueError:
+                manual_employee_id = None
+        
+        # Parse custom configuration
+        config = None
+        if "config" in assignment_request:
+            config_data = assignment_request["config"]
+            
+            # Parse priority weights
+            weights = {}
+            if "priorityWeights" in config_data:
+                weight_mapping = {
+                    "location": AssignmentPriority.LOCATION,
+                    "availability": AssignmentPriority.AVAILABILITY,
+                    "expertise": AssignmentPriority.EXPERTISE,
+                    "rating": AssignmentPriority.RATING,
+                    "workload": AssignmentPriority.WORKLOAD,
+                    "customerSatisfaction": AssignmentPriority.CUSTOMER_SATISFACTION
+                }
+                
+                for key, value in config_data["priorityWeights"].items():
+                    if key in weight_mapping:
+                        weights[weight_mapping[key]] = float(value)
+            
+            # Create configuration
+            config = AssignmentConfiguration(
+                strategy=strategy,
+                max_distance_km=float(config_data.get("maxDistanceKm", 25.0)),
+                priority_weights=weights if weights else None,
+                require_expertise_match=bool(config_data.get("requireExpertiseMatch", True)),
+                max_daily_assignments=int(config_data.get("maxDailyAssignments", 8))
+            )
+        
+        # Perform assignment
+        result = await assignment_service.assign_employee_to_booking(
+            db=db,
+            booking_id=UUID(booking_id),
+            strategy=strategy,
+            manual_employee_id=manual_employee_id,
+            config=config
+        )
+        
+        # Log assignment result
+        if result["success"]:
+            logger.info(
+                "Employee assignment successful",
+                booking_id=booking_id,
+                employee_id=result["assignment"]["employeeId"],
+                strategy=strategy_str,
+                admin_id=str(current_user.id)
+            )
+        else:
+            logger.warning(
+                "Employee assignment failed",
+                booking_id=booking_id,
+                error=result["error"],
+                admin_id=str(current_user.id)
+            )
+        
+        return {
+            "success": result["success"],
+            "message": "Assignment completed successfully" if result["success"] else result["error"],
+            "data": result
+        }
+        
+    except Exception as e:
+        logger.error("Auto assignment failed", error=str(e), booking_id=booking_id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Auto assignment failed: {str(e)}"
+        )
+
+
+@router.get("/assignments/configurations")
+async def get_assignment_configurations(
+    current_user: User = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db_session)
+):
+    """Get available assignment configurations and strategies."""
+    logger.info("Assignment configurations request", admin_id=str(current_user.id))
+    
+    try:
+        from ..services.assignment_service import (
+            AssignmentStrategy,
+            AssignmentPriority,
+            AssignmentConfigurationManager
+        )
+        
+        configurations = {
+            "strategies": {
+                "best_fit": {
+                    "name": "Best Overall Fit",
+                    "description": "Assigns based on weighted combination of all factors",
+                    "factors": ["location", "availability", "expertise", "rating", "workload"]
+                },
+                "location_only": {
+                    "name": "Location Priority",
+                    "description": "Assigns closest available employee",
+                    "factors": ["location", "basic_availability"]
+                },
+                "availability_only": {
+                    "name": "Availability Priority", 
+                    "description": "Assigns employee with lowest current workload",
+                    "factors": ["availability", "workload"]
+                },
+                "location_and_availability": {
+                    "name": "Location + Availability",
+                    "description": "Balanced approach considering location and availability",
+                    "factors": ["location", "availability"]
+                },
+                "round_robin": {
+                    "name": "Round Robin",
+                    "description": "Distributes assignments evenly among eligible employees",
+                    "factors": ["workload_balancing"]
+                },
+                "manual": {
+                    "name": "Manual Assignment",
+                    "description": "Manually select specific employee",
+                    "factors": ["admin_choice"]
+                }
+            },
+            "priorityFactors": {
+                "location": {
+                    "name": "Location Proximity",
+                    "description": "Distance between employee and service location",
+                    "weight": 0.3,
+                    "range": "0.0 - 1.0"
+                },
+                "availability": {
+                    "name": "Current Availability", 
+                    "description": "Employee's current workload and schedule",
+                    "weight": 0.25,
+                    "range": "0.0 - 1.0"
+                },
+                "expertise": {
+                    "name": "Skill Match",
+                    "description": "Employee's expertise in required service category",
+                    "weight": 0.2,
+                    "range": "0.0 - 1.0"
+                },
+                "rating": {
+                    "name": "Employee Rating",
+                    "description": "Overall customer rating and performance",
+                    "weight": 0.15,
+                    "range": "0.0 - 1.0"
+                },
+                "workload": {
+                    "name": "Workload Balance",
+                    "description": "Current daily assignment count",
+                    "weight": 0.1,
+                    "range": "0.0 - 1.0"
+                }
+            },
+            "defaultSettings": {
+                "maxDistanceKm": 25.0,
+                "requireExpertiseMatch": True,
+                "maxDailyAssignments": 8,
+                "workingHoursStart": "08:00",
+                "workingHoursEnd": "18:00",
+                "bufferTimeMinutes": 30
+            },
+            "presetConfigurations": {
+                "quality_focused": {
+                    "name": "Quality Focused",
+                    "description": "Prioritizes highly rated, experienced employees",
+                    "weights": {
+                        "location": 0.15,
+                        "availability": 0.2,
+                        "expertise": 0.3,
+                        "rating": 0.25,
+                        "workload": 0.1
+                    }
+                },
+                "speed_focused": {
+                    "name": "Speed Focused", 
+                    "description": "Prioritizes quick assignment and availability",
+                    "weights": {
+                        "location": 0.4,
+                        "availability": 0.4,
+                        "expertise": 0.1,
+                        "rating": 0.05,
+                        "workload": 0.05
+                    }
+                },
+                "balanced": {
+                    "name": "Balanced Approach",
+                    "description": "Equal consideration of all factors",
+                    "weights": {
+                        "location": 0.2,
+                        "availability": 0.2,
+                        "expertise": 0.2,
+                        "rating": 0.2,
+                        "workload": 0.2
+                    }
+                }
+            }
+        }
+        
+        return {
+            "success": True,
+            "message": "Assignment configurations retrieved successfully",
+            "data": configurations
+        }
+        
+    except Exception as e:
+        logger.error("Failed to get assignment configurations", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve assignment configurations"
+        )
+
+
+@router.get("/assignments/eligible-employees/{booking_id}")
+async def get_eligible_employees_for_booking(
+    booking_id: str,
+    current_user: User = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db_session)
+):
+    """Get list of eligible employees for a specific booking with their scores."""
+    logger.info("Eligible employees request", booking_id=booking_id, admin_id=str(current_user.id))
+    
+    try:
+        from ..services.assignment_service import AutomatedAssignmentService
+        
+        # Get booking details
+        booking = await db.scalar(
+            select(Booking)
+            .options(
+                selectinload(Booking.service).selectinload(Service.category),
+                selectinload(Booking.address)
+            )
+            .where(Booking.id == UUID(booking_id))
+        )
+        
+        if not booking:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Booking not found"
+            )
+        
+        assignment_service = AutomatedAssignmentService()
+        eligible_employees = await assignment_service._get_eligible_employees(
+            db, booking, assignment_service.config
+        )
+        
+        # Sort by total score descending
+        eligible_employees.sort(key=lambda x: x.total_score, reverse=True)
+        
+        employees_data = []
+        for emp_score in eligible_employees:
+            emp_data = {
+                "employeeId": str(emp_score.employee.id),
+                "employeeName": emp_score.employee.name,
+                "employeeEmail": emp_score.employee.email,
+                "employeePhone": emp_score.employee.phone,
+                "employeeLocation": emp_score.employee.location,
+                "expertiseAreas": emp_score.employee.expertise_areas,
+                "rating": emp_score.employee.rating,
+                "completedJobs": emp_score.employee.completed_jobs,
+                "isActive": emp_score.employee.is_active,
+                "isAvailable": emp_score.employee.is_available,
+                "scores": {
+                    "total": round(emp_score.total_score, 3),
+                    "location": round(emp_score.location_score, 3),
+                    "availability": round(emp_score.availability_score, 3),
+                    "expertise": round(emp_score.expertise_score, 3),
+                    "rating": round(emp_score.rating_score, 3),
+                    "workload": round(emp_score.workload_score, 3),
+                    "customerSatisfaction": round(emp_score.customer_satisfaction_score, 3)
+                },
+                "metrics": {
+                    "distanceKm": emp_score.distance_km,
+                    "currentWorkload": emp_score.current_workload,
+                    "hasExpertise": emp_score.has_expertise,
+                    "isAvailableForSlot": emp_score.is_available
+                }
+            }
+            employees_data.append(emp_data)
+        
+        return {
+            "success": True,
+            "message": f"Found {len(employees_data)} eligible employees",
+            "data": {
+                "bookingId": booking_id,
+                "serviceCategory": booking.service.category.name if booking.service.category else None,
+                "serviceName": booking.service.name,
+                "scheduledDate": booking.scheduled_date.isoformat(),
+                "eligibleEmployees": employees_data,
+                "totalCount": len(employees_data)
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to get eligible employees", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve eligible employees"
+        )
+
+
+@router.post("/assignments/bulk-assign")
+async def bulk_assign_employees(
+    assignment_requests: dict,
+    current_user: User = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db_session)
+):
+    """
+    Bulk assign employees to multiple bookings.
+    
+    Request body:
+    {
+        "bookingIds": ["booking-id-1", "booking-id-2"],
+        "strategy": "best_fit",
+        "config": { ... }
+    }
+    """
+    logger.info("Bulk assignment request", admin_id=str(current_user.id))
+    
+    try:
+        from ..services.assignment_service import (
+            AutomatedAssignmentService,
+            AssignmentStrategy
+        )
+        
+        booking_ids = assignment_requests.get("bookingIds", [])
+        if not booking_ids:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No booking IDs provided"
+            )
+        
+        strategy_str = assignment_requests.get("strategy", "best_fit")
+        try:
+            strategy = AssignmentStrategy(strategy_str)
+        except ValueError:
+            strategy = AssignmentStrategy.BEST_FIT
+        
+        assignment_service = AutomatedAssignmentService()
+        results = []
+        
+        # Process each booking
+        for booking_id in booking_ids:
+            try:
+                result = await assignment_service.assign_employee_to_booking(
+                    db=db,
+                    booking_id=UUID(booking_id),
+                    strategy=strategy
+                )
+                
+                results.append({
+                    "bookingId": booking_id,
+                    "success": result["success"],
+                    "assignment": result.get("assignment"),
+                    "error": result.get("error")
+                })
+                
+            except Exception as e:
+                results.append({
+                    "bookingId": booking_id,
+                    "success": False,
+                    "assignment": None,
+                    "error": str(e)
+                })
+        
+        # Calculate summary
+        successful_assignments = sum(1 for r in results if r["success"])
+        failed_assignments = len(results) - successful_assignments
+        
+        logger.info(
+            "Bulk assignment completed",
+            total=len(results),
+            successful=successful_assignments,
+            failed=failed_assignments,
+            admin_id=str(current_user.id)
+        )
+        
+        return {
+            "success": True,
+            "message": f"Bulk assignment completed: {successful_assignments} successful, {failed_assignments} failed",
+            "data": {
+                "results": results,
+                "summary": {
+                    "totalBookings": len(results),
+                    "successfulAssignments": successful_assignments,
+                    "failedAssignments": failed_assignments,
+                    "strategy": strategy_str
+                }
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Bulk assignment failed", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Bulk assignment failed: {str(e)}"
+        )
+
+
+@router.delete("/assignments/{booking_id}")
+async def unassign_employee_from_booking(
+    booking_id: str,
+    current_user: User = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db_session)
+):
+    """Remove employee assignment from booking."""
+    logger.info("Unassign employee request", booking_id=booking_id, admin_id=str(current_user.id))
+    
+    try:
+        booking = await db.scalar(
+            select(Booking).where(Booking.id == UUID(booking_id))
+        )
+        
+        if not booking:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Booking not found"
+            )
+        
+        if not booking.assigned_technician_id:
+            return {
+                "success": True,
+                "message": "No employee assigned to this booking",
+                "data": None
+            }
+        
+        # Store previous assignment for logging
+        previous_employee_id = booking.assigned_technician_id
+        
+        # Remove assignment
+        booking.assigned_technician_id = None
+        booking.status = BookingStatus.PENDING
+        
+        # Add unassignment note
+        unassign_note = f"Employee unassigned by admin {current_user.name}"
+        booking.admin_notes = f"{booking.admin_notes}\n{unassign_note}" if booking.admin_notes else unassign_note
+        
+        await db.commit()
+        
+        logger.info(
+            "Employee unassigned successfully",
+            booking_id=booking_id,
+            previous_employee_id=str(previous_employee_id),
+            admin_id=str(current_user.id)
+        )
+        
+        return {
+            "success": True,
+            "message": "Employee unassigned successfully",
+            "data": {
+                "bookingId": booking_id,
+                "previousEmployeeId": str(previous_employee_id),
+                "newStatus": booking.status
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Unassign employee failed", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unassign employee failed: {str(e)}"
+        )
+
+
+@router.get("/assignments/analytics")
+async def get_assignment_analytics(
+    days: int = Query(30, ge=1, le=365),
+    current_user: User = Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db_session)
+):
+    """Get assignment analytics and performance metrics."""
+    logger.info("Assignment analytics request", days=days, admin_id=str(current_user.id))
+    
+    try:
+        from datetime import datetime, timedelta
+        
+        # Calculate date range
+        end_date = datetime.utcnow()
+        start_date = end_date - timedelta(days=days)
+        
+        # Total assignments in period
+        total_assignments = await db.scalar(
+            select(func.count(Booking.id))
+            .where(
+                and_(
+                    Booking.assigned_technician_id.isnot(None),
+                    Booking.created_at >= start_date
+                )
+            )
+        )
+        
+        # Auto vs manual assignments (based on admin notes)
+        auto_assignments = await db.scalar(
+            select(func.count(Booking.id))
+            .where(
+                and_(
+                    Booking.assigned_technician_id.isnot(None),
+                    Booking.created_at >= start_date,
+                    Booking.admin_notes.like('%Auto-assigned%')
+                )
+            )
+        )
+        
+        manual_assignments = (total_assignments or 0) - (auto_assignments or 0)
+        
+        # Assignment completion rate
+        completed_assignments = await db.scalar(
+            select(func.count(Booking.id))
+            .where(
+                and_(
+                    Booking.assigned_technician_id.isnot(None),
+                    Booking.created_at >= start_date,
+                    Booking.status == BookingStatus.COMPLETED
+                )
+            )
+        )
+        
+        completion_rate = (
+            (completed_assignments / total_assignments * 100) 
+            if total_assignments and total_assignments > 0 else 0
+        )
+        
+        # Employee workload distribution
+        employee_workloads = await db.execute(
+            select(
+                Employee.name,
+                Employee.location,
+                func.count(Booking.id).label('assignment_count')
+            )
+            .outerjoin(Booking, Employee.id == Booking.assigned_technician_id)
+            .where(
+                or_(
+                    Booking.created_at.is_(None),
+                    Booking.created_at >= start_date
+                )
+            )
+            .group_by(Employee.id, Employee.name, Employee.location)
+            .order_by(func.count(Booking.id).desc())
+            .limit(10)
+        )
+        
+        workload_data = [
+            {
+                "employeeName": row.name,
+                "employeeLocation": row.location,
+                "assignmentCount": row.assignment_count
+            }
+            for row in employee_workloads
+        ]
+        
+        analytics = {
+            "period": {
+                "days": days,
+                "startDate": start_date.isoformat(),
+                "endDate": end_date.isoformat()
+            },
+            "assignmentStats": {
+                "totalAssignments": total_assignments or 0,
+                "autoAssignments": auto_assignments or 0,
+                "manualAssignments": manual_assignments or 0,
+                "completedAssignments": completed_assignments or 0,
+                "completionRate": round(completion_rate, 2)
+            },
+            "performanceMetrics": {
+                "autoAssignmentRate": round(
+                    (auto_assignments / total_assignments * 100) 
+                    if total_assignments and total_assignments > 0 else 0, 2
+                ),
+                "averageAssignmentsPerEmployee": round(
+                    total_assignments / len(workload_data) 
+                    if workload_data and total_assignments else 0, 2
+                )
+            },
+            "employeeWorkloads": workload_data
+        }
+        
+        return {
+            "success": True,
+            "message": "Assignment analytics retrieved successfully", 
+            "data": analytics
+        }
+        
+    except Exception as e:
+        logger.error("Failed to get assignment analytics", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve assignment analytics"
+        )

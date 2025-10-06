@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import List, Optional
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy import and_, desc, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -116,6 +116,37 @@ async def create_order(
         order_with_items = result.scalar_one()
         
         logger.info(f"Order {new_order.order_number} created by user {current_user.id}")
+
+        # Trigger auto-assignment for the order
+        try:
+            from ..services.assignment_service import AutomatedAssignmentService
+            assignment_service = AutomatedAssignmentService()
+            
+            # Auto-assign employees to all bookings in the order
+            assigned_count = 0
+            failed_count = 0
+            
+            for item in new_order.items:
+                if hasattr(item, 'booking_id') and item.booking_id:
+                    try:
+                        result = await assignment_service.assign_employee_to_booking(
+                            db=db,
+                            booking_id=item.booking_id,
+                            strategy=None  # Use default strategy
+                        )
+                        if result.get('success'):
+                            assigned_count += 1
+                        else:
+                            failed_count += 1
+                    except Exception as assignment_error:
+                        logger.warning(f"Auto-assignment failed for booking {item.booking_id}: {assignment_error}")
+                        failed_count += 1
+            
+            logger.info(f"✅ Auto-assignment completed for order {new_order.order_number}: {assigned_count} assigned, {failed_count} failed")
+            
+        except Exception as auto_assign_error:
+            logger.warning(f"⚠️ Auto-assignment failed for order {new_order.order_number}: {auto_assign_error}")
+            # Don't fail the order creation if auto-assignment fails
         
         # Send order placed notification
         try:
@@ -528,6 +559,112 @@ async def assign_engineer(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to assign engineer"
+        )
+
+
+@router.put("/{order_id}/cancel", response_model=BaseResponse)
+async def cancel_order(
+    order_id: UUID,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session)
+) -> BaseResponse:
+    """
+    Cancel order (customer or admin).
+    
+    Marks order status as 'cancelled' instead of deleting it.
+    Preserves order history for business analytics and customer reference.
+    """
+    try:
+        # Parse request body for cancellation reason
+        try:
+            request_data = await request.json()
+            cancel_reason = request_data.get('reason', 'No reason provided')
+        except:
+            cancel_reason = 'No reason provided'
+        
+        logger.info(f"🚫 Processing cancellation request for order {order_id}")
+        logger.info(f"   - User: {current_user.id} ({current_user.email})")
+        logger.info(f"   - Reason: {cancel_reason}")
+        # Get order with items
+        query = select(Order).options(
+            selectinload(Order.items)
+        ).where(Order.id == order_id)
+        result = await db.execute(query)
+        order = result.scalar_one_or_none()
+        
+        if not order:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Order not found"
+            )
+        
+        # Check permissions - user can cancel their own orders, admin can cancel any
+        if current_user.role != "admin" and order.customer_id != str(current_user.id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only cancel your own orders"
+            )
+        
+        # Check if order can be cancelled
+        if order.status in [OrderStatus.COMPLETED, OrderStatus.CANCELLED]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot cancel order with status: {order.status}"
+            )
+        
+        # Update order status to cancelled
+        original_status = order.status
+        order.status = OrderStatus.CANCELLED
+        order.updated_at = datetime.utcnow()
+        
+        # Store cancellation reason in admin notes
+        existing_notes = order.admin_notes or ""
+        cancellation_note = f"CANCELLED by {current_user.email}: {cancel_reason}"
+        order.admin_notes = f"{existing_notes}\n{cancellation_note}".strip() if existing_notes else cancellation_note
+        
+        # Cancel all order items as well
+        cancelled_items = 0
+        for item in order.items:
+            if item.item_status != ItemStatus.COMPLETED:
+                original_item_status = item.item_status
+                item.item_status = ItemStatus.CANCELLED
+                cancelled_items += 1
+                logger.info(f"  - Item {item.id} status changed: {original_item_status} -> CANCELLED")
+        
+        await db.commit()
+        
+        logger.info(f"✅ Order {order.order_number} CANCELLED by user {current_user.id}")
+        logger.info(f"   - Original status: {original_status} -> CANCELLED") 
+        logger.info(f"   - Items cancelled: {cancelled_items}/{len(order.items)}")
+        logger.info(f"   - Customer: {order.customer_name} ({order.customer_id})")
+        logger.info(f"   - Reason: {cancel_reason}")
+        
+        # Send cancellation notification
+        try:
+            await notification_service.send_order_notification(
+                db=db,
+                order_id=str(order_id),
+                event_type=NotificationEvent.ORDER_CANCELLED,
+                priority=NotificationPriority.NORMAL
+            )
+        except Exception as e:
+            logger.error(f"Failed to send cancellation notification: {e}")
+        
+        return BaseResponse(
+            success=True,
+            message="Order cancelled successfully",
+            data=order.dict_for_response(include_relationships=True)
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error cancelling order {order_id}: {str(e)}")
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to cancel order"
         )
 
 

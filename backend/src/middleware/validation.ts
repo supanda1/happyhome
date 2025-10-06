@@ -65,7 +65,7 @@ export const commonValidations = {
       .trim()
       .notEmpty()
       .withMessage(`${fieldName} is required`)
-      .matches(/^[+]?[\d\s\-\(\)]{10,15}$/)
+      .matches(/^[+]?[\d\s\-()]{10,15}$/)
       .withMessage(`${fieldName} must be a valid phone number`),
 
   // Positive number validation

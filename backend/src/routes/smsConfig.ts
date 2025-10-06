@@ -1,10 +1,43 @@
 import { Router, Request, Response } from 'express';
 import { requireAdminAuth } from '../middleware/auth';
 
+// SMS Provider types
+interface SMSProvider {
+  name: string;
+  type: string;
+  configured: boolean;
+  enabled: boolean;
+  [key: string]: unknown;
+}
+
+interface EmailProvider {
+  sendgrid: {
+    configured: boolean;
+    enabled: boolean;
+  };
+}
+
+type SMSProvidersConfig = Record<string, SMSProvider>;
+
+interface SetupInstruction {
+  title: string;
+  provider: string;
+  steps: string[];
+  env_vars: Record<string, string>;
+  cost: string;
+  features: string[];
+  time?: string;
+}
+
+interface TroubleshootingItem {
+  issue: string;
+  solutions: string[];
+}
+
 const router = Router();
 
 // Get SMS configuration status
-router.get('/status', requireAdminAuth, async (req: Request, res: Response) => {
+router.get('/status', requireAdminAuth, async (_req: Request, res: Response) => {
   try {
     // Check environment variables for SMS providers
     const providers = {
@@ -134,7 +167,7 @@ router.get('/status', requireAdminAuth, async (req: Request, res: Response) => {
 });
 
 // Get SMS provider setup guide
-router.get('/setup-guide', requireAdminAuth, async (req: Request, res: Response) => {
+router.get('/setup-guide', requireAdminAuth, async (_req: Request, res: Response) => {
   try {
     const guide = {
       steps: [
@@ -241,8 +274,8 @@ function maskValue(value?: string): string {
 }
 
 // Check if any real provider is configured
-function hasAnyRealProvider(smsProviders: any, emailProvider: any): boolean {
-  const smsConfigured = Object.values(smsProviders).some((provider: any) => 
+function hasAnyRealProvider(smsProviders: SMSProvidersConfig, emailProvider: EmailProvider): boolean {
+  const smsConfigured = Object.values(smsProviders).some((provider: SMSProvider) => 
     provider.configured && provider.enabled
   );
   const emailConfigured = emailProvider.sendgrid.configured && emailProvider.sendgrid.enabled;
@@ -251,11 +284,11 @@ function hasAnyRealProvider(smsProviders: any, emailProvider: any): boolean {
 }
 
 // Generate recommendations based on current config
-function generateRecommendations(smsProviders: any, emailProvider: any): string[] {
+function generateRecommendations(smsProviders: SMSProvidersConfig, emailProvider: EmailProvider): string[] {
   const recommendations: string[] = [];
 
   // Check SMS providers
-  const configuredSms = Object.values(smsProviders).filter((p: any) => p.configured && p.enabled);
+  const configuredSms = Object.values(smsProviders).filter((p: SMSProvider) => p.configured && p.enabled);
   if (configuredSms.length === 0) {
     recommendations.push('🔴 No SMS providers configured. Add TextLocal for India or Twilio for global coverage.');
   } else if (configuredSms.length === 1) {
@@ -286,7 +319,7 @@ function generateRecommendations(smsProviders: any, emailProvider: any): string[
 }
 
 // Get setup instructions
-function getSetupInstructions(): any {
+function getSetupInstructions(): { quick_start: SetupInstruction[]; troubleshooting: TroubleshootingItem[] } {
   return {
     quick_start: [
       {
@@ -301,7 +334,13 @@ function getSetupInstructions(): any {
           'Set TEXTLOCAL_ENABLED=true in .env'
         ],
         time: '15 minutes',
-        cost: '₹0.25 per SMS'
+        cost: '₹0.25 per SMS',
+        env_vars: {
+          'TEXTLOCAL_ENABLED': 'true',
+          'TEXTLOCAL_API_KEY': 'your_api_key',
+          'TEXTLOCAL_SENDER_ID': 'HPYHMS'
+        },
+        features: ['SMS delivery', 'Delivery reports', 'Unicode support', 'Low cost']
       },
       {
         title: 'For Global Customers',
@@ -315,7 +354,14 @@ function getSetupInstructions(): any {
           'Set TWILIO_ENABLED=true in .env'
         ],
         time: '10 minutes',
-        cost: '₹1.20 per SMS'
+        cost: '₹1.20 per SMS',
+        env_vars: {
+          'TWILIO_ENABLED': 'true',
+          'TWILIO_ACCOUNT_SID': 'your_account_sid',
+          'TWILIO_AUTH_TOKEN': 'your_auth_token',
+          'TWILIO_PHONE_NUMBER': 'your_twilio_number'
+        },
+        features: ['Global delivery', 'Real-time delivery status', 'MMS support', 'Two-way messaging']
       }
     ],
     troubleshooting: [

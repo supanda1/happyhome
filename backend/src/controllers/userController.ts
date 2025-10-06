@@ -2,6 +2,13 @@ import { Request, Response } from 'express';
 import pool from '../config/database';
 import jwt from 'jsonwebtoken';
 
+// JWT payload interface
+interface JWTPayload {
+  userId: string;
+  email: string;
+  role: string;
+}
+
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 // User Address Interface (matching frontend expectations)
@@ -60,9 +67,9 @@ const getUserIdFromToken = (req: Request): string | null => {
   }
   
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
     return decoded.userId;
-  } catch (error) {
+  } catch {
     return null;
   }
 };

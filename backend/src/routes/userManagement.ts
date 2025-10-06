@@ -10,7 +10,7 @@ import {
   deleteAdminUser
 } from '../controllers/userManagementController';
 import { requireSuperAdminAuth } from '../middleware/auth';
-import { validateUUID, commonValidations, handleValidationErrors } from '../middleware/validation';
+import { validateUUID, handleValidationErrors } from '../middleware/validation';
 import { body } from 'express-validator';
 
 const router = Router();

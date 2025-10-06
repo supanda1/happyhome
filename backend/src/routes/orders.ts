@@ -9,9 +9,9 @@ const router = express.Router();
 // Order update validation
 const updateOrderValidation = [
   ...validateUUID('id'),
-  commonValidations.optionalEnum('status', ['pending', 'confirmed', 'scheduled', 'in_progress', 'completed', 'cancelled']),
+  commonValidations.optionalEnum('status', ['pending', 'confirmed', 'scheduled', 'in_progress', 'completed', 'cancelled', 'postponed']),
   commonValidations.optionalEnum('priority', ['low', 'medium', 'high', 'urgent']),
-  commonValidations.optionalString('notes', 1000),
+  commonValidations.optionalString('admin_notes', 1000),
   commonValidations.optionalDate('scheduled_date'),
   body('final_amount').optional().isFloat({ min: 0 }),
   handleValidationErrors
@@ -21,7 +21,7 @@ const updateOrderValidation = [
 const updateOrderItemValidation = [
   ...validateUUID('orderId'),
   ...validateUUID('itemId'),
-  commonValidations.optionalEnum('item_status', ['pending', 'scheduled', 'in_progress', 'completed', 'cancelled']),
+  commonValidations.optionalEnum('item_status', ['pending', 'scheduled', 'in_progress', 'completed', 'cancelled', 'postponed']),
   body('quantity').optional().isInt({ min: 1 }),
   body('unit_price').optional().isFloat({ min: 0 }),
   body('total_price').optional().isFloat({ min: 0 }),
@@ -57,7 +57,10 @@ router.post('/bulk-assign', requireAdminAuth, ...bulkAssignValidation, OrdersCon
 // GET /api/orders/workload/engineers - Get engineer workload statistics (admin only)
 router.get('/workload/engineers', requireAdminAuth, OrdersController.getEngineerWorkloadStats);
 
-// Order management endpoints
+// Order management endpoints  
+// GET /api/orders/my - Get current user's orders (user accessible)
+router.get('/my', requireAuth, OrdersController.getUserOrders);
+
 // GET /api/orders - Get all orders with optional filtering (admin only for all orders)
 router.get('/', requireAdminAuth, OrdersController.getAllOrders);
 
@@ -69,6 +72,18 @@ router.get('/:id', requireAdminAuth, ...validateUUID('id'), OrdersController.get
 
 // PUT /api/orders/:id - Update order (admin only)
 router.put('/:id', requireAdminAuth, ...updateOrderValidation, OrdersController.updateOrder);
+
+// PUT /api/orders/:id/cancel - Cancel order (customer or admin)
+router.put('/:id/cancel', requireAuth, ...validateUUID('id'), OrdersController.cancelOrder);
+
+// PUT /api/orders/:id/rate - Submit customer rating and review (customer only)
+const rateOrderValidation = [
+  ...validateUUID('id'),
+  body('customer_rating').isInt({ min: 1, max: 5 }).withMessage('Rating must be between 1 and 5'),
+  body('customer_review').optional().isString().isLength({ max: 1000 }).withMessage('Review must be less than 1000 characters'),
+  handleValidationErrors
+];
+router.put('/:id/rate', requireAuth, ...rateOrderValidation, OrdersController.rateOrder);
 
 // DELETE /api/orders/:id - Delete order (admin only)
 router.delete('/:id', requireAdminAuth, ...validateUUID('id'), OrdersController.deleteOrder);
@@ -87,6 +102,7 @@ router.post('/:orderId/auto-assign', requireAdminAuth, ...validateUUID('orderId'
 // Assignment history endpoints (admin only)
 // GET /api/orders/:orderId/assignments/history - Get assignment history for order
 router.get('/:orderId/assignments/history', requireAdminAuth, ...validateUUID('orderId'), OrdersController.getAssignmentHistory);
+
 
 // GET /api/orders/:orderId/items/:itemId/assignments/history - Get assignment history for specific item
 router.get('/:orderId/items/:itemId/assignments/history', requireAdminAuth, ...validateUUID('orderId'), ...validateUUID('itemId'), OrdersController.getAssignmentHistory);

@@ -7,7 +7,7 @@ import secrets
 from functools import lru_cache
 from typing import List, Optional, Union
 
-from pydantic import EmailStr, Field, validator
+from pydantic import EmailStr, Field, field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -62,10 +62,10 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: List[str] = [
         "http://localhost:3000",
         "http://localhost:3001", 
-        "http://localhost:3003",  # Added for current frontend port
+        "http://localhost:3002",  # Added for current frontend port
         "http://127.0.0.1:3000",
         "http://127.0.0.1:3001",
-        "http://127.0.0.1:3003"   # Added for current frontend port
+        "http://127.0.0.1:3002"   # Added for current frontend port
     ]
     ALLOWED_METHODS: List[str] = ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"]
     ALLOWED_HEADERS: List[str] = ["*"]
@@ -102,7 +102,8 @@ class Settings(BaseSettings):
     AUTO_RELOAD: bool = True
     SHOW_DOCS: bool = True
     
-    @validator("ALLOWED_ORIGINS", pre=True)
+    @field_validator("ALLOWED_ORIGINS", mode="before")
+    @classmethod
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> Union[List[str], str]:
         """Parse CORS origins from environment variable."""
         if isinstance(v, str) and not v.startswith("["):
@@ -111,7 +112,8 @@ class Settings(BaseSettings):
             return v
         raise ValueError(v)
     
-    @validator("ALLOWED_METHODS", pre=True)
+    @field_validator("ALLOWED_METHODS", mode="before")
+    @classmethod
     def assemble_cors_methods(cls, v: Union[str, List[str]]) -> Union[List[str], str]:
         """Parse CORS methods from environment variable."""
         if isinstance(v, str) and not v.startswith("["):
@@ -120,7 +122,8 @@ class Settings(BaseSettings):
             return v
         raise ValueError(v)
     
-    @validator("ALLOWED_IMAGE_EXTENSIONS", pre=True)
+    @field_validator("ALLOWED_IMAGE_EXTENSIONS", mode="before")
+    @classmethod
     def assemble_image_extensions(cls, v: Union[str, List[str]]) -> Union[List[str], str]:
         """Parse allowed image extensions from environment variable."""
         if isinstance(v, str) and not v.startswith("["):
@@ -129,7 +132,8 @@ class Settings(BaseSettings):
             return v
         raise ValueError(v)
     
-    @validator("SECRET_KEY", pre=True)
+    @field_validator("SECRET_KEY", mode="before")
+    @classmethod
     def validate_secret_key(cls, v: str) -> str:
         """Ensure secret key is set and secure."""
         if not v:
@@ -138,7 +142,8 @@ class Settings(BaseSettings):
             raise ValueError("SECRET_KEY must be at least 32 characters long")
         return v
     
-    @validator("ENVIRONMENT")
+    @field_validator("ENVIRONMENT")
+    @classmethod
     def validate_environment(cls, v: str) -> str:
         """Validate environment setting."""
         allowed_environments = ["development", "staging", "production", "testing"]

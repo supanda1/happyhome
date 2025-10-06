@@ -1,0 +1,12 @@
+-- Fix orders status constraint to include 'confirmed'
+-- This fixes the error: "new row for relation "orders" violates check constraint "orders_status_check""
+
+-- Drop the existing constraint
+ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_status_check;
+
+-- Add the new constraint with 'confirmed' included
+ALTER TABLE orders ADD CONSTRAINT orders_status_check 
+    CHECK (status IN ('pending', 'confirmed', 'scheduled', 'in_progress', 'completed', 'cancelled', 'postponed'));
+
+-- Verify the constraint was added
+\d orders;

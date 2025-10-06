@@ -85,7 +85,8 @@ export const getUserPermissions = async (req: Request, res: Response) => {
 export const createAdminUser = async (req: Request, res: Response) => {
   try {
     const { email, password, firstName, lastName, phone, role } = req.body;
-    const currentUserId = req.user?.userId;
+    // Note: currentUserId available for audit logging if needed
+    // const currentUserId = req.user?.userId;
     
     // Validation
     if (!email || !password || !firstName || !lastName || !role) {

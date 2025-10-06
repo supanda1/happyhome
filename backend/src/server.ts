@@ -24,6 +24,7 @@ import analyticsRoutes from './routes/analytics';
 import smsProvidersRoutes from './routes/smsProviders';
 import smsConfigRoutes from './routes/smsConfig';
 import userManagementRoutes from './routes/userManagement';
+import configRoutes from './routes/config';
 
 // Load environment variables
 dotenv.config();
@@ -34,7 +35,7 @@ const PORT = process.env.PORT || 8001;
 // Middleware
 app.use(helmet()); // Security headers
 app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3001', 'http://localhost:3000'],
+  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3001', 'http://localhost:3000', 'http://localhost:3002'],
   credentials: true
 })); // Enable CORS
 app.use(morgan('combined')); // Logging
@@ -79,150 +80,66 @@ app.get('/health/db', async (req, res) => {
   }
 });
 
-// Add specific routes for frontend compatibility (BEFORE general routes)
-app.get('/api/v1/services/categories', async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT 
-        id,
-        name,
-        description,
-        icon,
-        image_paths,
-        is_active,
-        sort_order,
-        created_at,
-        updated_at
-      FROM service_categories 
-      ORDER BY sort_order ASC, name ASC
-    `);
-    
-    res.json({
-      success: true,
-      data: result.rows
-    });
-  } catch (error) {
-    console.error('Error fetching services categories:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch service categories'
-    });
-  }
-});
-
-app.get('/api/v1/services/subcategories', async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT 
-        ss.id,
-        ss.name,
-        ss.description,
-        ss.icon,
-        ss.is_active,
-        ss.sort_order,
-        ss.category_id,
-        ss.created_at,
-        ss.updated_at,
-        sc.name as category_name,
-        sc.icon as category_icon,
-        sc.image_paths as category_image_path
-      FROM service_subcategories ss
-      LEFT JOIN service_categories sc ON ss.category_id = sc.id
-      ORDER BY sc.sort_order ASC, ss.sort_order ASC, ss.name ASC
-    `);
-    
-    res.json({
-      success: true,
-      data: result.rows
-    });
-  } catch (error) {
-    console.error('Error fetching services subcategories:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch service subcategories'
-    });
-  }
-});
-
 // =============================================================================
-// API Routes - Production-Ready Structure
+// UNIFIED API ROUTES - CLEAN STRUCTURE
 // =============================================================================
 
-// Primary API routes (current version)
+// Core API routes (RESTful structure)
 app.use('/api/auth', authRoutes);
-app.use('/api/cart', cartRoutes);
 app.use('/api/categories', categoriesRoutes);
 app.use('/api/subcategories', subcategoriesRoutes);
 app.use('/api/services', servicesRoutes);
 app.use('/api/coupons', couponsRoutes);
+app.use('/api/cart', cartRoutes);
 app.use('/api/orders', ordersRoutes);
+app.use('/api/users', userRoutes);
 app.use('/api/employees', employeesRoutes);
 app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/banners', bannersRoutes);
 app.use('/api/analytics', analyticsRoutes);
-app.use('/api/user', userRoutes);
-app.use('/api/users', userRoutes); // Alias for user routes
+app.use('/api/banners', bannersRoutes);
 app.use('/api/contact-settings', contactSettingsRoutes);
 app.use('/api/review-settings', reviewSettingsRoutes);
 app.use('/api/offer-plans', offerPlansRoutes);
 app.use('/api/sms-providers', smsProvidersRoutes);
 app.use('/api/sms-config', smsConfigRoutes);
 app.use('/api/super-admin', userManagementRoutes);
+app.use('/api/config', configRoutes);
 
-// Admin-specific routes (protected)
-app.use('/api/admin/categories', categoriesRoutes);
-app.use('/api/admin/subcategories', subcategoriesRoutes);
-app.use('/api/admin/coupons', couponsRoutes);
-app.use('/api/admin/banners', bannersRoutes);
-app.use('/api/admin/contact-settings', contactSettingsRoutes);
-app.use('/api/admin/sms-providers', smsProvidersRoutes);
-app.use('/api/admin/sms-config', smsConfigRoutes);
-app.use('/api/admin/user-management', userManagementRoutes);
-
-// Legacy v1 API routes (for backward compatibility)
-app.use('/api/v1/auth', authRoutes);
-app.use('/api/v1/cart', cartRoutes);
-app.use('/api/v1/categories', categoriesRoutes);
-app.use('/api/v1/subcategories', subcategoriesRoutes);
-app.use('/api/v1/services', servicesRoutes);
-app.use('/api/v1/coupons', couponsRoutes);
-app.use('/api/v1/orders', ordersRoutes);
-app.use('/api/v1/dashboard', dashboardRoutes);
-app.use('/api/v1/banners', bannersRoutes);
-app.use('/api/v1/contact-settings', contactSettingsRoutes);
-app.use('/api/v1/review-settings', reviewSettingsRoutes);
-app.use('/api/v1/offer-plans', offerPlansRoutes);
-app.use('/api/v1/user', userRoutes);
-app.use('/api/v1/users', userRoutes);
-app.use('/api/v1/analytics', analyticsRoutes);
-app.use('/api/v1/sms-providers', smsProvidersRoutes);
+// Legacy v1 API routes for backward compatibility
+app.use('/v1/orders', ordersRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({
-    message: 'Welcome to Household Services API',
+    message: 'Welcome to Happy Homes Household Services API',
     version: '1.0.0',
+    status: 'UNIFIED API STRUCTURE',
     endpoints: {
       auth: '/api/auth',
-      orders: '/api/orders',
-      employees: '/api/employees',
       categories: '/api/categories',
-      subcategories: '/api/subcategories',
+      subcategories: '/api/subcategories', 
+      services: '/api/services',
       coupons: '/api/coupons',
       cart: '/api/cart',
-      services: '/api/services',
+      orders: '/api/orders',
+      users: '/api/users',
+      employees: '/api/employees',
       dashboard: '/api/dashboard',
+      analytics: '/api/analytics',
       banners: '/api/banners',
       contact_settings: '/api/contact-settings',
       review_settings: '/api/review-settings',
       offer_plans: '/api/offer-plans',
-      user: '/api/user',
-      analytics: '/api/analytics',
       sms_providers: '/api/sms-providers',
+      sms_config: '/api/sms-config',
+      super_admin: '/api/super-admin',
+      config: '/api/config',
+      v1_orders: '/v1/orders',
       health: '/health',
       database_health: '/health/db'
     },
-    documentation: 'https://docs.happyhomes.com/api'
+    base_url: 'http://localhost:8001/api',
+    documentation: 'All endpoints follow RESTful conventions with consistent /api/[resource] structure'
   });
 });
 
@@ -236,7 +153,7 @@ app.use('*', (req, res) => {
 });
 
 // Global error handler
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: Error & { status?: number }, _req: express.Request, res: express.Response) => {
   console.error('Global error handler:', err);
   
   res.status(err.status || 500).json({

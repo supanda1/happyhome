@@ -14,7 +14,7 @@ const updateEmployeeValidation = [
   commonValidations.optionalString('expert', 100),
   commonValidations.optionalArray('expertise_areas'),
   commonValidations.optionalString('manager', 100),
-  body('phone').optional().matches(/^[+]?[\d\s\-\(\)]{10,15}$/),
+  body('phone').optional().matches(/^[+]?[\d\s\-()]{10,15}$/),
   body('email').optional().isEmail().normalizeEmail(),
   commonValidations.boolean('is_active'),
   handleValidationErrors

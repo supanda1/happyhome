@@ -249,14 +249,14 @@ router.put('/:id', requireAdminAuth,
 
       const provider = existingResult.rows[0];
       const updates: string[] = [];
-      const values: any[] = [];
+      const values: (string | number | boolean | Record<string, unknown>)[] = [];
       let valueIndex = 1;
 
       // Build dynamic update query
       Object.entries(req.body).forEach(([key, value]) => {
         if (key === 'config_data' && value) {
           // Validate configuration
-          const configErrors = validateProviderConfig(provider.provider_type, value);
+          const configErrors = validateProviderConfig(provider.provider_type, value as Record<string, unknown>);
           if (configErrors.length > 0) {
             throw new Error(`Invalid configuration: ${configErrors.join(', ')}`);
           }
@@ -265,7 +265,7 @@ router.put('/:id', requireAdminAuth,
         } else if (['name', 'description', 'is_enabled', 'is_primary', 'priority', 
                    'daily_limit', 'rate_limit_per_minute', 'cost_per_sms'].includes(key)) {
           updates.push(`${key} = $${valueIndex}`);
-          values.push(value);
+          values.push(value as string | number | boolean | Record<string, unknown>);
         }
         valueIndex++;
       });
@@ -289,7 +289,7 @@ router.put('/:id', requireAdminAuth,
       // Add updated metadata
       updates.push(`updated_at = NOW()`);
       updates.push(`updated_by = $${valueIndex}`);
-      values.push(req.user?.email);
+      values.push(req.user?.email || 'system');
       values.push(req.params.id); // For WHERE clause
 
       const result = await client.query(`
@@ -466,7 +466,7 @@ router.get('/:id/stats', requireAdminAuth,
 );
 
 // Validate provider configuration
-function validateProviderConfig(providerType: string, config: any): string[] {
+function validateProviderConfig(providerType: string, config: Record<string, unknown>): string[] {
   const errors: string[] = [];
 
   switch (providerType) {
@@ -479,7 +479,7 @@ function validateProviderConfig(providerType: string, config: any): string[] {
     case 'textlocal':
       if (!config.api_key) errors.push('TextLocal API Key is required');
       if (!config.sender) errors.push('TextLocal Sender ID is required');
-      if (config.sender && config.sender.length > 6) {
+      if (config.sender && typeof config.sender === 'string' && config.sender.length > 6) {
         errors.push('TextLocal Sender ID must be 6 characters or less');
       }
       break;
@@ -488,7 +488,7 @@ function validateProviderConfig(providerType: string, config: any): string[] {
       if (!config.username) errors.push('Teleo Username is required');
       if (!config.password) errors.push('Teleo Password is required');
       if (!config.sender_id) errors.push('Teleo Sender ID is required');
-      if (config.sender_id && config.sender_id.length > 6) {
+      if (config.sender_id && typeof config.sender_id === 'string' && config.sender_id.length > 6) {
         errors.push('Teleo Sender ID must be 6 characters or less');
       }
       break;

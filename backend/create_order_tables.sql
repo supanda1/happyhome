@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS orders (
     final_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     
     -- Order status and priority
-    status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'scheduled', 'in_progress', 'completed', 'cancelled', 'postponed')),
+    status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'scheduled', 'in_progress', 'completed', 'cancelled', 'postponed')),
     priority VARCHAR(10) NOT NULL DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
     
     -- Notes

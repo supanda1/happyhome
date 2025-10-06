@@ -3,6 +3,17 @@ import pool from '../config/database';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
+// JWT payload interfaces
+interface JWTPayload {
+  userId: string;
+  email: string;
+  role: string;
+}
+
+interface RefreshTokenPayload {
+  userId: string;
+}
+
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'your-refresh-secret';
 
@@ -224,10 +235,10 @@ export const logout = async (req: Request, res: Response) => {
     
     if (token) {
       try {
-        const decoded = jwt.verify(token, JWT_SECRET) as any;
+        const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
         // Invalidate all refresh tokens for this user
         await pool.query('DELETE FROM refresh_tokens WHERE user_id = $1', [decoded.userId]);
-      } catch (error) {
+      } catch {
         // Token might be expired, that's ok
       }
     }
@@ -293,14 +304,14 @@ export const updateProfile = async (req: Request, res: Response) => {
       });
     }
 
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
     const userId = decoded.userId;
 
     const { first_name, last_name, phone } = req.body;
 
     // Build dynamic update query
     const updateFields: string[] = [];
-    const values: any[] = [];
+    const values: (string | number)[] = [];
     let paramIndex = 1;
 
     if (first_name !== undefined) {
@@ -394,7 +405,7 @@ export const getProfile = async (req: Request, res: Response) => {
     }
 
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
 
     // Get user profile
     const result = await pool.query(
@@ -484,9 +495,9 @@ export const getCurrentUser = async (req: Request, res: Response) => {
       }
       
       try {
-        const decoded = jwt.verify(token, JWT_SECRET) as any;
+        const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
         return decoded.userId;
-      } catch (error) {
+      } catch {
         return null;
       }
     };
@@ -563,7 +574,7 @@ export const refreshToken = async (req: Request, res: Response) => {
     }
 
     // Verify refresh token
-    const decoded = jwt.verify(refresh_token, JWT_REFRESH_SECRET) as any;
+    const decoded = jwt.verify(refresh_token, JWT_REFRESH_SECRET) as RefreshTokenPayload;
 
     // Check if refresh token exists and is valid
     const tokenResult = await pool.query(
@@ -676,7 +687,7 @@ export const changePassword = async (req: Request, res: Response) => {
       });
     }
 
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
     const userId = decoded.userId;
 
     const { current_password, new_password } = req.body;

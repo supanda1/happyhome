@@ -47,7 +47,8 @@ export class AnalyticsController {
    */
   static async getAnalyticsOverview(req: Request, res: Response): Promise<void> {
     try {
-      const period = (req.query.period as TimePeriod) || 'monthly';
+      // Note: period parameter available for future date filtering
+      // const period = (req.query.period as TimePeriod) || 'monthly';
       
 
       // First, check if we have any orders at all
@@ -77,8 +78,9 @@ export class AnalyticsController {
 
       // Calculate date ranges for current period (simplified)
       const now = new Date();
-      const currentStart = new Date(now.getFullYear(), now.getMonth(), 1); // Start of current month
-      const currentEnd = new Date(now);
+      // Note: Date range variables available for future period filtering
+      // const currentStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      // const currentEnd = new Date(now);
       
       // Get basic totals from orders table
       const totalsQuery = `

@@ -9,17 +9,17 @@ export const getCoupons = async (req: Request, res: Response) => {
       SELECT 
         id,
         code,
-        title,
+        name as title,
         description,
-        discount_type,
-        discount_value,
+        type as discount_type,
+        value as discount_value,
         minimum_order_amount,
         maximum_discount_amount,
         valid_from,
         valid_until,
         usage_limit,
-        usage_count,
-        usage_limit_per_user,
+        used_count as usage_count,
+        per_user_limit as usage_limit_per_user,
         is_active,
         applicable_categories,
         applicable_services,
@@ -50,17 +50,17 @@ export const getActiveCoupons = async (req: Request, res: Response) => {
       SELECT 
         id,
         code,
-        title,
+        name as title,
         description,
-        discount_type,
-        discount_value,
+        type as discount_type,
+        value as discount_value,
         minimum_order_amount,
         maximum_discount_amount,
         valid_from,
         valid_until,
         usage_limit,
-        usage_count,
-        usage_limit_per_user,
+        used_count as usage_count,
+        per_user_limit as usage_limit_per_user,
         is_active,
         applicable_categories,
         applicable_services,
@@ -135,9 +135,9 @@ export const createCoupon = async (req: Request, res: Response) => {
     
     const result = await pool.query(`
       INSERT INTO coupons (
-        id, code, title, description, discount_type, discount_value, 
+        id, code, name, description, type, value, 
         minimum_order_amount, maximum_discount_amount, valid_from, valid_until,
-        usage_limit, usage_count, usage_limit_per_user, applicable_categories,
+        usage_limit, used_count, per_user_limit, applicable_categories,
         applicable_services, is_active, created_at, updated_at
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW(), NOW())
@@ -211,16 +211,16 @@ export const updateCoupon = async (req: Request, res: Response) => {
       UPDATE coupons 
       SET 
         code = $1,
-        title = $2,
+        name = $2,
         description = $3,
-        discount_type = $4,
-        discount_value = $5,
+        type = $4,
+        value = $5,
         minimum_order_amount = $6,
         maximum_discount_amount = $7,
         valid_from = $8,
         valid_until = $9,
         usage_limit = $10,
-        usage_limit_per_user = $11,
+        per_user_limit = $11,
         applicable_categories = $12,
         applicable_services = $13,
         is_active = $14,
@@ -304,17 +304,17 @@ export const getCouponById = async (req: Request, res: Response) => {
       SELECT 
         id,
         code,
-        title,
+        name as title,
         description,
-        discount_type,
-        discount_value,
+        type as discount_type,
+        value as discount_value,
         minimum_order_amount,
         maximum_discount_amount,
         valid_from,
         valid_until,
         usage_limit,
-        usage_count,
-        usage_limit_per_user,
+        used_count as usage_count,
+        per_user_limit as usage_limit_per_user,
         is_active,
         applicable_categories,
         applicable_services,
@@ -362,17 +362,17 @@ export const validateCoupon = async (req: Request, res: Response) => {
       SELECT 
         id,
         code,
-        title,
+        name as title,
         description,
-        discount_type,
-        discount_value,
+        type as discount_type,
+        value as discount_value,
         minimum_order_amount,
         maximum_discount_amount,
         valid_from,
         valid_until,
         usage_limit,
-        usage_count,
-        usage_limit_per_user,
+        used_count as usage_count,
+        per_user_limit as usage_limit_per_user,
         is_active,
         applicable_categories,
         applicable_services,
@@ -417,12 +417,12 @@ export const validateCoupon = async (req: Request, res: Response) => {
     }
 
     // Check per-user usage limit (if userId provided)
-    if (userId && coupon.usage_limit_per_user) {
+    if (userId && coupon.per_user_limit) {
       const userUsage = await pool.query(
         'SELECT COUNT(*) FROM coupon_usages WHERE coupon_id = $1 AND user_id = $2',
         [coupon.id, userId]
       );
-      if (parseInt(userUsage.rows[0].count) >= coupon.usage_limit_per_user) {
+      if (parseInt(userUsage.rows[0].count) >= coupon.per_user_limit) {
         return res.status(400).json({
           success: false,
           error: 'You have already used this coupon the maximum number of times'
@@ -457,15 +457,15 @@ export const validateCoupon = async (req: Request, res: Response) => {
 
     // Calculate discount
     let discountAmount = 0;
-    if (coupon.discount_type === 'percentage') {
-      discountAmount = (orderAmount * coupon.discount_value) / 100;
+    if (coupon.type === 'percentage') {
+      discountAmount = (orderAmount * coupon.value) / 100;
       if (coupon.maximum_discount_amount) {
         discountAmount = Math.min(discountAmount, coupon.maximum_discount_amount);
       }
-    } else if (coupon.discount_type === 'fixed_amount') {
-      discountAmount = Math.min(coupon.discount_value, orderAmount);
-    } else if (coupon.discount_type === 'free_service') {
-      discountAmount = Math.min(coupon.discount_value, orderAmount);
+    } else if (coupon.type === 'fixed_amount') {
+      discountAmount = Math.min(coupon.value, orderAmount);
+    } else if (coupon.type === 'free_service') {
+      discountAmount = Math.min(coupon.value, orderAmount);
     }
 
     res.json({

@@ -35,19 +35,8 @@ export const getServices = async (req: Request, res: Response) => {
         ss.name as subcategory_name,
         ss.icon as subcategory_icon
       FROM services s
-      LEFT JOIN service_categories sc ON (
-        CASE 
-          WHEN s.category_id = 'cat-1' THEN sc.name = 'Plumbing'
-          WHEN s.category_id = 'cat-2' THEN sc.name = 'Electrical'  
-          WHEN s.category_id = 'cat-3' THEN sc.name = 'Cleaning'
-          WHEN s.category_id = 'cat-4' THEN sc.name = 'Call A Service'
-          WHEN s.category_id = 'cat-5' THEN sc.name = 'Finance & Insurance'
-          WHEN s.category_id = 'cat-6' THEN sc.name = 'Personal Care'
-          WHEN s.category_id = 'cat-7' THEN sc.name = 'Civil Work'
-          ELSE s.category_id::text = sc.id::text
-        END
-      )
-      LEFT JOIN service_subcategories ss ON s.subcategory_id::text = ss.id::text
+      LEFT JOIN service_categories sc ON s.category_id = sc.id
+      LEFT JOIN service_subcategories ss ON s.subcategory_id = ss.id
       ORDER BY sc.sort_order ASC, ss.sort_order ASC, s.name ASC
     `);
     
@@ -100,9 +89,31 @@ export const getServicesByCategory = async (req: Request, res: Response) => {
         ss.name as subcategory_name,
         ss.icon as subcategory_icon
       FROM services s
-      LEFT JOIN service_categories sc ON s.category_id = sc.id
+      LEFT JOIN service_categories sc ON (
+        CASE 
+          WHEN $1 = 'cat-1' THEN sc.name = 'Plumbing'
+          WHEN $1 = 'cat-2' THEN sc.name = 'Electrical'  
+          WHEN $1 = 'cat-3' THEN sc.name = 'Cleaning'
+          WHEN $1 = 'cat-4' THEN sc.name = 'Call A Service'
+          WHEN $1 = 'cat-5' THEN sc.name = 'Finance & Insurance'
+          WHEN $1 = 'cat-6' THEN sc.name = 'Personal Care'
+          WHEN $1 = 'cat-7' THEN sc.name = 'Civil Work'
+          ELSE s.category_id::text = $1
+        END
+      )
       LEFT JOIN service_subcategories ss ON s.subcategory_id = ss.id
-      WHERE s.category_id = $1::uuid AND s.is_active = true
+      WHERE (
+        CASE 
+          WHEN $1 = 'cat-1' THEN sc.name = 'Plumbing'
+          WHEN $1 = 'cat-2' THEN sc.name = 'Electrical'  
+          WHEN $1 = 'cat-3' THEN sc.name = 'Cleaning'
+          WHEN $1 = 'cat-4' THEN sc.name = 'Call A Service'
+          WHEN $1 = 'cat-5' THEN sc.name = 'Finance & Insurance'
+          WHEN $1 = 'cat-6' THEN sc.name = 'Personal Care'
+          WHEN $1 = 'cat-7' THEN sc.name = 'Civil Work'
+          ELSE s.category_id::text = $1
+        END
+      ) AND s.is_active = true
       ORDER BY s.name ASC
     `, [categoryId]);
     

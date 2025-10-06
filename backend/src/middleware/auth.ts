@@ -6,6 +6,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 // Extend Request interface to include user data
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       user?: {
@@ -16,6 +17,13 @@ declare global {
       };
     }
   }
+}
+
+// JWT payload interface
+interface JWTPayload {
+  userId: string;
+  email: string;
+  role: string;
 }
 
 // Helper function to extract token from request
@@ -68,7 +76,7 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
     }
 
     // Verify JWT token
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
     
     // Get user details from database to ensure user still exists and is active
     const userResult = await pool.query(
@@ -215,7 +223,7 @@ export const requirePermission = (permissionKey: string, requireEdit: boolean = 
         }
         next();
       })
-      .catch(error => {
+      .catch(() => {
         return res.status(500).json({
           success: false,
           error: 'Permission check failed'
@@ -237,12 +245,12 @@ export const requireSuperAdminAuth = [authenticateToken, requireSuperAdmin];
 export const requireAuth = authenticateToken;
 
 // Optional authentication (for endpoints that work for both auth and non-auth users)
-export const optionalAuth = async (req: Request, res: Response, next: NextFunction) => {
+export const optionalAuth = async (req: Request, _res: Response, next: NextFunction) => {
   try {
     const token = extractToken(req);
     
     if (token) {
-      const decoded = jwt.verify(token, JWT_SECRET) as any;
+      const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
       const userResult = await pool.query(
         'SELECT id, email, role, is_active FROM users WHERE id = $1',
         [decoded.userId]
@@ -282,7 +290,7 @@ export const optionalAuth = async (req: Request, res: Response, next: NextFuncti
     
     // Continue regardless of authentication status
     next();
-  } catch (error) {
+  } catch {
     // Ignore auth errors for optional auth, continue without user
     next();
   }

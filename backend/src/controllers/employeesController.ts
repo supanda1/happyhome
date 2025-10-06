@@ -11,7 +11,7 @@ export class EmployeesController {
       
       let query = 'SELECT * FROM employees';
       const conditions: string[] = [];
-      const values: any[] = [];
+      const values: (string | boolean)[] = [];
       
       if (active_only === 'true') {
         conditions.push('is_active = true');
@@ -20,7 +20,7 @@ export class EmployeesController {
       if (expert) {
         // Support both legacy expert field and new expertise_areas
         conditions.push(`(expert = $${values.length + 1} OR expertise_areas @> $${values.length + 2})`);
-        values.push(expert);
+        values.push(expert as string);
         values.push(JSON.stringify([expert])); // Check if expertise is in the array
       }
       
@@ -110,7 +110,7 @@ export class EmployeesController {
         : (expert ? [expert] : []);
       
       let query: string;
-      let values: any[];
+      let values: (string | boolean)[];
       
       try {
         // Try to insert with expertise_areas column
@@ -132,8 +132,9 @@ export class EmployeesController {
           phone, 
           email
         ];
-      } catch (columnError: any) {
-        if (columnError.code === '42703') { // Column does not exist
+      } catch (columnError: unknown) {
+        const error = columnError as { code?: string };
+        if (error.code === '42703') { // Column does not exist
           
           query = `
             INSERT INTO employees (id, employee_id, name, expert, manager, phone, email, is_active)
@@ -197,7 +198,7 @@ export class EmployeesController {
       }
       
       const updateFields: string[] = [];
-      const values: any[] = [];
+      const values: (string | number | boolean)[] = [];
       let valueIndex = 1;
       
       if (employee_id !== undefined) {
@@ -235,8 +236,9 @@ export class EmployeesController {
             values.push(expertiseArray[0]);
             valueIndex++;
           }
-        } catch (columnError: any) {
-          if (columnError.code === '42703') { // Column does not exist
+        } catch (columnError: unknown) {
+          const error = columnError as { code?: string };
+          if (error.code === '42703') { // Column does not exist
             // Update only the legacy expert field
             if (expertise_areas && Array.isArray(expertise_areas) && expertise_areas.length > 0) {
               updateFields.push(`expert = $${valueIndex}`);

@@ -2,6 +2,13 @@ import { Request, Response } from 'express';
 import pool from '../config/database';
 import jwt from 'jsonwebtoken';
 
+// JWT payload interface
+interface JWTPayload {
+  userId: string;
+  email: string;
+  role: string;
+}
+
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 // In-memory store for applied coupons per user (in production, use Redis or database)
@@ -20,9 +27,9 @@ const getUserIdFromToken = (req: Request): string | null => {
   
   try {
     const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
     return decoded.userId;
-  } catch (error) {
+  } catch {
     return null;
   }
 };
@@ -98,6 +105,7 @@ export const getCart = async (req: Request, res: Response) => {
         s.gst_percentage as "gstPercentage",
         s.service_charge as "serviceChargePerService",
         s.category_id as "categoryId",
+        s.subcategory_id as "subcategoryId",
         sc.name as "categoryName"
       FROM cart_items ci
       LEFT JOIN services s ON ci.service_id::text = s.id::text
