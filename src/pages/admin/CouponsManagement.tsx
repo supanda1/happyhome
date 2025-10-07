@@ -121,7 +121,7 @@ const CouponsManagement: React.FC = () => {
         console.log('   📭 Database is empty - no coupons found');
       }
       
-      setCoupons(couponsData);
+      setCoupons(couponsData as any);
       setCategories(categoriesData);
       
     } catch (error) {
@@ -171,10 +171,11 @@ const CouponsManagement: React.FC = () => {
         
         await updateCoupon(editingCoupon.id, {
           code: formData.code,
-          title: formData.title,
+          // title: formData.title, // title not in Coupon type
+          name: formData.title, // use name instead
           description: formData.description,
-          discount_type: formData.discount_type,
-          discount_value: formData.discount_value,
+          type: formData.discount_type === 'fixed_amount' ? 'fixed' : formData.discount_type as any, // map discount_type to type
+          value: formData.discount_value, // map discount_value to value
           minimum_order_amount: formData.minimum_order_amount,
           maximum_discount_amount: formData.maximum_discount_amount,
           valid_from: formData.valid_from, // Already in YYYY-MM-DD format from HTML date input
@@ -281,7 +282,7 @@ const CouponsManagement: React.FC = () => {
           values: couponPayload.applicable_services
         });
         
-        await createCoupon(couponPayload);
+        await createCoupon(couponPayload as any);
         
         console.log('✅ Coupon created successfully!');
         alert('Coupon created successfully!');

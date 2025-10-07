@@ -174,7 +174,7 @@ const ImageManagement: React.FC = () => {
         <div className="flex items-center justify-between">
           <div className="flex-1">
             <h4 className="font-medium text-gray-900">{service.name}</h4>
-            <p className="text-sm text-gray-500">Category: {service.category?.name || 'Unknown'}</p>
+            <p className="text-sm text-gray-500">Category: {(service as any).category?.name || 'Unknown'}</p>
             <div className="flex items-center mt-2">
               {hasImages ? (
                 <div className="flex items-center text-green-600">
@@ -228,11 +228,11 @@ const ImageManagement: React.FC = () => {
     const hasImages = category.image_paths && (category.image_paths as string[])?.length > 0;
     
     return (
-      <div key={category.id} className="bg-white rounded-lg border p-4">
+      <div key={category.id as string} className="bg-white rounded-lg border p-4">
         <div className="flex items-center justify-between">
           <div className="flex-1">
-            <h4 className="font-medium text-gray-900">{category.name}</h4>
-            <p className="text-sm text-gray-500">{category.description}</p>
+            <h4 className="font-medium text-gray-900">{category.name as string}</h4>
+            <p className="text-sm text-gray-500">{category.description as string}</p>
             <div className="flex items-center mt-2">
               {hasImages ? (
                 <div className="flex items-center text-green-600">
@@ -269,7 +269,7 @@ const ImageManagement: React.FC = () => {
               </div>
             )}
             <button
-              onClick={() => handleDownloadCategoryImages(category.id, category.name)}
+              onClick={() => handleDownloadCategoryImages(category.id as string, category.name as string)}
               disabled={isLoading}
               className="btn-sm btn-secondary flex items-center"
             >
@@ -443,7 +443,7 @@ const ImageManagement: React.FC = () => {
           </div>
           
           <div className="space-y-3">
-            {categories.map(renderCategoryItem)}
+            {(categories as any[]).map(renderCategoryItem)}
           </div>
         </div>
       )}

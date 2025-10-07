@@ -117,7 +117,7 @@ const SubcategoriesManagement: React.FC<SubcategoriesManagementProps> = ({ onCat
         }
       } else {
         // Create new subcategory
-        await createSubcategory(formData);
+        await createSubcategory({...formData, icon: (formData as any).icon || ''} as any);
         await fetchData();
         onCategoryChange?.(); // Notify parent of subcategory changes
         resetForm();

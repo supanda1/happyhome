@@ -68,7 +68,7 @@ const CategoriesManagement: React.FC<CategoriesManagementProps> = ({ onCategoryC
         alert('Category updated successfully!');
       } else {
         // Create new category
-        await createCategory(formData);
+        await createCategory({...formData, icon: (formData as any).icon || ''} as any);
         await fetchCategories();
         onCategoryChange?.(); // Notify parent of category changes
         resetForm();
