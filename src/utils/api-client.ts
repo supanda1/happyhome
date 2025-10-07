@@ -51,8 +51,8 @@ class SessionTokenStorage implements TokenStorage {
  * Use SessionTokenStorage instead which uses secure HTTP-only cookies
  */
 class LocalTokenStorage implements TokenStorage {
-  private readonly ACCESS_TOKEN_KEY = 'accessToken';
-  private readonly REFRESH_TOKEN_KEY = 'refreshToken';
+  // private readonly ACCESS_TOKEN_KEY = 'accessToken';
+  // private readonly REFRESH_TOKEN_KEY = 'refreshToken';
 
   getAccessToken(): string | null {
     console.warn('🚫 SECURITY: LocalTokenStorage is deprecated. Use SessionTokenStorage with HTTP-only cookies.');

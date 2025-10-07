@@ -13,7 +13,7 @@ import type {
 } from '../types/payment';
 
 import { getPaymentService } from '../services/payment/paymentServiceFactory';
-import { getCurrentPaymentProvider } from '../config/payment.config';
+// import { getCurrentPaymentProvider } from '../config/payment.config';
 
 // ========== Webhook Event Handlers ==========
 
@@ -55,9 +55,9 @@ export class PaymentWebhookHandler {
   async processWebhook(
     payload: string,
     signature: string,
-    provider?: PaymentProvider
+    _provider?: PaymentProvider
   ): Promise<PaymentWebhookEvent> {
-    const currentProvider = provider || getCurrentPaymentProvider();
+    // const currentProvider = provider || getCurrentPaymentProvider();
     const paymentService = getPaymentService();
 
     // Verify webhook signature
@@ -244,7 +244,7 @@ export const initializeWebhookHandlers = (): void => {
  */
 export class PaymentStatusTracker {
   private static instance: PaymentStatusTracker | null = null;
-  private activePayments: Map<string, NodeJS.Timeout> = new Map();
+  private activePayments: Map<string, number> = new Map();
   private statusCallbacks: Map<string, Array<(payment: PaymentIntent) => void>> = new Map();
 
   static getInstance(): PaymentStatusTracker {
@@ -329,7 +329,7 @@ export class PaymentStatusTracker {
    * Stop tracking all payments
    */
   stopAll(): void {
-    this.activePayments.forEach((intervalId, paymentId) => {
+    this.activePayments.forEach((intervalId) => {
       clearInterval(intervalId);
     });
     this.activePayments.clear();

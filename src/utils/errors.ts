@@ -38,8 +38,8 @@ export class AppError extends Error {
     this.isOperational = isOperational;
     
     // Maintains proper stack trace for where our error was thrown
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, AppError);
+    if ('captureStackTrace' in Error) {
+      (Error as any).captureStackTrace(this, AppError);
     }
 
     this.name = 'AppError';

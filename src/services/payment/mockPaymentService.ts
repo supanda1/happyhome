@@ -92,8 +92,12 @@ export class MockPaymentService implements PaymentService {
     const outcome = this.simulatePaymentOutcome(request.paymentMethod);
     
     paymentIntent.status = outcome.status;
-    paymentIntent.failureReason = outcome.failureReason;
-    paymentIntent.failureCode = outcome.failureCode;
+    if ('failureReason' in outcome) {
+      paymentIntent.failureReason = outcome.failureReason as string;
+    }
+    if ('failureCode' in outcome) {
+      paymentIntent.failureCode = outcome.failureCode as string;
+    }
 
     let nextAction: NextAction | undefined;
 
@@ -109,7 +113,9 @@ export class MockPaymentService implements PaymentService {
 
       case 'requires_action':
         console.log('🔐 Mock Payment Requires Action (3DS/OTP)');
-        nextAction = outcome.nextAction;
+        if ('nextAction' in outcome) {
+          nextAction = outcome.nextAction as NextAction;
+        }
         // Simulate successful completion after action
         setTimeout(() => {
           this.completePayment(paymentIntent.id, 'succeeded');
@@ -121,7 +127,7 @@ export class MockPaymentService implements PaymentService {
         break;
 
       case 'failed':
-        console.log('❌ Mock Payment Failed:', outcome.failureReason);
+        console.log('❌ Mock Payment Failed:', ('failureReason' in outcome) ? outcome.failureReason : 'Unknown error');
         break;
     }
 

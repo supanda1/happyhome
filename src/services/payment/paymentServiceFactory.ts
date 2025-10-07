@@ -6,7 +6,8 @@
  */
 
 import type { PaymentService, PaymentProvider } from '../../types/payment';
-import { getCurrentPaymentProvider, getPaymentConfig } from '../../config/payment.config';
+import { getCurrentPaymentProvider } from '../../config/payment.config';
+// import { getPaymentConfig } from '../../config/payment.config';
 
 // Import payment service implementations
 import { mockPaymentService } from './mockPaymentService';
@@ -21,7 +22,7 @@ import { mockPaymentService } from './mockPaymentService';
  */
 export function createPaymentService(provider?: PaymentProvider): PaymentService {
   const currentProvider = provider || getCurrentPaymentProvider();
-  const config = getPaymentConfig(currentProvider);
+  // const config = getPaymentConfig(currentProvider);
 
   console.log(`🏭 Creating payment service for provider: ${currentProvider}`);
 

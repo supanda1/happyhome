@@ -29,8 +29,8 @@ export function PaymentForm({
   onError,
   onCancel,
   allowedMethods,
-  showSavedCards,
-  collectBilling,
+  showSavedCards: _showSavedCards,
+  collectBilling: _collectBilling,
   theme = 'light',
   className = '',
 }: PaymentFormProps) {
