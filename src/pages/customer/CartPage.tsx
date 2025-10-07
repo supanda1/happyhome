@@ -74,12 +74,12 @@ const CartPage: React.FC<CartPageProps> = ({
       // Transform API format to match CartPage display format
       const formattedCoupons = validCoupons.map((coupon: Coupon) => ({
         code: coupon.code,
-        title: coupon.title,
+        title: (coupon as any).title || (coupon as any).name,
         description: coupon.description,
-        discount: coupon.discount_type === 'percentage' 
-          ? `${coupon.discount_value}% OFF`
-          : coupon.discount_type === 'fixed_amount'
-          ? `${formatPrice(coupon.discount_value)} OFF`
+        discount: ((coupon as any).discount_type || (coupon as any).type) === 'percentage' 
+          ? `${(coupon as any).discount_value || (coupon as any).value}% OFF`
+          : ((coupon as any).discount_type || (coupon as any).type) === 'fixed_amount'
+          ? `${formatPrice((coupon as any).discount_value || (coupon as any).value)} OFF`
           : 'FREE SERVICE'
       }));
       

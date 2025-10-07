@@ -738,18 +738,18 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
                                 <div className="flex items-center justify-between">
                                   <div>
                                     <div className="font-semibold text-orange-600 text-sm">{coupon.code}</div>
-                                    <div className="text-xs text-gray-600 mt-1">{coupon.name}</div>
+                                    <div className="text-xs text-gray-600 mt-1">{(coupon as any).title || (coupon as any).name}</div>
                                     <div className="text-xs text-gray-500 mt-1">{coupon.description}</div>
                                   </div>
                                   <div className="text-right">
-                                    {coupon.type === 'percentage' && (
+                                    {((coupon as any).discount_type || (coupon as any).type) === 'percentage' && (
                                       <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-semibold">
-                                        {coupon.value}% OFF
+                                        {(coupon as any).discount_value || (coupon as any).value}% OFF
                                       </span>
                                     )}
-                                    {coupon.type === 'fixed' && (
+                                    {((coupon as any).discount_type || (coupon as any).type) === 'fixed_amount' && (
                                       <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded text-xs font-semibold">
-                                        {formatPrice(coupon.value)} OFF
+                                        {formatPrice((coupon as any).discount_value || (coupon as any).value)} OFF
                                       </span>
                                     )}
                                   </div>
@@ -781,7 +781,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
                       {availableCoupons.length > 0 ? (
                         availableCoupons.slice(0, 3).map((coupon: Coupon) => (
                           <div key={coupon.id}>
-                            • {coupon.code} - {coupon.name}
+                            • {coupon.code} - {(coupon as any).title || (coupon as any).name}
                           </div>
                         ))
                       ) : (

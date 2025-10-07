@@ -1439,11 +1439,11 @@ export const getCart = async (): Promise<Cart | null> => {
 /**
  * Add item to cart via backend API
  */
-export const addToCart = async (serviceId: string, quantity: number = 1): Promise<boolean> => {
+export const addToCart = async (serviceId: string, variantId?: string, quantity: number = 1): Promise<boolean> => {
   try {
     const result = await apiCall('/cart/items', {
       method: 'POST',
-      body: JSON.stringify({ serviceId, quantity }),
+      body: JSON.stringify({ serviceId, variantId, quantity }),
     });
     console.log('✅ Item added to cart:', result);
     return true;
@@ -1507,6 +1507,7 @@ export const clearCart = async (): Promise<boolean> => {
  */
 export const applyCouponToCart = async (couponCode: string): Promise<{
   success: boolean;
+  message?: string;
   cart?: Cart;
   discount?: number;
   error?: string;
@@ -1517,7 +1518,12 @@ export const applyCouponToCart = async (couponCode: string): Promise<{
       body: JSON.stringify({ couponCode }),
     });
     console.log('✅ Coupon applied to cart:', result);
-    return { success: true, cart: result.cart, discount: result.discount };
+    return { 
+      success: true, 
+      message: (result as any)?.message || 'Coupon applied successfully',
+      cart: (result as any)?.cart, 
+      discount: (result as any)?.discount 
+    };
   } catch (error) {
     console.error('❌ Failed to apply coupon to cart:', error);
     return { 
@@ -1530,23 +1536,16 @@ export const applyCouponToCart = async (couponCode: string): Promise<{
 /**
  * Remove coupon from cart via backend API
  */
-export const removeCouponFromCart = async (): Promise<{
-  success: boolean;
-  cart?: Cart;
-  error?: string;
-}> => {
+export const removeCouponFromCart = async (): Promise<boolean> => {
   try {
-    const result = await apiCall('/cart/coupon', {
+    await apiCall('/cart/coupon', {
       method: 'DELETE',
     });
-    console.log('✅ Coupon removed from cart:', result);
-    return { success: true, cart: result };
+    console.log('✅ Coupon removed from cart');
+    return true;
   } catch (error) {
     console.error('❌ Failed to remove coupon from cart:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Failed to remove coupon' 
-    };
+    return false;
   }
 };
 
@@ -1754,12 +1753,12 @@ export const deleteOfferPlan = async (offerId: string): Promise<boolean> => {
 export const calculateOfferTotals = async (
   planId: string, 
   serviceIds: string[], 
-  selectedServices: Record<string, { quantity?: number; customizations?: string[] }>
+  selectedServices: Record<string, number> | Record<string, { quantity?: number; customizations?: string[] }>
 ): Promise<{
-  subtotal: number;
-  discount: number;
-  total: number;
-  savings: number;
+  originalAmount: number;
+  discountAmount: number;
+  finalAmount: number;
+  monthlyAmount: number;
 } | null> => {
   try {
     const result = await apiCall('/offers/calculate-totals', {

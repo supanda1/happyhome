@@ -166,7 +166,7 @@ const ImageManagement: React.FC = () => {
     }
   };
 
-  const renderServiceItem = (service: Service) => {
+  const renderServiceItem = (service: Service): React.ReactElement => {
     const hasImages = service.image_paths && service.image_paths.length > 0;
     
     return (
@@ -224,20 +224,20 @@ const ImageManagement: React.FC = () => {
     );
   };
 
-  const renderCategoryItem = (category: Record<string, unknown>) => {
-    const hasImages = category.image_paths && (category.image_paths as string[])?.length > 0;
+  const renderCategoryItem = (category: Category): React.ReactElement => {
+    const hasImages = (category as any).image_paths && ((category as any).image_paths as string[])?.length > 0;
     
     return (
-      <div key={category.id as string} className="bg-white rounded-lg border p-4">
+      <div key={category.id} className="bg-white rounded-lg border p-4">
         <div className="flex items-center justify-between">
           <div className="flex-1">
-            <h4 className="font-medium text-gray-900">{category.name as string}</h4>
-            <p className="text-sm text-gray-500">{category.description as string}</p>
+            <h4 className="font-medium text-gray-900">{category.name}</h4>
+            <p className="text-sm text-gray-500">{category.description}</p>
             <div className="flex items-center mt-2">
               {hasImages ? (
                 <div className="flex items-center text-green-600">
                   <FiCheck className="w-4 h-4 mr-1" />
-                  <span className="text-sm">{(category.image_paths as string[])?.length || 0} images</span>
+                  <span className="text-sm">{((category as any).image_paths as string[])?.length || 0} images</span>
                 </div>
               ) : (
                 <div className="flex items-center text-gray-400">
@@ -250,7 +250,7 @@ const ImageManagement: React.FC = () => {
           <div className="flex items-center space-x-2">
             {hasImages && (
               <div className="flex space-x-1">
-                {(category.image_paths as string[])?.slice(0, 3).map((imagePath: string, index: number) => (
+                {((category as any).image_paths as string[])?.slice(0, 3).map((imagePath: string, index: number) => (
                   <img
                     key={index}
                     src={getImageUrl(imagePath)}
@@ -261,15 +261,15 @@ const ImageManagement: React.FC = () => {
                     }}
                   />
                 ))}
-                {(category.image_paths as string[])?.length > 3 && (
+                {((category as any).image_paths as string[])?.length > 3 && (
                   <div className="w-8 h-8 rounded bg-gray-100 flex items-center justify-center text-xs text-gray-500">
-                    +{((category.image_paths as string[])?.length || 0) - 3}
+                    +{(((category as any).image_paths as string[])?.length || 0) - 3}
                   </div>
                 )}
               </div>
             )}
             <button
-              onClick={() => handleDownloadCategoryImages(category.id as string, category.name as string)}
+              onClick={() => handleDownloadCategoryImages(category.id, category.name)}
               disabled={isLoading}
               className="btn-sm btn-secondary flex items-center"
             >
@@ -443,7 +443,7 @@ const ImageManagement: React.FC = () => {
           </div>
           
           <div className="space-y-3">
-            {(categories as any[]).map(renderCategoryItem)}
+            {categories.map(renderCategoryItem)}
           </div>
         </div>
       )}

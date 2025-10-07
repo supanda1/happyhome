@@ -94,7 +94,7 @@ const OffersManagement: React.FC<OffersManagementProps> = ({ onOfferChange }) =>
       };
 
       if (editingOffer) {
-        const updatedOffer = updateOfferPlan(editingOffer.id, cleanFormData);
+        const updatedOffer = await (updateOfferPlan(editingOffer.id, cleanFormData) as any);
         if (updatedOffer) {
           await fetchData(); // SECURITY: Proper async handling
           onOfferChange?.();
@@ -116,15 +116,15 @@ const OffersManagement: React.FC<OffersManagementProps> = ({ onOfferChange }) =>
     }
   };
 
-  const handleDelete = (offerId: string) => {
+  const handleDelete = async (offerId: string) => {
     if (!confirm('Are you sure you want to delete this offer plan? This action cannot be undone.')) {
       return;
     }
 
     try {
-      const success = deleteOfferPlan(offerId);
+      const success = await (deleteOfferPlan(offerId) as any);
       if (success) {
-        fetchData();
+        await fetchData();
         onOfferChange?.();
         alert('Offer plan deleted successfully!');
       } else {
@@ -136,14 +136,14 @@ const OffersManagement: React.FC<OffersManagementProps> = ({ onOfferChange }) =>
     }
   };
 
-  const handleToggleStatus = (offer: OfferPlan) => {
+  const handleToggleStatus = async (offer: OfferPlan) => {
     try {
-      const updatedOffer = updateOfferPlan(offer.id, {
+      const updatedOffer = await (updateOfferPlan(offer.id, {
         is_active: !offer.is_active
-      });
+      }) as any);
       
       if (updatedOffer) {
-        fetchData();
+        await fetchData();
         onOfferChange?.();
         alert(`Offer plan ${!offer.is_active ? 'enabled' : 'disabled'} successfully!`);
       } else {
