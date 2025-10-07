@@ -5,7 +5,6 @@
  * Shows appropriate UI for processing, success, failure, and action-required states.
  */
 
-import React from 'react';
 import type { PaymentStatusProps, PaymentStatus } from '../../types/payment';
 
 export function PaymentStatus({

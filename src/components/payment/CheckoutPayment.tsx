@@ -10,7 +10,6 @@ import type { PaymentIntent, PaymentError } from '../../types/payment';
 import type { CreateOrderRequest } from '../../types/api';
 import { usePayment } from '../../contexts/PaymentContext';
 import { PaymentForm } from './PaymentForm';
-import { formatPrice } from '../../utils/priceFormatter';
 import { ordersAPI, handleAPIError } from '../../services/api';
 import { clearCart, getServiceById } from '../../utils/adminDataManager';
 

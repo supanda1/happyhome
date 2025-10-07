@@ -29,8 +29,8 @@ export function PaymentForm({
   onError,
   onCancel,
   allowedMethods,
-  showSavedCards = true,
-  collectBilling = true,
+  showSavedCards,
+  collectBilling,
   theme = 'light',
   className = '',
 }: PaymentFormProps) {
@@ -157,9 +157,9 @@ export function PaymentForm({
 
   // Handle Cash on Delivery
   const handleCODSubmit = () => {
-    // For COD, we create a "fake" payment method and mark it as succeeded
-    const codPaymentMethod: PaymentMethodDetails = {
-      type: 'cash_on_delivery' as any,
+    // For COD, we create a temporary payment method object
+    const codPaymentMethod: any = {
+      type: 'cash_on_delivery',
     };
     
     handlePaymentSubmit(codPaymentMethod);

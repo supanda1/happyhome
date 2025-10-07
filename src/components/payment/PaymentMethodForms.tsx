@@ -7,12 +7,10 @@
 
 import React, { useState } from 'react';
 import type { 
-  PaymentMethodDetails, 
   CardPaymentMethod, 
   UPIPaymentMethod, 
   WalletPaymentMethod,
   NetBankingPaymentMethod,
-  EMIPaymentMethod,
   BillingDetails 
 } from '../../types/payment';
 
@@ -32,7 +30,7 @@ export function CardPaymentForm({ onSubmit, isLoading = false }: CardFormProps) 
     holderName: '',
   });
 
-  const [billingData, setBillingData] = useState({
+  const [billingData] = useState({
     name: '',
     email: '',
     phone: '',

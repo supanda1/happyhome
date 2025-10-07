@@ -5,7 +5,6 @@
  * Displays payment method icons and handles selection.
  */
 
-import React from 'react';
 import type { PaymentMethodSelectorProps, PaymentMethod } from '../../types/payment';
 
 interface PaymentMethodInfo {

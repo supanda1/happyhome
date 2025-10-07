@@ -14,7 +14,6 @@ import type {
   CreatePaymentIntentRequest,
   ConfirmPaymentRequest,
   PaymentIntentResponse,
-  PaymentConfig,
 } from '../types/payment';
 
 import { getPaymentService } from '../services/payment/paymentServiceFactory';
@@ -93,7 +92,7 @@ export function PaymentProvider({ children }: PaymentProviderProps) {
     if (!validation.isValid) {
       console.warn('⚠️ Payment configuration issues:', validation.errors);
       // Don't show user notification for config issues in development
-      if (process.env.NODE_ENV === 'production') {
+      if (import.meta.env.PROD) {
         notify.error('Payment system configuration error');
       }
     }
@@ -240,7 +239,7 @@ export function PaymentProvider({ children }: PaymentProviderProps) {
       const pollInterval = setInterval(async () => {
         try {
           const paymentService = getPaymentService();
-          const updatedPayment = await paymentService.getPaymentIntent(state.currentPayment.id);
+          const updatedPayment = await paymentService.getPaymentIntent(state.currentPayment?.id || '');
           
           if (updatedPayment.status !== 'processing') {
             dispatch({ type: 'SET_CURRENT_PAYMENT', payload: updatedPayment });

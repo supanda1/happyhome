@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useServices } from '../../contexts/ServiceContext';
-import { Service, ServiceFormData } from '../../types';
+import type { Service, ServiceFormData } from '../../types';
 import { Button, Input, Select, Card, CardContent, Modal, ModalHeader, ModalBody, ModalFooter, Badge, PhotoUpload } from '../../components/ui';
 import type { PhotoFile } from '../../components/ui';
 

@@ -38,6 +38,7 @@ interface GetServicesParams {
   sortBy?: 'name' | 'price' | 'rating' | 'newest';
   sortOrder?: 'asc' | 'desc';
   featured?: boolean;
+  [key: string]: unknown;
 }
 
 interface CreateServiceRequest extends ServiceFormData {

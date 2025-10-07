@@ -61,13 +61,6 @@ const createQueryClient = (): QueryClient => {
         retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
       },
     },
-    
-    // Custom logger for development
-    logger: {
-      log: config.environment === 'development' ? console.log : () => {},
-      warn: config.environment === 'development' ? console.warn : () => {},
-      error: console.error, // Always log errors
-    },
   });
 };
 

@@ -5,7 +5,6 @@ import {
   applyCouponToCart, 
   removeCouponFromCart, 
   getActiveCoupons,
-  clearCart,
   getUserAddresses,
   getDefaultUserAddress,
   getContactSettings,
@@ -14,12 +13,10 @@ import {
   type ContactSettings,
   type Coupon
 } from '../../utils/adminDataManager';
-import { ordersAPI, handleAPIError } from '../../services/api';
 import { formatPrice } from '../../utils/priceFormatter';
 import WhatsAppButton from '../../components/ui/WhatsAppButton';
 import { CheckoutPayment } from '../../components/payment';
 
-import type { CreateOrderRequest } from '../../types/api';
 
 interface CheckoutPageProps {
   navigateHome?: () => void;
