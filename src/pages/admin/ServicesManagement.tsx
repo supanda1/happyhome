@@ -123,6 +123,10 @@ const ServicesManagement: React.FC<ServicesManagementProps> = ({ onServiceChange
         exclusions: formData.exclusions.filter(item => item.trim()),
         requirements: formData.requirements.filter(item => item.trim()),
         tags: formData.tags.filter(item => item.trim()),
+        // Add missing required properties with defaults
+        rating: 0,
+        review_count: 0,
+        booking_count: 0,
       };
 
       if (editingService) {
@@ -238,7 +242,7 @@ const ServicesManagement: React.FC<ServicesManagementProps> = ({ onServiceChange
       gst_percentage: service.gst_percentage || 18,
       service_charge: service.service_charge || 79,
       notes: service.notes || '',
-      images: service.images || []
+      images: (service as any).images || (service as any).image_paths || []
     });
     setEditingService(service);
     setShowForm(true);
