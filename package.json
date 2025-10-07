@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port 3001",
-    "build": "tsc -b && vite build",
+    "build": "vite build",
+    "build:check": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview --port 3001",
     "security-check": "node .security-check.js",
@@ -55,5 +56,8 @@
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.39.1",
     "vite": "^7.1.2"
+  },
+  "overrides": {
+    "rollup": "^4.6.0"
   }
 }
