@@ -31,7 +31,7 @@ const PhotoUpload: React.FC<PhotoUploadProps> = ({
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const validateFile = (file: File): string | null => {
+  const validateFile = useCallback((file: File): string | null => {
     if (!acceptedTypes.includes(file.type)) {
       return `File type ${file.type} is not supported. Please use: ${acceptedTypes.join(', ')}`;
     }
@@ -41,7 +41,7 @@ const PhotoUpload: React.FC<PhotoUploadProps> = ({
     }
     
     return null;
-  };
+  }, [acceptedTypes, maxFileSize]);
 
   const handleFiles = useCallback((files: FileList) => {
     setUploadError(null);
@@ -81,7 +81,7 @@ const PhotoUpload: React.FC<PhotoUploadProps> = ({
     if (newPhotos.length > 0) {
       onPhotosChange([...photos, ...newPhotos]);
     }
-  }, [photos, onPhotosChange, maxPhotos, maxFileSize, acceptedTypes]);
+  }, [photos, onPhotosChange, maxPhotos, validateFile]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();

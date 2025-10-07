@@ -141,7 +141,7 @@ const ReviewsList: React.FC<ReviewsListProps> = ({
         </h3>
         <select
           value={sortBy}
-          onChange={(e) => setSortBy(e.target.value as any)}
+          onChange={(e) => setSortBy(e.target.value as 'newest' | 'oldest' | 'highest' | 'lowest')}
           className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:ring-primary-500 focus:border-primary-500"
         >
           <option value="newest">Newest First</option>

@@ -1,4 +1,4 @@
-import React, { HTMLAttributes, forwardRef } from 'react';
+import { forwardRef, type HTMLAttributes } from 'react';
 import { clsx } from 'clsx';
 
 interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {

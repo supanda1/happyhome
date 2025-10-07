@@ -10,18 +10,20 @@ interface LoadingProps {
 }
 
 const Loading: React.FC<LoadingProps> = ({
-  size = 'md',
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  size: _size = 'md',
   variant = 'spinner',
   text,
   fullScreen = false,
   className,
 }) => {
-  const sizeClasses = {
-    sm: 'w-4 h-4',
-    md: 'w-6 h-6',
-    lg: 'w-8 h-8',
-    xl: 'w-12 h-12',
-  };
+  // Size classes available for future use
+  // const sizeClasses = {
+  //   sm: 'w-4 h-4',
+  //   md: 'w-6 h-6',
+  //   lg: 'w-8 h-8',
+  //   xl: 'w-12 h-12',
+  // };
 
   const LoadingSpinner = () => (
     <div className="text-primary-600 font-semibold text-sm">
@@ -218,12 +220,11 @@ export const FormSkeleton: React.FC<{ fields?: number; className?: string }> = (
 };
 
 // Button Loading State
-interface LoadingButtonProps {
+interface LoadingButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   loading?: boolean;
   children: React.ReactNode;
   disabled?: boolean;
   className?: string;
-  [key: string]: any;
 }
 
 export const LoadingButton: React.FC<LoadingButtonProps> = ({ 

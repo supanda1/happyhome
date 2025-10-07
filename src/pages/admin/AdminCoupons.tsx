@@ -20,7 +20,7 @@ import { format } from 'date-fns';
 import { useServices } from '../../contexts/ServiceContext';
 import { useBooking } from '../../contexts/BookingContext';
 import type { Coupon, CouponType } from '../../types';
-import { Button, Input, Select, Card, CardHeader, CardContent, Modal, ModalHeader, ModalBody, ModalFooter, Badge } from '../../components/ui';
+import { Button, Input, Select, Card, CardContent, Modal, ModalHeader, ModalBody, ModalFooter, Badge } from '../../components/ui';
 
 interface CouponFormData {
   code: string;
@@ -512,7 +512,7 @@ const AdminCoupons: React.FC = () => {
             <Select
               placeholder="All Status"
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
+              onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'inactive' | 'expired')}
               options={[
                 { value: 'all', label: 'All Status' },
                 { value: 'active', label: 'Active' },

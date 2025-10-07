@@ -7,19 +7,19 @@
  */
 
 
-// Pexels API Configuration
-const PEXELS_API_KEY = import.meta.env.VITE_PEXELS_API_KEY;
-const PEXELS_API_URL = 'https://api.pexels.com/v1';
+// Configuration - TODO: Implement when Pexels integration is needed
+// const PEXELS_API_KEY = import.meta.env.VITE_PEXELS_API_KEY;
+// const PEXELS_API_URL = 'https://api.pexels.com/v1';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-// Image storage configuration
-const IMAGES_BASE_PATH = '/public/images/services';
-const IMAGE_QUALITIES = {
-  thumbnail: 'small',    // 280x200
-  medium: 'medium',      // 350x230  
-  large: 'large',        // 940x650
-  original: 'original'   // Full size
-} as const;
+// Image storage configuration - TODO: Implement when needed
+// const IMAGES_BASE_PATH = '/public/images/services';
+// const IMAGE_QUALITIES = {
+//   thumbnail: 'small',    // 280x200
+//   medium: 'medium',      // 350x230  
+//   large: 'large',        // 940x650
+//   original: 'original'   // Full size
+// } as const;
 
 // Pexels API Types
 interface PexelsPhoto {

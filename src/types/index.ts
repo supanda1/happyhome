@@ -97,6 +97,7 @@ export interface Review {
 // Booking Types
 export interface Booking {
   id: string;
+  orderNumber?: string;
   userId: string;
   user: User;
   serviceId: string;
@@ -106,10 +107,21 @@ export interface Booking {
   status: BookingStatus;
   totalAmount: number;
   discountAmount: number;
+  finalAmount?: number;
   couponCode?: string;
   customerAddress: Address;
   customerNotes?: string;
   adminNotes?: string;
+  paymentStatus?: string;
+  paymentMethod?: string;
+  paymentId?: string;
+  transactionId?: string;
+  assignedTechnician?: string;
+  completedAt?: Date;
+  cancelledAt?: Date;
+  cancellationReason?: string;
+  customerRating?: number;
+  customerReview?: string;
   createdAt: Date;
   updatedAt: Date;
 }

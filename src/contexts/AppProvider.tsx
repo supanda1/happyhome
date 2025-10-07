@@ -1,13 +1,13 @@
-import React, { ReactNode } from 'react';
+import React, { type ReactNode } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
 // import { ReactQueryDevtools } from '@tanstack/react-query-devtools'; // Disabled due to Vite cache issue
 import { AuthProvider } from './AuthContext';
 import { ServiceProvider } from './ServiceContext';
 import { BookingProvider } from './BookingContext';
 import { NotificationProvider } from './NotificationContext';
+import { PaymentProvider } from './PaymentContext';
 import { ErrorBoundary } from '../components/ui';
 import { queryClient } from '../utils/query-client';
-import { config } from '../utils/config';
 
 interface AppProviderProps {
   children: ReactNode;
@@ -26,12 +26,14 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
           <AuthProvider>
             <ServiceProvider>
               <BookingProvider>
-                {children}
-                {/* React Query DevTools - disabled due to Vite cache issue
-                {config.enableQueryDevtools && config.environment === 'development' && (
-                  <ReactQueryDevtools initialIsOpen={false} />
-                )}
-                */}
+                <PaymentProvider>
+                  {children}
+                  {/* React Query DevTools - disabled due to Vite cache issue
+                  {false && (
+                    <ReactQueryDevtools initialIsOpen={false} />
+                  )}
+                  */}
+                </PaymentProvider>
               </BookingProvider>
             </ServiceProvider>
           </AuthProvider>

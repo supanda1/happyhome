@@ -47,6 +47,9 @@ export const usersService = {
    */
   async getProfile(): Promise<User> {
     const response = await apiClient.get<ApiResponse<User>>('/auth/profile');
+    if (!response.data) {
+      throw new Error('Failed to get user profile');
+    }
     return response.data;
   },
 
@@ -55,12 +58,19 @@ export const usersService = {
    */
   async updateProfile(updates: UpdateProfileRequest): Promise<User> {
     // Convert camelCase to snake_case for backend
-    const backendUpdates: any = {};
+    const backendUpdates: {
+      first_name?: string;
+      last_name?: string;
+      phone?: string;
+    } = {};
     if (updates.firstName !== undefined) backendUpdates.first_name = updates.firstName;
     if (updates.lastName !== undefined) backendUpdates.last_name = updates.lastName;
     if (updates.phone !== undefined) backendUpdates.phone = updates.phone;
     
     const response = await apiClient.patch<ApiResponse<User>>('/auth/profile', backendUpdates);
+    if (!response.data) {
+      throw new Error('Failed to update user profile');
+    }
     return response.data;
   },
 
@@ -69,6 +79,9 @@ export const usersService = {
    */
   async getAddresses(): Promise<UserAddress[]> {
     const response = await apiClient.get<ApiResponse<UserAddress[]>>('/users/addresses');
+    if (!response.data) {
+      throw new Error('Failed to get user addresses');
+    }
     return response.data;
   },
 
@@ -77,6 +90,9 @@ export const usersService = {
    */
   async getAddress(id: string): Promise<UserAddress> {
     const response = await apiClient.get<ApiResponse<UserAddress>>(`/users/addresses/${id}`);
+    if (!response.data) {
+      throw new Error(`Failed to get address ${id}`);
+    }
     return response.data;
   },
 
@@ -85,6 +101,9 @@ export const usersService = {
    */
   async addAddress(addressData: CreateAddressRequest): Promise<UserAddress> {
     const response = await apiClient.post<ApiResponse<UserAddress>>('/users/addresses', addressData);
+    if (!response.data) {
+      throw new Error('Failed to add new address');
+    }
     return response.data;
   },
 
@@ -93,6 +112,9 @@ export const usersService = {
    */
   async updateAddress(id: string, updates: UpdateAddressRequest): Promise<UserAddress> {
     const response = await apiClient.put<ApiResponse<UserAddress>>(`/users/addresses/${id}`, updates);
+    if (!response.data) {
+      throw new Error(`Failed to update address ${id}`);
+    }
     return response.data;
   },
 
@@ -108,6 +130,9 @@ export const usersService = {
    */
   async setDefaultAddress(id: string): Promise<UserAddress> {
     const response = await apiClient.patch<ApiResponse<UserAddress>>(`/users/addresses/${id}/set-default`);
+    if (!response.data) {
+      throw new Error(`Failed to set default address ${id}`);
+    }
     return response.data;
   },
 
@@ -143,7 +168,7 @@ export const usersService = {
       '/users/profile/photo',
       file
     );
-    return response.data.url;
+    return response.data?.url || '';
   },
 
   /**
@@ -156,17 +181,17 @@ export const usersService = {
   /**
    * Get user preferences
    */
-  async getPreferences(): Promise<any> {
-    const response = await apiClient.get<ApiResponse<any>>('/users/preferences');
-    return response.data;
+  async getPreferences(): Promise<Record<string, unknown>> {
+    const response = await apiClient.get<ApiResponse<Record<string, unknown>>>('/users/preferences');
+    return response.data || {};
   },
 
   /**
    * Update user preferences
    */
-  async updatePreferences(preferences: any): Promise<any> {
-    const response = await apiClient.put<ApiResponse<any>>('/users/preferences', preferences);
-    return response.data;
+  async updatePreferences(preferences: Record<string, unknown>): Promise<Record<string, unknown>> {
+    const response = await apiClient.put<ApiResponse<Record<string, unknown>>>('/users/preferences', preferences);
+    return response.data || {};
   },
 };
 

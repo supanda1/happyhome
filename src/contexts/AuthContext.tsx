@@ -3,7 +3,6 @@ import type { ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { User, AuthState } from '../types';
 import { queryKeys } from '../utils/query-client';
-import { AppError } from '../utils/errors';
 
 // Auth Actions
 type AuthAction =
@@ -324,9 +323,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 };
 
 // Custom hook to use auth context
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (context === undefined) {
+    // In development, provide detailed error information
+    if (import.meta.env.DEV) {
+      console.error(
+        'useAuth hook called outside of AuthProvider. ' +
+        'This might be due to HMR (Hot Module Replacement) issues. ' +
+        'Make sure your App component is wrapped in <AppProvider> in main.tsx'
+      );
+    }
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;

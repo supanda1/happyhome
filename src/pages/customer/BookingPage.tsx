@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import { format, addDays, isBefore, isAfter, startOfDay } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { useServices } from '../../contexts/ServiceContext';
 import { useBooking } from '../../contexts/BookingContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { BookingFormData, Address, Service, TimeSlot } from '../../types';
-import { Button, Input, Select, Card, CardHeader, CardContent, CardFooter } from '../../components/ui';
+import type { BookingFormData, Service, TimeSlot } from '../../types';
+import { Button, Input, Select, Card, CardHeader, CardContent } from '../../components/ui';
 
 interface BookingFormFields extends BookingFormData {
   firstName: string;
@@ -121,7 +121,7 @@ const BookingPage: React.FC = () => {
       } else {
         setCouponError(validation.error || 'Invalid coupon code');
       }
-    } catch (error) {
+    } catch {
       setCouponError('Failed to validate coupon');
     } finally {
       setIsApplyingCoupon(false);

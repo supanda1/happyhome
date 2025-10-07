@@ -97,6 +97,35 @@ export interface Order {
   updated_at: string;
 }
 
+export interface TimelineEvent {
+  timestamp: string;
+  event_type: 'order_created' | 'status_change' | 'engineer_assigned' | 'service_scheduled' | 'service_completed';
+  title: string;
+  description: string;
+  details?: Record<string, any>;
+}
+
+export interface OrderSummary {
+  order_number: string;
+  customer: {
+    name: string;
+    email: string;
+    phone: string;
+  };
+  status: string;
+  created_at: string;
+  updated_at: string;
+  total_amount: string;
+  items_count: number;
+  assigned_items: number;
+  completed_items: number;
+}
+
+export interface OrderHistory {
+  summary: OrderSummary;
+  timeline: TimelineEvent[];
+}
+
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;
@@ -164,5 +193,28 @@ export type CategoryExpertiseMapping = Record<string, string>;
 
 // Cart to Order transformation helper
 export interface CartToOrderMapper {
-  transformCartToOrder: (cartItems: any[], customerInfo: any, address: any) => CreateOrderRequest;
+  transformCartToOrder: (cartItems: CartItem[], customerInfo: CustomerInfo, address: CustomerAddress) => CreateOrderRequest;
+}
+
+// Supporting types for CartToOrderMapper
+export interface CartItem {
+  id: string;
+  serviceId: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface CustomerInfo {
+  userId?: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+}
+
+export interface CustomerAddress {
+  street: string;
+  city: string;
+  state: string;
+  pincode: string;
 }

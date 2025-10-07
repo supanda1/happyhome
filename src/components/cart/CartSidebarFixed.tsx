@@ -1,7 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { getCart, applyCouponToCart, removeCouponFromCart, updateCartItemQuantity, removeFromCart, getCoupons, type Cart } from '../../utils/adminDataManager';
+import { getCart, applyCouponToCart, removeCouponFromCart, updateCartItemQuantity, removeFromCart, getActiveCoupons, type Cart, type Coupon } from '../../utils/adminDataManager';
 import { formatPrice } from '../../utils/priceFormatter';
+
+// Interface for formatted coupon display
+interface FormattedCoupon {
+  code: string;
+  title: string;
+  description: string;
+  discount: string;
+}
 
 
 interface CartSidebarFixedProps {
@@ -9,13 +17,15 @@ interface CartSidebarFixedProps {
   onToggleCollapse: () => void;
   onCheckout: () => void;
   onCartUpdate?: () => void;
+  refreshTrigger?: number; // Add refresh trigger prop
 }
 
 export const CartSidebarFixed: React.FC<CartSidebarFixedProps> = ({ 
   isCollapsed,
   onToggleCollapse,
   onCheckout, 
-  onCartUpdate
+  onCartUpdate,
+  refreshTrigger
 }) => {
   const { user } = useAuth();
   const [cart, setCart] = useState<Cart | null>(null);
@@ -25,11 +35,11 @@ export const CartSidebarFixed: React.FC<CartSidebarFixedProps> = ({
   const [couponError, setCouponError] = useState('');
   const [couponSuccess, setCouponSuccess] = useState('');
   const [selectedCouponOption, setSelectedCouponOption] = useState('manual');
-  const [availableCoupons, setAvailableCoupons] = useState<any[]>([]);
+  const [availableCoupons, setAvailableCoupons] = useState<FormattedCoupon[]>([]);
   const [updatingItems, setUpdatingItems] = useState<Set<string>>(new Set());
 
   // Load cart data
-  const loadCart = async () => {
+  const loadCart = useCallback(async () => {
     try {
       setLoading(true);
       const cartData = await getCart();
@@ -40,16 +50,16 @@ export const CartSidebarFixed: React.FC<CartSidebarFixedProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Load available coupons from database API
-  const loadAvailableCoupons = async () => {
+  const loadAvailableCoupons = useCallback(async () => {
     try {
-      const coupons = await getCoupons();
+      const coupons = await getActiveCoupons();
       const currentDate = new Date();
       
       // Filter out expired and inactive coupons
-      const validCoupons = coupons.filter((coupon: any) => {
+      const validCoupons = coupons.filter((coupon: Coupon) => {
         if (!coupon.is_active) return false;
         
         // Check if coupon has not expired
@@ -64,14 +74,14 @@ export const CartSidebarFixed: React.FC<CartSidebarFixedProps> = ({
       });
       
       // Transform API format to match display format
-      const formattedCoupons = validCoupons.map((coupon: any) => ({
+      const formattedCoupons = validCoupons.map((coupon: Coupon) => ({
         code: coupon.code,
-        title: coupon.title,
+        title: coupon.name,
         description: coupon.description,
-        discount: coupon.discount_type === 'percentage' 
-          ? `${coupon.discount_value}% OFF`
-          : coupon.discount_type === 'fixed_amount'
-          ? `${formatPrice(coupon.discount_value)} OFF`
+        discount: coupon.type === 'percentage' 
+          ? `${coupon.value}% OFF`
+          : coupon.type === 'fixed'
+          ? `${formatPrice(coupon.value)} OFF`
           : 'FREE SERVICE'
       }));
       
@@ -82,13 +92,20 @@ export const CartSidebarFixed: React.FC<CartSidebarFixedProps> = ({
       console.error('🛒 CartSidebarFixed - Failed to load coupons:', error);
       setAvailableCoupons([]);
     }
-  };
+  }, []);
 
   // Load cart and coupons on component mount and when user changes
   useEffect(() => {
     loadCart();
     loadAvailableCoupons();
-  }, [user]); // Add user as dependency to reload cart when user logs in/out
+  }, [user, loadCart, loadAvailableCoupons]); // Add user as dependency to reload cart when user logs in/out
+
+  // Reload cart when refreshTrigger changes (external cart updates)
+  useEffect(() => {
+    if (refreshTrigger !== undefined) {
+      loadCart();
+    }
+  }, [refreshTrigger, loadCart]);
 
   // Handle manual coupon code input
   const handleManualCouponChange = (value: string) => {

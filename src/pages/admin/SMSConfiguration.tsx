@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
   FiSettings, FiAlertTriangle, FiCheckCircle, FiXCircle, 
-  FiCopy, FiExternalLink, FiRefreshCw, FiEye, FiEyeOff,
-  FiDollarSign, FiGlobe, FiMapPin, FiClock
+  FiCopy, FiRefreshCw, FiEye, FiEyeOff,
+  FiDollarSign, FiMapPin
 } from 'react-icons/fi';
 
 interface SMSProvider {
@@ -31,12 +31,24 @@ interface SMSConfigStatus {
     failure_rate: string;
   };
   recommendations: string[];
-  setup_instructions: any;
+  setup_instructions: Record<string, unknown>;
+}
+
+interface SetupGuideOption {
+  title: string;
+  provider: string;
+  description?: string;
+  steps?: string[];
+}
+
+interface SetupGuide {
+  quick_start: SetupGuideOption[];
+  [key: string]: unknown;
 }
 
 const SMSConfiguration: React.FC = () => {
   const [status, setStatus] = useState<SMSConfigStatus | null>(null);
-  const [setupGuide, setSetupGuide] = useState<any>(null);
+  const [setupGuide, setSetupGuide] = useState<SetupGuide | null>(null);
   const [loading, setLoading] = useState(true);
   const [showEnvVars, setShowEnvVars] = useState<{ [key: string]: boolean }>({});
   const [showGuide, setShowGuide] = useState(false);
@@ -521,7 +533,7 @@ const SMSConfiguration: React.FC = () => {
               <div className="mb-6">
                 <h3 className="text-lg font-semibold mb-3">Quick Start Options</h3>
                 <div className="grid md:grid-cols-2 gap-4">
-                  {setupGuide.quick_start.map((option: any, index: number) => (
+                  {setupGuide.quick_start.map((option: SetupGuideOption, index: number) => (
                     <div key={index} className="border rounded-lg p-4">
                       <div className="flex items-center justify-between mb-3">
                         <h4 className="font-medium">{option.title}</h4>

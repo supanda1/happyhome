@@ -3,7 +3,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { UseQueryOptions, UseMutationOptions } from '@tanstack/react-query';
+import type { UseQueryOptions } from '@tanstack/react-query';
 import { 
   authService, 
   servicesService, 
@@ -77,7 +77,7 @@ export const useServiceCategories = (options?: UseQueryOptions<ServiceCategory[]
 
 export const useServices = (params: Parameters<typeof servicesService.getServices>[0] = {}) => {
   return useQuery({
-    queryKey: queryKeys.services.list(params),
+    queryKey: queryKeys.services.list(params as Record<string, unknown>),
     queryFn: () => servicesService.getServices(params),
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
@@ -138,8 +138,6 @@ export const useCartCount = () => {
 };
 
 export const useCartActions = () => {
-  const queryClient = useQueryClient();
-
   const addToCartMutation = useMutation({
     mutationFn: (item: AddToCartRequest) => cartService.addToCart(item),
     onSuccess: () => {
@@ -193,7 +191,7 @@ export const useCartActions = () => {
 
 export const useBookings = (params: Parameters<typeof bookingsService.getBookings>[0] = {}) => {
   return useQuery({
-    queryKey: queryKeys.bookings.list(params),
+    queryKey: queryKeys.bookings.list(params as Record<string, unknown>),
     queryFn: () => bookingsService.getBookings(params),
     staleTime: 1000 * 60 * 2, // 2 minutes
   });
@@ -259,7 +257,7 @@ export const useBookingActions = () => {
     mutationFn: ({ id, newDate, newTimeSlot, reason }: { 
       id: string; 
       newDate: string; 
-      newTimeSlot: any; 
+      newTimeSlot: { startTime: string; endTime: string; isAvailable: boolean }; 
       reason?: string 
     }) => bookingsService.rescheduleBooking(id, newDate, newTimeSlot, reason),
     onSuccess: (_, { id }) => {
@@ -308,8 +306,6 @@ export const useUserAddress = (id: string) => {
 };
 
 export const useUserActions = () => {
-  const queryClient = useQueryClient();
-
   const updateProfileMutation = useMutation({
     mutationFn: (updates: Parameters<typeof usersService.updateProfile>[0]) =>
       usersService.updateProfile(updates),
@@ -379,7 +375,7 @@ export const useAvailableCoupons = (serviceId?: string) => {
 
 export const useCoupons = (params: Parameters<typeof couponsService.getCoupons>[0] = {}) => {
   return useQuery({
-    queryKey: queryKeys.coupons.list(params),
+    queryKey: queryKeys.coupons.list(params as Record<string, unknown>),
     queryFn: () => couponsService.getCoupons(params),
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
@@ -415,7 +411,7 @@ export const useServiceReviews = (serviceId: string) => {
 export const useDashboardStats = () => {
   return useQuery({
     queryKey: queryKeys.dashboard.stats(),
-    queryFn: dashboardService.getDashboardStats,
+    queryFn: () => dashboardService.getDashboardStats(),
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 };
@@ -423,7 +419,9 @@ export const useDashboardStats = () => {
 export const useDashboardAnalytics = (period: string) => {
   return useQuery({
     queryKey: queryKeys.dashboard.analytics(period),
-    queryFn: () => dashboardService.getAnalytics({ period }),
+    queryFn: () => dashboardService.getRevenueAnalytics({
+      groupBy: period as 'day' | 'week' | 'month'
+    }),
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 };

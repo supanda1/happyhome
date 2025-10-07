@@ -15,18 +15,19 @@ const getImageSrc = (imageConfig: ImageConfig): string => {
   return imageConfig.src || '';
 };
 
-const imageExists = (src: string): boolean => {
-  if (!src) return false;
-  
-  // Return true for all our valid image paths
-  const validPaths = [
-    '/images/categories/',
-    '/images/subcategories/'
-  ];
-  
-  // Allow all images that start with valid paths
-  return validPaths.some(path => src.startsWith(path));
-};
+// Utility function to check if image exists (currently unused but kept for future use)
+// const imageExists = (src: string): boolean => {
+//   if (!src) return false;
+//   
+//   // Return true for all our valid image paths
+//   const validPaths = [
+//     '/images/categories/',
+//     '/images/subcategories/'
+//   ];
+//   
+//   // Allow all images that start with valid paths
+//   return validPaths.some(path => src.startsWith(path));
+// };
 
 interface SmartImageProps {
   imageConfig: ImageConfig;

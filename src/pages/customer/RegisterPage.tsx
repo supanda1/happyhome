@@ -22,7 +22,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({
     city: 'Bhubaneswar',
     state: 'Odisha',
     pincode: '',
-    role: 'customer' as 'customer'
+    role: 'customer' as const
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -77,8 +77,9 @@ const RegisterPage: React.FC<RegisterPageProps> = ({
       } else {
         setError('Registration failed. Please try again.');
       }
-    } catch (err: any) {
-      setError(err.message || 'Registration failed. Please try again.');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Registration failed. Please try again.';
+      setError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }

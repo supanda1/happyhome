@@ -71,7 +71,7 @@ export const safeLocalStorage = {
     return null;
   },
   
-  setItem: (key: string, value: string): void => {
+  setItem: (key: string): void => {
     // SECURITY: Always block localStorage writes - use backend API only
     if (APP_CONFIG.DEVELOPMENT.WARN_ON_LOCALSTORAGE_USE) {
       console.warn(`🚫 SECURITY: LocalStorage write completely blocked for key: ${key}. Use backend API instead.`);

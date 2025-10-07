@@ -1,6 +1,17 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import { resolve } from 'path'
+
+// Manual type declarations for Node.js globals when @types/node is not available
+declare const process: {
+  env: Record<string, string | undefined>;
+};
+declare const __dirname: string;
+
+// Manual path.resolve implementation for when 'path' module types are not available
+const resolve = (...paths: string[]): string => {
+  // Simple implementation for the specific use case in this config
+  return paths.join('/').replace(/\/+/g, '/');
+};
 
 // https://vite.dev/config/
 export default defineConfig({

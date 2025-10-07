@@ -1,6 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { ordersAPI, handleAPIError } from '../../services/api';
 
+// Custom CSS for enhanced animations
+const customStyles = `
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  @keyframes bounce-in {
+    0% { transform: translateY(-100px) scale(0.8); opacity: 0; }
+    50% { transform: translateY(0px) scale(1.05); opacity: 1; }
+    65% { transform: translateY(-10px) scale(1.02); }
+    81% { transform: translateY(0px) scale(1); }
+    100% { transform: translateY(0px) scale(1); opacity: 1; }
+  }
+  
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+`;
+
 interface EngineerWorkload {
   id: string;
   employee_id: string;

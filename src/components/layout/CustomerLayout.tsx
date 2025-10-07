@@ -15,9 +15,17 @@ const CustomerLayout: React.FC = () => {
 
   // Load contact settings
   useEffect(() => {
-    const settings = getContactSettings();
-    setContactSettings(settings);
-    setCurrentAddress(settings.address);
+    const loadContactSettings = async () => {
+      try {
+        const settings = await getContactSettings();
+        setContactSettings(settings);
+        setCurrentAddress(settings.address);
+      } catch (error) {
+        console.error('Failed to load contact settings:', error);
+      }
+    };
+    
+    loadContactSettings();
   }, []);
 
   const isActiveRoute = (path: string) => {

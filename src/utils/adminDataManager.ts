@@ -8,12 +8,12 @@
  * - Zero client-side business data storage
  * 
  * DATABASE ENTITIES:
- * - Categories: PostgreSQL via /api/admin/categories
- * - Subcategories: PostgreSQL via /api/admin/subcategories  
+ * - Categories: PostgreSQL via /api/categories
+ * - Subcategories: PostgreSQL via /api/subcategories  
  * - Services: PostgreSQL via /api/services
- * - Coupons: PostgreSQL via /api/admin/coupons
- * - Employees: PostgreSQL via /api/admin/employees
- * - Orders: PostgreSQL via /api/admin/orders
+ * - Coupons: PostgreSQL via /api/coupons
+ * - Employees: PostgreSQL via /api/employees
+ * - Orders: PostgreSQL via /api/orders
  */
 
 // API Configuration  
@@ -90,6 +90,9 @@ export const CATEGORY_EXPERTISE_MAP: Record<string, string> = {
   'civil-work-others': 'Civil & Construction'
 };
 
+// Import types for proper typing
+import type { Order, OrderHistory } from '../types/api';
+
 // API Helper Functions - Session-based authentication
 const apiCall = async (endpoint: string, options: RequestInit = {}) => {
   const url = `${API_BASE_URL}${endpoint}`;
@@ -97,6 +100,9 @@ const apiCall = async (endpoint: string, options: RequestInit = {}) => {
     credentials: 'include', // SECURITY: Include HTTP-only cookies for authentication
     headers: {
       'Content-Type': 'application/json',
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
     },
   };
   
@@ -224,6 +230,8 @@ interface Coupon {
 interface CartItem {
   serviceId: string;
   serviceName: string;
+  categoryId: string;
+  subcategoryId: string;
   quantity: number;
   basePrice: number;
   discountedPrice?: number;
@@ -300,21 +308,18 @@ type TimePeriod = 'daily' | 'weekly' | 'monthly' | 'yearly';
 
 interface TimeSeriesPoint {
   date: string;
-  value: number;
+  revenue: number;
+  orders: number;
+  value?: number; // For backward compatibility with charts
   label?: string;
 }
 
 interface AnalyticsOverview {
   totalRevenue: number;
   totalOrders: number;
-  totalCustomers: number;
-  totalServices: number;
-  revenueGrowth: number;
-  ordersGrowth: number;
-  customersGrowth: number;
-  servicesGrowth: number;
-  revenueTimeSeries: TimeSeriesPoint[];
-  ordersTimeSeries: TimeSeriesPoint[];
+  avgOrderValue: number;
+  monthlyGrowth: number;
+  timeSeriesData: TimeSeriesPoint[];
   topServices: Array<{
     serviceId: string;
     serviceName: string;
@@ -322,10 +327,18 @@ interface AnalyticsOverview {
     orders: number;
   }>;
   topCategories: Array<{
+    category: string;
     categoryId: string;
-    categoryName: string;
-    revenue: number;
-    orders: number;
+    totalRevenue: number;
+    totalOrders: number;
+    growth: number;
+    subcategories: Array<{
+      name: string;
+      subcategoryId: string;
+      revenue: number;
+      orders: number;
+      growth: number;
+    }>;
   }>;
   period: TimePeriod;
 }
@@ -340,14 +353,14 @@ interface AnalyticsOverview {
 export const getCategoriesFromAPI = async (): Promise<Category[]> => {
   try {
     // Use public categories endpoint that doesn't require authentication
-    const categories = await apiCall('/v1/services/categories');
+    const categories = await apiCall('/categories');
     console.log('✅ Categories loaded from PostgreSQL database:', categories.length);
     return categories;
   } catch (error) {
     console.error('❌ Failed to load categories from database:', error);
     // Fallback to admin endpoint (requires authentication)
     try {
-      const adminCategories = await apiCall('/admin/categories');
+      const adminCategories = await apiCall('/categories');
       console.log('✅ Categories loaded from admin endpoint:', adminCategories.length);
       return adminCategories;
     } catch (adminError) {
@@ -362,7 +375,7 @@ export const getCategoriesFromAPI = async (): Promise<Category[]> => {
  */
 export const createCategory = async (categoryData: Omit<Category, 'id' | 'created_at' | 'updated_at'>): Promise<Category> => {
   try {
-    const newCategory = await apiCall('/admin/categories', {
+    const newCategory = await apiCall('/categories', {
       method: 'POST',
       body: JSON.stringify(categoryData),
     });
@@ -379,7 +392,7 @@ export const createCategory = async (categoryData: Omit<Category, 'id' | 'create
  */
 export const updateCategory = async (categoryId: string, updates: Partial<Category>): Promise<Category> => {
   try {
-    const updatedCategory = await apiCall(`/admin/categories/${categoryId}`, {
+    const updatedCategory = await apiCall(`/categories/${categoryId}`, {
       method: 'PUT',
       body: JSON.stringify(updates),
     });
@@ -396,7 +409,7 @@ export const updateCategory = async (categoryId: string, updates: Partial<Catego
  */
 export const deleteCategory = async (categoryId: string): Promise<boolean> => {
   try {
-    await apiCall(`/admin/categories/${categoryId}`, {
+    await apiCall(`/categories/${categoryId}`, {
       method: 'DELETE',
     });
     console.log('✅ Category deleted from database:', categoryId);
@@ -432,14 +445,14 @@ export const getCategoriesSync = (): Category[] => {
 export const getSubcategories = async (): Promise<Subcategory[]> => {
   try {
     // Use public subcategories endpoint that doesn't require authentication
-    const subcategories = await apiCall('/v1/services/subcategories');
+    const subcategories = await apiCall('/subcategories');
     console.log('✅ Subcategories loaded from PostgreSQL database:', subcategories.length);
     return subcategories;
   } catch (error) {
     console.error('❌ Failed to load subcategories from database:', error);
     // Fallback to admin endpoint (requires authentication)
     try {
-      const adminSubcategories = await apiCall('/admin/subcategories');
+      const adminSubcategories = await apiCall('/subcategories');
       console.log('✅ Subcategories loaded from admin endpoint:', adminSubcategories.length);
       return adminSubcategories;
     } catch (adminError) {
@@ -454,7 +467,7 @@ export const getSubcategories = async (): Promise<Subcategory[]> => {
  */
 export const getSubcategoriesByCategory = async (categoryId: string): Promise<Subcategory[]> => {
   try {
-    const subcategories = await apiCall(`/admin/subcategories?category_id=${categoryId}`);
+    const subcategories = await apiCall(`/subcategories?category_id=${categoryId}`);
     console.log(`✅ Subcategories for category ${categoryId} loaded from database:`, subcategories.length);
     return subcategories;
   } catch (error) {
@@ -468,7 +481,7 @@ export const getSubcategoriesByCategory = async (categoryId: string): Promise<Su
  */
 export const createSubcategory = async (subcategoryData: Omit<Subcategory, 'id' | 'created_at' | 'updated_at'>): Promise<Subcategory> => {
   try {
-    const newSubcategory = await apiCall('/admin/subcategories', {
+    const newSubcategory = await apiCall('/subcategories', {
       method: 'POST',
       body: JSON.stringify(subcategoryData),
     });
@@ -485,7 +498,7 @@ export const createSubcategory = async (subcategoryData: Omit<Subcategory, 'id' 
  */
 export const updateSubcategory = async (subcategoryId: string, updates: Partial<Subcategory>): Promise<Subcategory> => {
   try {
-    const updatedSubcategory = await apiCall(`/admin/subcategories/${subcategoryId}`, {
+    const updatedSubcategory = await apiCall(`/subcategories/${subcategoryId}`, {
       method: 'PUT',
       body: JSON.stringify(updates),
     });
@@ -502,7 +515,7 @@ export const updateSubcategory = async (subcategoryId: string, updates: Partial<
  */
 export const deleteSubcategory = async (subcategoryId: string): Promise<boolean> => {
   try {
-    await apiCall(`/admin/subcategories/${subcategoryId}`, {
+    await apiCall(`/subcategories/${subcategoryId}`, {
       method: 'DELETE',
     });
     console.log('✅ Subcategory deleted from database:', subcategoryId);
@@ -881,11 +894,11 @@ export const cleanupUnusedImages = async (): Promise<{
 // ============================================================================
 
 /**
- * Get all coupons from PostgreSQL database
+ * Get all coupons from PostgreSQL database (ADMIN ONLY)
  */
 export const getCoupons = async (): Promise<Coupon[]> => {
   try {
-    const coupons = await apiCall('/admin/coupons');
+    const coupons = await apiCall('/coupons');
     console.log('✅ Coupons loaded from PostgreSQL database:', coupons.length);
     return coupons;
   } catch (error) {
@@ -895,11 +908,25 @@ export const getCoupons = async (): Promise<Coupon[]> => {
 };
 
 /**
+ * Get active coupons for customers (PUBLIC ENDPOINT)
+ */
+export const getActiveCoupons = async (): Promise<Coupon[]> => {
+  try {
+    const coupons = await apiCall('/coupons/active');
+    console.log('✅ Active coupons loaded from PostgreSQL database:', coupons.length);
+    return coupons;
+  } catch (error) {
+    console.error('❌ Failed to load active coupons from database:', error);
+    throw error;
+  }
+};
+
+/**
  * Create new coupon in PostgreSQL database
  */
 export const createCoupon = async (couponData: Omit<Coupon, 'id' | 'created_at' | 'updated_at'>): Promise<Coupon> => {
   try {
-    const newCoupon = await apiCall('/admin/coupons', {
+    const newCoupon = await apiCall('/coupons', {
       method: 'POST',
       body: JSON.stringify(couponData),
     });
@@ -916,7 +943,7 @@ export const createCoupon = async (couponData: Omit<Coupon, 'id' | 'created_at' 
  */
 export const updateCoupon = async (couponId: string, updates: Partial<Coupon>): Promise<Coupon> => {
   try {
-    const updatedCoupon = await apiCall(`/admin/coupons/${couponId}`, {
+    const updatedCoupon = await apiCall(`/coupons/${couponId}`, {
       method: 'PUT',
       body: JSON.stringify(updates),
     });
@@ -933,7 +960,7 @@ export const updateCoupon = async (couponId: string, updates: Partial<Coupon>): 
  */
 export const deleteCoupon = async (couponId: string): Promise<boolean> => {
   try {
-    await apiCall(`/admin/coupons/${couponId}`, {
+    await apiCall(`/coupons/${couponId}`, {
       method: 'DELETE',
     });
     console.log('✅ Coupon deleted from database:', couponId);
@@ -975,7 +1002,7 @@ export const validateCouponForCart = async (code: string, cartItems: CartItem[])
  */
 export const getEmployees = async (): Promise<Employee[]> => {
   try {
-    const employees = await apiCall('/admin/employees');
+    const employees = await apiCall('/employees');
     console.log('✅ Employees loaded from PostgreSQL database:', employees.length);
     return employees;
   } catch (error) {
@@ -989,7 +1016,7 @@ export const getEmployees = async (): Promise<Employee[]> => {
  */
 export const getEmployeesByExpertise = async (expertiseArea: string): Promise<Employee[]> => {
   try {
-    const employees = await apiCall(`/admin/employees?expertise=${encodeURIComponent(expertiseArea)}`);
+    const employees = await apiCall(`/employees?expertise=${encodeURIComponent(expertiseArea)}`);
     console.log(`✅ Employees with ${expertiseArea} expertise loaded from database:`, employees.length);
     return employees;
   } catch (error) {
@@ -1003,7 +1030,7 @@ export const getEmployeesByExpertise = async (expertiseArea: string): Promise<Em
  */
 export const createEmployee = async (employeeData: Omit<Employee, 'id' | 'created_at' | 'updated_at'>): Promise<Employee> => {
   try {
-    const newEmployee = await apiCall('/admin/employees', {
+    const newEmployee = await apiCall('/employees', {
       method: 'POST',
       body: JSON.stringify(employeeData),
     });
@@ -1020,7 +1047,7 @@ export const createEmployee = async (employeeData: Omit<Employee, 'id' | 'create
  */
 export const updateEmployee = async (employeeId: string, updates: Partial<Employee>): Promise<Employee> => {
   try {
-    const updatedEmployee = await apiCall(`/admin/employees/${employeeId}`, {
+    const updatedEmployee = await apiCall(`/employees/${employeeId}`, {
       method: 'PUT',
       body: JSON.stringify(updates),
     });
@@ -1037,7 +1064,7 @@ export const updateEmployee = async (employeeId: string, updates: Partial<Employ
  */
 export const deleteEmployee = async (employeeId: string): Promise<boolean> => {
   try {
-    await apiCall(`/admin/employees/${employeeId}`, {
+    await apiCall(`/employees/${employeeId}`, {
       method: 'DELETE',
     });
     console.log('✅ Employee deleted from database:', employeeId);
@@ -1049,29 +1076,180 @@ export const deleteEmployee = async (employeeId: string): Promise<boolean> => {
 };
 
 // ============================================================================
+// ORDER STATUS UTILITIES - Unified Status Logic
+// ============================================================================
+
+/**
+ * Determine the effective status of an order based on both order and item statuses
+ * This ensures consistent status display across customer and admin views
+ */
+export const getEffectiveOrderStatus = (order: any): string => {
+  // If order is cancelled or completed at order level, prioritize that status
+  if (order.status === 'cancelled') {
+    return 'cancelled';
+  }
+  
+  if (order.status === 'completed') {
+    return 'completed'; // Order-level completion takes priority
+  }
+  
+  // If no items, fall back to order status
+  if (!order.items || order.items.length === 0) {
+    return order.status || 'pending';
+  }
+  
+  // Analyze item statuses to determine effective order status
+  const items = order.items.filter((item: any) => item.id !== null);
+  const itemStatuses = items.map((item: any) => item.item_status || item.status || 'pending');
+  
+  // Count status distribution
+  const statusCounts = itemStatuses.reduce((acc: any, status: string) => {
+    acc[status] = (acc[status] || 0) + 1;
+    return acc;
+  }, {});
+  
+  // Status priority logic (most significant first)
+  if (statusCounts.completed && statusCounts.completed === items.length) {
+    return 'completed'; // All items completed
+  }
+  
+  if (statusCounts.in_progress > 0) {
+    return 'in_progress'; // Any item in progress
+  }
+  
+  if (statusCounts.scheduled > 0) {
+    return 'scheduled'; // Any item scheduled
+  }
+  
+  if (statusCounts.assigned > 0) {
+    return 'confirmed'; // Any item assigned (confirmed for processing)
+  }
+  
+  // Fall back to order-level status or pending
+  return order.status || 'pending';
+};
+
+/**
+ * Get display-friendly status name
+ */
+export const getStatusDisplayName = (status: string): string => {
+  switch (status) {
+    case 'pending': return 'Pending';
+    case 'confirmed': return 'Confirmed';
+    case 'scheduled': return 'Scheduled';
+    case 'in_progress': return 'In Progress';
+    case 'completed': return 'Completed';
+    case 'cancelled': return 'Cancelled';
+    case 'postponed': return 'Postponed';
+    default: return status.charAt(0).toUpperCase() + status.slice(1);
+  }
+};
+
+/**
+ * Get status color classes for consistent UI styling
+ */
+export const getStatusColor = (status: string): string => {
+  switch (status) {
+    case 'completed': 
+      return 'text-emerald-700 bg-gradient-to-r from-emerald-50 to-green-100 border-emerald-200';
+    case 'in_progress': 
+      return 'text-blue-700 bg-gradient-to-r from-blue-50 to-indigo-100 border-blue-200';
+    case 'scheduled': 
+      return 'text-purple-700 bg-gradient-to-r from-purple-50 to-violet-100 border-purple-200';
+    case 'confirmed': 
+      return 'text-amber-700 bg-gradient-to-r from-amber-50 to-yellow-100 border-amber-200';
+    case 'cancelled': 
+      return 'text-red-700 bg-gradient-to-r from-red-50 to-pink-100 border-red-200';
+    case 'postponed': 
+      return 'text-orange-700 bg-gradient-to-r from-orange-50 to-amber-100 border-orange-200';
+    case 'pending': 
+    default: 
+      return 'text-blue-700 bg-gradient-to-r from-blue-50 to-cyan-100 border-blue-200';
+  }
+};
+
+// ============================================================================
 // ORDERS - PostgreSQL Database CRUD Operations
 // ============================================================================
 
 /**
  * Get all orders from PostgreSQL database
  */
-export const getOrders = async (): Promise<any[]> => {
+export const getOrders = async (): Promise<Order[]> => {
   try {
-    const orders = await apiCall('/admin/orders');
-    console.log('✅ Orders loaded from PostgreSQL database:', orders.length);
-    return orders;
+    // Add timestamp to prevent caching issues
+    const timestamp = Date.now();
+    const endpoint = `/orders?t=${timestamp}`;
+    
+    console.log('🔍 Admin API Call Details:');
+    console.log('   - URL:', endpoint);
+    console.log('   - Base URL:', API_BASE_URL);
+    console.log('   - Full URL:', `${API_BASE_URL || window.location.origin}${endpoint}`);
+    
+    const orders = await apiCall(endpoint);
+    
+    console.log('✅ Admin Orders Response:');
+    console.log('   - Type:', typeof orders);
+    console.log('   - Is Array:', Array.isArray(orders));
+    console.log('   - Length:', orders?.length || 0);
+    console.log('   - Sample order:', orders?.[0]);
+    
+    if (Array.isArray(orders) && orders.length > 0) {
+      console.log('🔍 Order Status Distribution:');
+      const statusCounts = orders.reduce((acc: any, order) => {
+        acc[order.status] = (acc[order.status] || 0) + 1;
+        return acc;
+      }, {});
+      console.log('   - Status counts:', statusCounts);
+      
+      // Debug: Show sample cancelled orders and specific orders like HH018, HH017, HH016
+      const cancelledOrders = orders.filter(o => o.status === 'cancelled');
+      console.log('🔍 Cancelled Orders Details:');
+      console.log(`   - Found ${cancelledOrders.length} cancelled orders`);
+      if (cancelledOrders.length > 0) {
+        console.log('   - Sample cancelled order:', {
+          id: cancelledOrders[0].id,
+          order_number: cancelledOrders[0].order_number,
+          status: cancelledOrders[0].status,
+          customer_name: cancelledOrders[0].customer_name
+        });
+      }
+      
+      // Debug specific orders like HH018, HH017, HH016
+      orders.forEach((order: any) => {
+        if (order.order_number && ['HH018', 'HH017', 'HH016'].includes(order.order_number)) {
+          console.log(`🔍 Admin Debug ${order.order_number}:`, {
+            orderStatus: order.status,
+            items: order.items?.map((item: any) => ({
+              id: item.id,
+              service_name: item.service_name,
+              item_status: item.item_status,
+              status: item.status
+            })) || [],
+            effectiveStatus: getEffectiveOrderStatus(order),
+            rawOrder: order
+          });
+        }
+      });
+    }
+    
+    return orders || [];
   } catch (error) {
-    console.error('❌ Failed to load orders from database:', error);
-    throw error;
+    console.error('❌ Admin API Failed:', error);
+    console.error('   - Error type:', (error as Error).constructor.name);
+    console.error('   - Error message:', (error as Error).message);
+    
+    // Return empty array on error to prevent UI crashes
+    return [];
   }
 };
 
 /**
  * Get order by ID from PostgreSQL database
  */
-export const getOrderById = async (orderId: string): Promise<any | null> => {
+export const getOrderById = async (orderId: string): Promise<Order | null> => {
   try {
-    const order = await apiCall(`/admin/orders/${orderId}`);
+    const order = await apiCall(`/orders/${orderId}`);
     console.log(`✅ Order ${orderId} loaded from database:`, order);
     return order;
   } catch (error) {
@@ -1083,16 +1261,18 @@ export const getOrderById = async (orderId: string): Promise<any | null> => {
 /**
  * Update order status in PostgreSQL database
  */
-export const updateOrderStatus = async (orderId: string, status: string, notes?: string): Promise<any | null> => {
+export const updateOrderStatus = async (orderId: string, status: string, notes?: string): Promise<Order | null> => {
   try {
-    const updatedOrder = await apiCall(`/admin/orders/${orderId}/status`, {
-      method: 'PATCH',
-      body: JSON.stringify({ status, notes }),
+    console.log(`🔄 Updating order ${orderId} status to ${status}...`);
+    const updatedOrder = await apiCall(`/orders/${orderId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ status, admin_notes: notes }),
     });
     console.log('✅ Order status updated in database:', updatedOrder);
     return updatedOrder;
   } catch (error) {
     console.error('❌ Failed to update order status:', error);
+    console.error('❌ Error details:', error);
     return null;
   }
 };
@@ -1100,9 +1280,9 @@ export const updateOrderStatus = async (orderId: string, status: string, notes?:
 /**
  * Assign employee to order in PostgreSQL database
  */
-export const assignEmployeeToOrder = async (orderId: string, employeeId: string): Promise<any | null> => {
+export const assignEmployeeToOrder = async (orderId: string, employeeId: string): Promise<Order | null> => {
   try {
-    const updatedOrder = await apiCall(`/admin/orders/${orderId}/assign`, {
+    const updatedOrder = await apiCall(`/orders/${orderId}/assign`, {
       method: 'PATCH',
       body: JSON.stringify({ employee_id: employeeId }),
     });
@@ -1114,6 +1294,20 @@ export const assignEmployeeToOrder = async (orderId: string, employeeId: string)
   }
 };
 
+/**
+ * Get order history/timeline from PostgreSQL database
+ */
+export const getOrderHistory = async (orderId: string): Promise<OrderHistory | null> => {
+  try {
+    const history = await apiCall(`/orders/${orderId}/assignments/history`);
+    console.log(`✅ Order history for ${orderId} loaded from database:`, history);
+    return history;
+  } catch (error) {
+    console.error(`❌ Failed to load order history for ${orderId}:`, error);
+    return null;
+  }
+};
+
 // ============================================================================
 // ANALYTICS - PostgreSQL Database Operations
 // ============================================================================
@@ -1121,9 +1315,9 @@ export const assignEmployeeToOrder = async (orderId: string, employeeId: string)
 /**
  * Get dashboard statistics from PostgreSQL database
  */
-export const getDashboardStats = async (): Promise<any> => {
+export const getDashboardStats = async (): Promise<Record<string, unknown>> => {
   try {
-    const stats = await apiCall('/admin/dashboard/stats');
+    const stats = await apiCall('/dashboard/stats');
     console.log('✅ Dashboard stats loaded from PostgreSQL database:', stats);
     return stats;
   } catch (error) {
@@ -1135,9 +1329,9 @@ export const getDashboardStats = async (): Promise<any> => {
 /**
  * Get revenue analytics from PostgreSQL database
  */
-export const getRevenueAnalytics = async (period: string = 'monthly'): Promise<any> => {
+export const getRevenueAnalytics = async (period: string = 'monthly'): Promise<AnalyticsOverview> => {
   try {
-    const analytics = await apiCall(`/admin/analytics/revenue?period=${period}`);
+    const analytics = await apiCall(`/analytics/revenue?period=${period}`);
     console.log(`✅ Revenue analytics (${period}) loaded from database:`, analytics);
     return analytics;
   } catch (error) {
@@ -1173,7 +1367,7 @@ export const globalSearch = async (query: string): Promise<{
   employees: Employee[];
 }> => {
   try {
-    const results = await apiCall(`/admin/search?q=${encodeURIComponent(query)}`);
+    const results = await apiCall(`/search?q=${encodeURIComponent(query)}`);
     console.log(`✅ Global search results for "${query}" from database:`, results);
     return results;
   } catch (error) {
@@ -1190,9 +1384,9 @@ export const bulkImportData = async (data: {
   subcategories?: Subcategory[];
   services?: Service[];
   employees?: Employee[];
-}): Promise<{ success: boolean; imported: number; errors: any[] }> => {
+}): Promise<{ success: boolean; imported: number; errors: Error[] }> => {
   try {
-    const result = await apiCall('/admin/bulk-import', {
+    const result = await apiCall('/bulk-import', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -1200,7 +1394,7 @@ export const bulkImportData = async (data: {
     return result;
   } catch (error) {
     console.error('❌ Bulk import failed:', error);
-    return { success: false, imported: 0, errors: [error] };
+    return { success: false, imported: 0, errors: [error instanceof Error ? error : new Error(String(error))] };
   }
 };
 
@@ -1215,7 +1409,7 @@ export const exportAllData = async (): Promise<{
   coupons: Coupon[];
 }> => {
   try {
-    const data = await apiCall('/admin/export');
+    const data = await apiCall('/export');
     console.log('✅ Data export completed from database:', data);
     return data;
   } catch (error) {
@@ -1495,7 +1689,7 @@ export const setDefaultUserAddress = async (addressId: string): Promise<boolean>
  */
 export const getOfferPlans = async (): Promise<OfferPlan[]> => {
   try {
-    const offers = await apiCall('/admin/offer-plans');
+    const offers = await apiCall('/offer-plans');
     console.log('✅ Offer plans loaded from backend API:', offers.length);
     return offers;
   } catch (error) {
@@ -1509,7 +1703,7 @@ export const getOfferPlans = async (): Promise<OfferPlan[]> => {
  */
 export const createOfferPlan = async (offerData: Omit<OfferPlan, 'id' | 'created_at' | 'updated_at'>): Promise<OfferPlan | null> => {
   try {
-    const newOffer = await apiCall('/admin/offer-plans', {
+    const newOffer = await apiCall('/offer-plans', {
       method: 'POST',
       body: JSON.stringify(offerData),
     });
@@ -1526,7 +1720,7 @@ export const createOfferPlan = async (offerData: Omit<OfferPlan, 'id' | 'created
  */
 export const updateOfferPlan = async (offerId: string, updates: Partial<OfferPlan>): Promise<OfferPlan | null> => {
   try {
-    const updatedOffer = await apiCall(`/admin/offer-plans/${offerId}`, {
+    const updatedOffer = await apiCall(`/offer-plans/${offerId}`, {
       method: 'PUT',
       body: JSON.stringify(updates),
     });
@@ -1543,7 +1737,7 @@ export const updateOfferPlan = async (offerId: string, updates: Partial<OfferPla
  */
 export const deleteOfferPlan = async (offerId: string): Promise<boolean> => {
   try {
-    await apiCall(`/admin/offer-plans/${offerId}`, {
+    await apiCall(`/offer-plans/${offerId}`, {
       method: 'DELETE',
     });
     console.log('✅ Offer plan deleted:', offerId);
@@ -1560,7 +1754,7 @@ export const deleteOfferPlan = async (offerId: string): Promise<boolean> => {
 export const calculateOfferTotals = async (
   planId: string, 
   serviceIds: string[], 
-  selectedServices: Record<string, any>
+  selectedServices: Record<string, { quantity?: number; customizations?: string[] }>
 ): Promise<{
   subtotal: number;
   discount: number;
@@ -1680,7 +1874,7 @@ export const forceRefreshAdminData = async (): Promise<boolean> => {
  */
 export const getContactSettings = async (): Promise<ContactSettings> => {
   try {
-    const settings = await apiCall('/admin/contact-settings');
+    const settings = await apiCall('/contact-settings');
     console.log('✅ Contact settings loaded from backend API:', settings);
     return settings;
   } catch (error) {
@@ -1710,7 +1904,7 @@ export const updateContactSettings = async (
   try {
     const payload = { ...settingsData, updated_by: userRole };
     
-    const updatedSettings = await apiCall('/admin/contact-settings', {
+    const updatedSettings = await apiCall('/contact-settings', {
       method: 'PUT',
       body: JSON.stringify(payload),
     });
@@ -1731,7 +1925,7 @@ export const updateContactSettings = async (
  */
 export const getAnalyticsOverview = async (period: TimePeriod): Promise<AnalyticsOverview> => {
   try {
-    const analytics = await apiCall(`/admin/analytics/overview?period=${period}`);
+    const analytics = await apiCall(`/analytics/overview?period=${period}`);
     console.log(`✅ Analytics overview loaded for ${period}:`, analytics);
     return analytics;
   } catch (error) {
@@ -1740,14 +1934,9 @@ export const getAnalyticsOverview = async (period: TimePeriod): Promise<Analytic
     return {
       totalRevenue: 0,
       totalOrders: 0,
-      totalCustomers: 0,
-      totalServices: 0,
-      revenueGrowth: 0,
-      ordersGrowth: 0,
-      customersGrowth: 0,
-      servicesGrowth: 0,
-      revenueTimeSeries: [],
-      ordersTimeSeries: [],
+      avgOrderValue: 0,
+      monthlyGrowth: 0,
+      timeSeriesData: [],
       topServices: [],
       topCategories: [],
       period
@@ -1814,25 +2003,25 @@ export type {
 /**
  * @deprecated Use getCategories() instead - this was for hardcoded data
  */
-export const bulkInsertCategories = async (): Promise<{ success: boolean; inserted: number; errors: any[] }> => {
+export const bulkInsertCategories = async (): Promise<{ success: boolean; inserted: number; errors: Error[] }> => {
   console.warn('🚫 bulkInsertCategories is deprecated - categories should be managed via PostgreSQL database');
-  return { success: false, inserted: 0, errors: ['Function deprecated'] };
+  return { success: false, inserted: 0, errors: [new Error('Function deprecated')] };
 };
 
 /**
  * @deprecated Use getServices() instead - this was for hardcoded data  
  */
-export const bulkInsertServices = async (): Promise<{ success: boolean; inserted: number; errors: any[] }> => {
+export const bulkInsertServices = async (): Promise<{ success: boolean; inserted: number; errors: Error[] }> => {
   console.warn('🚫 bulkInsertServices is deprecated - services should be managed via PostgreSQL database');
-  return { success: false, inserted: 0, errors: ['Function deprecated'] };
+  return { success: false, inserted: 0, errors: [new Error('Function deprecated')] };
 };
 
 /**
  * @deprecated Use getCoupons() instead - this was for hardcoded data
  */
-export const bulkInsertCoupons = async (): Promise<{ success: boolean; inserted: number; errors: any[] }> => {
+export const bulkInsertCoupons = async (): Promise<{ success: boolean; inserted: number; errors: Error[] }> => {
   console.warn('🚫 bulkInsertCoupons is deprecated - coupons should be managed via PostgreSQL database');
-  return { success: false, inserted: 0, errors: ['Function deprecated'] };
+  return { success: false, inserted: 0, errors: [new Error('Function deprecated')] };
 };
 
 // ============================================================================

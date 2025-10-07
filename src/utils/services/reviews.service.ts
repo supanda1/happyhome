@@ -64,6 +64,9 @@ export const reviewsService = {
    */
   async getReview(id: string): Promise<Review> {
     const response = await apiClient.get<ApiResponse<Review>>(`/reviews/${id}`);
+    if (!response.data) {
+      throw new Error(`Review ${id} not found`);
+    }
     return response.data;
   },
 
@@ -128,17 +131,28 @@ export const reviewsService = {
     // If photos are included, upload them first
     if (reviewData.photos && reviewData.photos.length > 0) {
       const photoUrls = await this.uploadReviewPhotos(reviewData.photos);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { photos, ...reviewWithoutPhotos } = reviewData;
       
       const response = await apiClient.post<ApiResponse<Review>>('/reviews', {
         ...reviewWithoutPhotos,
         photos: photoUrls,
       });
+      if (!response.data) {
+        throw new Error('Failed to create review with photos');
+      }
       return response.data;
     }
 
-    const { photos, ...reviewWithoutPhotos } = reviewData;
-    const response = await apiClient.post<ApiResponse<Review>>('/reviews', reviewWithoutPhotos);
+    const response = await apiClient.post<ApiResponse<Review>>('/reviews', {
+      serviceId: reviewData.serviceId,
+      rating: reviewData.rating,
+      title: reviewData.title,
+      comment: reviewData.comment
+    });
+    if (!response.data) {
+      throw new Error('Failed to create review');
+    }
     return response.data;
   },
 
@@ -149,17 +163,25 @@ export const reviewsService = {
     // If photos are included, upload them first
     if (updates.photos && updates.photos.length > 0) {
       const photoUrls = await this.uploadReviewPhotos(updates.photos);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { photos, ...updatesWithoutPhotos } = updates;
       
       const response = await apiClient.patch<ApiResponse<Review>>(`/reviews/${id}`, {
         ...updatesWithoutPhotos,
         photos: photoUrls,
       });
+      if (!response.data) {
+        throw new Error(`Failed to update review ${id} with photos`);
+      }
       return response.data;
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { photos, ...updatesWithoutPhotos } = updates;
     const response = await apiClient.patch<ApiResponse<Review>>(`/reviews/${id}`, updatesWithoutPhotos);
+    if (!response.data) {
+      throw new Error(`Failed to update review ${id}`);
+    }
     return response.data;
   },
 
@@ -175,6 +197,9 @@ export const reviewsService = {
    */
   async approveReview(id: string): Promise<Review> {
     const response = await apiClient.patch<ApiResponse<Review>>(`/reviews/${id}/approve`);
+    if (!response.data) {
+      throw new Error(`Failed to approve review ${id}`);
+    }
     return response.data;
   },
 
@@ -185,6 +210,9 @@ export const reviewsService = {
     const response = await apiClient.patch<ApiResponse<Review>>(`/reviews/${id}/reject`, {
       reason,
     });
+    if (!response.data) {
+      throw new Error(`Failed to reject review ${id}`);
+    }
     return response.data;
   },
 
@@ -193,6 +221,9 @@ export const reviewsService = {
    */
   async verifyReview(id: string): Promise<Review> {
     const response = await apiClient.patch<ApiResponse<Review>>(`/reviews/${id}/verify`);
+    if (!response.data) {
+      throw new Error(`Failed to verify review ${id}`);
+    }
     return response.data;
   },
 
@@ -201,6 +232,9 @@ export const reviewsService = {
    */
   async unverifyReview(id: string): Promise<Review> {
     const response = await apiClient.patch<ApiResponse<Review>>(`/reviews/${id}/unverify`);
+    if (!response.data) {
+      throw new Error(`Failed to unverify review ${id}`);
+    }
     return response.data;
   },
 
@@ -211,6 +245,9 @@ export const reviewsService = {
     const response = await apiClient.get<ApiResponse<ReviewStatistics>>(
       `/reviews/service/${serviceId}/statistics`
     );
+    if (!response.data) {
+      throw new Error(`Failed to get review statistics for service ${serviceId}`);
+    }
     return response.data;
   },
 
@@ -224,8 +261,20 @@ export const reviewsService = {
     approvedReviews: number;
     rejectedReviews: number;
   }> {
-    const response = await apiClient.get<ApiResponse<any>>('/reviews/statistics');
-    return response.data;
+    const response = await apiClient.get<ApiResponse<{
+      totalReviews: number;
+      averageRating: number;
+      pendingReviews: number;
+      approvedReviews: number;
+      rejectedReviews: number;
+    }>>('/reviews/statistics');
+    return response.data || {
+      totalReviews: 0,
+      averageRating: 0,
+      pendingReviews: 0,
+      approvedReviews: 0,
+      rejectedReviews: 0
+    };
   },
 
   /**
@@ -237,7 +286,7 @@ export const reviewsService = {
     );
     
     const responses = await Promise.all(uploadPromises);
-    return responses.map(response => response.data.url);
+    return responses.map(response => response.data?.url || '');
   },
 
   /**
@@ -270,7 +319,7 @@ export const reviewsService = {
     const response = await apiClient.get<ApiResponse<{ canReview: boolean; reason?: string }>>(
       `/reviews/can-review/${serviceId}`
     );
-    return response.data;
+    return response.data || { canReview: false, reason: 'Unable to determine eligibility' };
   },
 };
 

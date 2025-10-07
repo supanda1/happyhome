@@ -6,7 +6,7 @@
 import axios from 'axios';
 import type { AxiosInstance, AxiosRequestConfig, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import { config } from './config';
-import { createErrorFromResponse } from './errors';
+import { createErrorFromResponse, type ValidationErrorDetail } from './errors';
 
 interface TokenStorage {
   getAccessToken: () => string | null;
@@ -35,7 +35,7 @@ class SessionTokenStorage implements TokenStorage {
     return null;
   }
 
-  setTokens(accessToken: string, refreshToken: string): void {
+  setTokens(): void {
     // Tokens are set by backend as HTTP-only cookies
     // Frontend doesn't handle token storage anymore
   }
@@ -64,7 +64,7 @@ class LocalTokenStorage implements TokenStorage {
     return null; // Disabled for security
   }
 
-  setTokens(accessToken: string, refreshToken: string): void {
+  setTokens(): void {
     console.warn('🚫 SECURITY: LocalTokenStorage is deprecated. Tokens managed by backend.');
   }
 
@@ -135,7 +135,7 @@ export class ApiClient {
             return this.axiosInstance(originalRequest);
           } catch (refreshError) {
             this.onRefreshFailure();
-            return Promise.reject(createErrorFromResponse(refreshError));
+            return Promise.reject(createErrorFromResponse(refreshError as { message?: string; response?: { status: number; data?: { message?: string; code?: string; details?: Record<string, unknown>; validationErrors?: ValidationErrorDetail[] } } }));
           } finally {
             this.isRefreshing = false;
           }
@@ -231,7 +231,7 @@ export class ApiClient {
     // SECURITY: Call backend logout to clear HTTP-only cookies
     try {
       await this.post('/auth/logout', {});
-    } catch (error) {
+    } catch {
       console.warn('Logout request failed, but clearing local session anyway');
     }
     this.tokenStorage.clearTokens();
@@ -250,7 +250,7 @@ export class ApiClient {
       // Check authentication status with backend
       const response = await this.get('/auth/me');
       return !!response;
-    } catch (error) {
+    } catch {
       return false;
     }
   }

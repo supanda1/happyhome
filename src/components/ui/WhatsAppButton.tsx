@@ -53,7 +53,7 @@ const WhatsAppButton: React.FC<WhatsAppButtonProps> = ({
           }
         }
       } catch (error) {
-        if (isMounted && error.name !== 'AbortError') {
+        if (isMounted && (error as Error).name !== 'AbortError') {
           console.warn('⚠️ Failed to fetch WhatsApp number from backend, using fallback:', error);
         }
       }
@@ -163,7 +163,7 @@ const WhatsAppButton: React.FC<WhatsAppButtonProps> = ({
             trackWhatsAppInteraction('attempted_mobile_app');
           }, 100);
           
-        } catch (error) {
+        } catch {
           // If app URL fails, open web version directly
           window.open(whatsAppUrl, '_blank', 'noopener,noreferrer');
           trackWhatsAppInteraction('opened_web_direct');
@@ -191,7 +191,7 @@ const WhatsAppButton: React.FC<WhatsAppButtonProps> = ({
         await navigator.clipboard.writeText(`WhatsApp: +91${activePhone}\nMessage: ${message}`);
         alert(`WhatsApp couldn't open automatically. Contact details copied to clipboard!\n\nPhone: +91${activePhone}\nMessage: ${message}`);
         trackWhatsAppInteraction('copied_to_clipboard');
-      } catch (clipboardError) {
+      } catch {
         alert(`WhatsApp couldn't open. Please contact us at:\nPhone: +91${activePhone}\nMessage: ${message}`);
         trackWhatsAppInteraction('showed_manual_instructions');
       }
@@ -200,7 +200,7 @@ const WhatsAppButton: React.FC<WhatsAppButtonProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [disabled, isLoading, whatsAppUrl, phoneNumber, backendPhone, message, onSuccess, onError, trackWhatsAppInteraction]);
+  }, [disabled, isLoading, whatsAppUrl, phoneNumber, backendPhone, message, onSuccess, onError, trackWhatsAppInteraction, formatMessage]);
 
   const getSizeClasses = () => {
     switch (size) {

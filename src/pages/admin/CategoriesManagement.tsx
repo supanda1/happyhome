@@ -137,28 +137,99 @@ const CategoriesManagement: React.FC<CategoriesManagementProps> = ({ onCategoryC
 
   console.log('🔍 CategoriesManagement render - loading state:', loading, 'categories count:', categories.length);
   
+  // Custom CSS for enhanced animations
+  const customStyles = `
+    @keyframes fade-in {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    @keyframes bounce-in {
+      0% { transform: translateY(-100px) scale(0.8); opacity: 0; }
+      50% { transform: translateY(0px) scale(1.05); opacity: 1; }
+      65% { transform: translateY(-10px) scale(1.02); }
+      81% { transform: translateY(0px) scale(1); }
+      100% { transform: translateY(0px) scale(1); opacity: 1; }
+    }
+    
+    @keyframes shimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+  `;
+
   if (loading) {
     console.log('🔄 CategoriesManagement: Still loading - showing spinner');
     return (
-      <div className="flex items-center justify-center h-64">
-        <span className="text-blue-600 font-semibold">Loading categories...</span>
-      </div>
+      <>
+        <style>{customStyles}</style>
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center animate-fade-in">
+          <div className="text-center animate-bounce-in">
+            <div className="relative mb-8">
+              <div className="animate-spin rounded-full h-20 w-20 border-4 border-transparent bg-gradient-to-r from-purple-500 via-blue-500 to-indigo-500 bg-clip-border mx-auto"></div>
+              <div className="absolute inset-3 bg-white rounded-full"></div>
+              <div className="absolute inset-4 animate-pulse bg-gradient-to-r from-blue-400 via-purple-500 to-indigo-500 rounded-full"></div>
+            </div>
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl px-8 py-6 shadow-2xl border border-white/50 relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent -skew-x-12 animate-shimmer"></div>
+              <div className="relative z-10">
+                <h3 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-3">
+                  Loading Categories
+                </h3>
+                <p className="text-gray-600 font-medium">Fetching service categories and hierarchy...</p>
+                <div className="flex items-center justify-center space-x-2 mt-4">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
+                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                  <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </>
     );
   }
   
   console.log('✅ CategoriesManagement: Loading complete - showing content with', categories.length, 'categories');
 
   return (
-    <div className="space-y-6">
-      {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-purple-600 to-indigo-700 rounded-xl p-8 text-white relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full transform translate-x-16 -translate-y-16"></div>
-        <div className="absolute bottom-0 left-0 w-24 h-24 bg-white opacity-5 rounded-full transform -translate-x-12 translate-y-12"></div>
-        <div className="relative z-10">
-          <h1 className="text-3xl font-bold mb-3 tracking-tight">Categories Management</h1>
-          <p className="text-purple-100 text-lg leading-relaxed">Organize and manage your service categories - the foundation of your customer portal</p>
-        </div>
-      </div>
+    <>
+      <style>{customStyles}</style>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 animate-fade-in">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+          {/* Enhanced Header Section */}
+          <div className="relative overflow-hidden">
+            <div className="bg-gradient-to-r from-purple-600 to-indigo-700 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full transform translate-x-16 -translate-y-16 blur-2xl"></div>
+              <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full transform -translate-x-12 translate-y-12 blur-xl"></div>
+              <div className="relative z-10">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center space-x-3 mb-4">
+                      <div className="bg-white/20 rounded-2xl p-3">
+                        <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h1 className="text-4xl font-bold text-white tracking-tight">Categories Management</h1>
+                        <p className="text-purple-100 text-lg">Organize and manage your service categories</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="hidden md:block">
+                    <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-white">{categories.length}</div>
+                        <div className="text-sm text-purple-100">Total Categories</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-purple-100 text-xl leading-relaxed mt-4">The foundation of your customer portal</p>
+              </div>
+            </div>
+          </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -166,36 +237,36 @@ const CategoriesManagement: React.FC<CategoriesManagementProps> = ({ onCategoryC
         {/* Total Categories */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-4 text-center">
-            <p className="text-sm font-medium text-blue-100 mb-2">Total Categories</p>
+            <p className="text-base font-medium text-blue-100 mb-2">Total Categories</p>
             <p className="text-4xl font-bold text-white">{categories.length}</p>
-            <p className="text-xs text-blue-200 mt-2">Service Groups</p>
+            <p className="text-sm text-blue-200 mt-2">Service Groups</p>
           </div>
         </div>
 
         {/* Active Categories */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-4 text-center">
-            <p className="text-sm font-medium text-green-100 mb-2">Active Categories</p>
+            <p className="text-base font-medium text-green-100 mb-2">Active Categories</p>
             <p className="text-4xl font-bold text-white">{categories.filter(c => c.is_active).length}</p>
-            <p className="text-xs text-green-200 mt-2">Live & Visible</p>
+            <p className="text-sm text-green-200 mt-2">Live & Visible</p>
           </div>
         </div>
 
         {/* Customer Portal Sync */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg p-4 text-center">
-            <p className="text-sm font-medium text-purple-100 mb-2">Portal Sync</p>
-            <p className="text-2xl font-bold text-white">LIVE</p>
-            <p className="text-xs text-purple-200 mt-2">Real-time</p>
+            <p className="text-base font-medium text-purple-100 mb-2">Portal Sync</p>
+            <p className="text-3xl font-bold text-white">LIVE</p>
+            <p className="text-sm text-purple-200 mt-2">Real-time</p>
           </div>
         </div>
 
         {/* Sort Order Range */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg p-4 text-center">
-            <p className="text-sm font-medium text-orange-100 mb-2">Display Order</p>
+            <p className="text-base font-medium text-orange-100 mb-2">Display Order</p>
             <p className="text-4xl font-bold text-white">{Math.max(...categories.map(c => c.sort_order), 0)}</p>
-            <p className="text-xs text-orange-200 mt-2">Max Position</p>
+            <p className="text-sm text-orange-200 mt-2">Max Position</p>
           </div>
         </div>
 
@@ -204,8 +275,8 @@ const CategoriesManagement: React.FC<CategoriesManagementProps> = ({ onCategoryC
       {/* Header Actions */}
       <div className="flex items-center justify-between bg-white rounded-lg shadow-sm border border-gray-200 p-4">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">Category Operations</h2>
-          <p className="text-gray-600 text-sm">Manage service categories visible in customer portal - changes sync instantly</p>
+          <h2 className="text-xl font-semibold text-gray-900">Category Operations</h2>
+          <p className="text-gray-600 text-base">Manage service categories visible in customer portal - changes sync instantly</p>
         </div>
         <button
           onClick={() => setShowForm(true)}
@@ -221,16 +292,16 @@ const CategoriesManagement: React.FC<CategoriesManagementProps> = ({ onCategoryC
           <div className="bg-white rounded-xl p-8 w-full max-w-lg shadow-2xl">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h3 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+                <h3 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
                   {editingCategory ? 'Edit Category' : 'Create New Category'}
                 </h3>
-                <p className="text-gray-600 mt-1">
+                <p className="text-gray-600 mt-1 text-base">
                   {editingCategory ? 'Update category information' : 'Add a new service category to your platform'}
                 </p>
               </div>
               <button
                 onClick={resetForm}
-                className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded px-3 py-1 transition-colors text-sm font-medium"
+                className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded px-3 py-1 transition-colors text-base font-medium"
               >
                 CLOSE
               </button>
@@ -238,7 +309,7 @@ const CategoriesManagement: React.FC<CategoriesManagementProps> = ({ onCategoryC
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-1">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-base font-semibold text-gray-700 mb-2">
                   Category Name *
                 </label>
                 <input
@@ -252,7 +323,7 @@ const CategoriesManagement: React.FC<CategoriesManagementProps> = ({ onCategoryC
               </div>
 
               <div className="space-y-1">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-base font-semibold text-gray-700 mb-2">
                   Description *
                 </label>
                 <textarea
@@ -266,7 +337,7 @@ const CategoriesManagement: React.FC<CategoriesManagementProps> = ({ onCategoryC
               </div>
 
               <div className="space-y-1">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-base font-semibold text-gray-700 mb-2">
                   Sort Order
                 </label>
                 <input
@@ -276,7 +347,7 @@ const CategoriesManagement: React.FC<CategoriesManagementProps> = ({ onCategoryC
                   className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
                   placeholder="0"
                 />
-                <p className="text-xs text-gray-500 mt-1">Lower numbers appear first in the category list</p>
+                <p className="text-sm text-gray-500 mt-1">Lower numbers appear first in the category list</p>
               </div>
 
               <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-4 rounded-lg border border-purple-200">
@@ -288,11 +359,11 @@ const CategoriesManagement: React.FC<CategoriesManagementProps> = ({ onCategoryC
                     onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
                     className="h-5 w-5 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
                   />
-                  <label htmlFor="is_active" className="ml-3 block text-sm font-medium text-gray-700">
+                  <label htmlFor="is_active" className="ml-3 block text-base font-medium text-gray-700">
                     Active Category
                   </label>
                 </div>
-                <p className="text-xs text-gray-600 ml-8 mt-1">When enabled, this category will be visible to customers</p>
+                <p className="text-sm text-gray-600 ml-8 mt-1">When enabled, this category will be visible to customers</p>
               </div>
 
               <div className="flex space-x-4 pt-6">
@@ -324,10 +395,10 @@ const CategoriesManagement: React.FC<CategoriesManagementProps> = ({ onCategoryC
               <p className="text-gray-600 mt-1">{categories.length} categories • {categories.filter(c => c.is_active).length} active</p>
             </div>
             <div className="flex space-x-2">
-              <div className="bg-green-100 text-green-800 px-3 py-2 rounded-lg text-sm font-medium">
+              <div className="bg-green-100 text-green-800 px-3 py-2 rounded-lg text-base font-medium">
                 {categories.filter(c => c.is_active).length} Active
               </div>
-              <div className="bg-gray-100 text-gray-800 px-3 py-2 rounded-lg text-sm font-medium">
+              <div className="bg-gray-100 text-gray-800 px-3 py-2 rounded-lg text-base font-medium">
                 {categories.filter(c => !c.is_active).length} Inactive
               </div>
             </div>
@@ -338,38 +409,38 @@ const CategoriesManagement: React.FC<CategoriesManagementProps> = ({ onCategoryC
           <table className="w-full">
             <thead className="bg-gradient-to-r from-purple-50 to-blue-50">
               <tr>
-                <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                <th className="px-8 py-4 text-left text-base font-semibold text-gray-700 uppercase tracking-wider">
                   Category Name
                 </th>
-                <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                <th className="px-8 py-4 text-left text-base font-semibold text-gray-700 uppercase tracking-wider">
                   Description
                 </th>
-                <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                <th className="px-8 py-4 text-left text-base font-semibold text-gray-700 uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                <th className="px-8 py-4 text-left text-base font-semibold text-gray-700 uppercase tracking-wider">
                   Sort Order
                 </th>
-                <th className="px-8 py-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                <th className="px-8 py-4 text-left text-base font-semibold text-gray-700 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
-              {categories.map((category, index) => (
+              {categories.map((category) => (
                 <tr key={category.id} className="hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-300">
                   <td className="px-8 py-6 whitespace-nowrap">
                     <div>
                       <div className="text-base font-bold text-gray-900 mb-1">
                         {category.name}
                       </div>
-                      <div className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-full inline-block">
+                      <div className="text-base text-gray-500 bg-gray-100 px-2 py-1 rounded-full inline-block">
                         ID: {category.id.slice(-8)}
                       </div>
                     </div>
                   </td>
                   <td className="px-8 py-6">
-                    <div className="text-sm text-gray-700 max-w-xs">
+                    <div className="text-base text-gray-700 max-w-xs">
                       {category.description}
                     </div>
                   </td>
@@ -431,8 +502,10 @@ const CategoriesManagement: React.FC<CategoriesManagementProps> = ({ onCategoryC
             </button>
           </div>
         )}
+        </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 };
 

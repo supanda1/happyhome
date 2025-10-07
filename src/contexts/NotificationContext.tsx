@@ -77,6 +77,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({
 };
 
 // Custom hook to use notifications
+// eslint-disable-next-line react-refresh/only-export-components
 export const useNotifications = (): NotificationContextType => {
   const context = useContext(NotificationContext);
   if (context === undefined) {
@@ -86,6 +87,7 @@ export const useNotifications = (): NotificationContextType => {
 };
 
 // Convenience hooks for different notification types
+// eslint-disable-next-line react-refresh/only-export-components
 export const useNotify = () => {
   const { addNotification } = useNotifications();
 

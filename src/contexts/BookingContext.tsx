@@ -192,7 +192,7 @@ export const BookingProvider: React.FC<BookingProviderProps> = ({ children }) =>
   // Fetch coupons from backend database API
   const fetchCoupons = async (): Promise<Coupon[]> => {
     try {
-      const response = await fetch('/api/coupons', {
+      const response = await fetch('/api/coupons/active', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -530,6 +530,7 @@ export const BookingProvider: React.FC<BookingProviderProps> = ({ children }) =>
 };
 
 // Custom hook to use booking context
+// eslint-disable-next-line react-refresh/only-export-components
 export const useBooking = (): BookingContextType => {
   const context = useContext(BookingContext);
   if (context === undefined) {

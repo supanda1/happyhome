@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FiPlus, FiSettings, FiTrash2, FiSend, FiCheck, FiX, FiEdit, FiEye } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiSend, FiX, FiEdit, FiEye } from 'react-icons/fi';
 
 interface SMSProvider {
   id: string;
@@ -28,7 +28,6 @@ const SMSProviders: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingProvider, setEditingProvider] = useState<SMSProvider | null>(null);
   const [testingProvider, setTestingProvider] = useState<string | null>(null);
-  const [selectedProvider, setSelectedProvider] = useState<SMSProvider | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -529,7 +528,7 @@ const SMSProviders: React.FC = () => {
                     <select
                       value={formData.provider_type}
                       onChange={(e) => {
-                        setFormData({...formData, provider_type: e.target.value as any});
+                        setFormData({...formData, provider_type: e.target.value as 'twilio' | 'textlocal' | 'teleo' | 'aws_sns' | 'mock'});
                         setConfig({}); // Reset config when provider type changes
                       }}
                       className="w-full border border-gray-300 rounded-md px-3 py-2"

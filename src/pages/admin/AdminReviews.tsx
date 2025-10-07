@@ -16,7 +16,7 @@ import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { useServices } from '../../contexts/ServiceContext';
 import type { Review } from '../../types';
-import { Button, Input, Select, Card, CardHeader, CardContent, Badge } from '../../components/ui';
+import { Button, Input, Select, Card, CardContent, Badge } from '../../components/ui';
 
 const AdminReviews: React.FC = () => {
   const { services, loadServices } = useServices();
@@ -28,7 +28,6 @@ const AdminReviews: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [processingReview, setProcessingReview] = useState<string | null>(null);
 
   // Fetch reviews from backend database API
   const fetchReviews = async (): Promise<Review[]> => {
@@ -137,7 +136,6 @@ const AdminReviews: React.FC = () => {
 
   const handleApproveReview = async (reviewId: string) => {
     setActionLoading(reviewId);
-    setProcessingReview(reviewId);
     
     try {
       const updatedReview = await approveReviewAPI(reviewId);
@@ -157,7 +155,6 @@ const AdminReviews: React.FC = () => {
       alert(`Error approving review: ${errorMessage}`);
     } finally {
       setActionLoading(null);
-      setProcessingReview(null);
     }
   };
 
@@ -187,7 +184,6 @@ const AdminReviews: React.FC = () => {
   const handleRejectReview = async (reviewId: string) => {
     if (window.confirm('Are you sure you want to reject this review? This action cannot be undone.')) {
       setActionLoading(reviewId);
-      setProcessingReview(reviewId);
       
       try {
         const success = await deleteReviewAPI(reviewId);
@@ -205,7 +201,6 @@ const AdminReviews: React.FC = () => {
         alert(`Error rejecting review: ${errorMessage}`);
       } finally {
         setActionLoading(null);
-        setProcessingReview(null);
       }
     }
   };
@@ -430,7 +425,7 @@ const AdminReviews: React.FC = () => {
             <Select
               placeholder="All Status"
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
+              onChange={(e) => setStatusFilter(e.target.value as 'all' | 'pending' | 'approved' | 'rejected')}
               options={[
                 { value: 'all', label: 'All Status' },
                 { value: 'pending', label: 'Pending' },

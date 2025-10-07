@@ -5,7 +5,8 @@ import {
   updateCoupon,
   bulkInsertCoupons,
   getCategories,
-  generateUUID
+  generateUUID,
+  type Category
 } from '../../utils/adminDataManager';
 import { formatPrice } from '../../utils/priceFormatter';
 
@@ -49,7 +50,7 @@ interface CouponFormData {
 
 const CouponsManagement: React.FC = () => {
   const [coupons, setCoupons] = useState<Coupon[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   // Note: services removed - using database-only approach
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -477,65 +478,173 @@ const CouponsManagement: React.FC = () => {
     return new Date(coupon.valid_until) < new Date();
   };
 
+  // Custom CSS for enhanced animations
+  const customStyles = `
+    @keyframes fade-in {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    @keyframes bounce-in {
+      0% { transform: translateY(-100px) scale(0.8); opacity: 0; }
+      50% { transform: translateY(0px) scale(1.05); opacity: 1; }
+      65% { transform: translateY(-10px) scale(1.02); }
+      81% { transform: translateY(0px) scale(1); }
+      100% { transform: translateY(0px) scale(1); opacity: 1; }
+    }
+    
+    @keyframes shimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+  `;
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
+      <>
+        <style>{customStyles}</style>
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center animate-fade-in">
+          <div className="text-center animate-bounce-in">
+            <div className="relative mb-8">
+              <div className="animate-spin rounded-full h-20 w-20 border-4 border-transparent bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 bg-clip-border mx-auto"></div>
+              <div className="absolute inset-3 bg-white rounded-full"></div>
+              <div className="absolute inset-4 animate-pulse bg-gradient-to-r from-pink-400 via-purple-500 to-indigo-500 rounded-full"></div>
+            </div>
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl px-8 py-6 shadow-2xl border border-white/50 relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent -skew-x-12 animate-shimmer"></div>
+              <div className="relative z-10">
+                <h3 className="text-2xl font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent mb-3">
+                  Loading Coupons
+                </h3>
+                <p className="text-gray-600 font-medium">Fetching promotions and discount data...</p>
+                <div className="flex items-center justify-center space-x-2 mt-4">
+                  <div className="w-2 h-2 bg-pink-500 rounded-full animate-bounce"></div>
+                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                  <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-pink-600 to-rose-700 rounded-xl p-8 text-white relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full transform translate-x-16 -translate-y-16"></div>
-        <div className="absolute bottom-0 left-0 w-24 h-24 bg-white opacity-5 rounded-full transform -translate-x-12 translate-y-12"></div>
-        <div className="relative z-10">
-          <h1 className="text-3xl font-bold mb-3 tracking-tight">Coupons & Promotions</h1>
-          <p className="text-pink-100 text-lg leading-relaxed">Create attractive discount coupons and boost your sales with targeted promotions</p>
-        </div>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        
-        {/* Total Coupons */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-4 text-center">
-            <p className="text-sm font-medium text-blue-100 mb-2">Total Coupons</p>
-            <p className="text-4xl font-bold text-white">{coupons.length}</p>
-            <p className="text-xs text-blue-200 mt-2">Created</p>
+    <>
+      <style>{customStyles}</style>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 animate-fade-in">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+          {/* Enhanced Header Section */}
+          <div className="relative overflow-hidden">
+            <div className="bg-gradient-to-r from-pink-600 to-rose-700 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full transform translate-x-16 -translate-y-16 blur-2xl"></div>
+              <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full transform -translate-x-12 translate-y-12 blur-xl"></div>
+              <div className="relative z-10">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center space-x-3 mb-4">
+                      <div className="bg-white/20 rounded-2xl p-3">
+                        <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h1 className="text-4xl font-bold text-white tracking-tight">Coupons & Promotions</h1>
+                        <p className="text-pink-100 text-lg">Create attractive discount coupons and boost sales</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="hidden md:block">
+                    <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-white">{coupons.length}</div>
+                        <div className="text-sm text-pink-100">Total Coupons</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-pink-100 text-xl leading-relaxed mt-4">Drive customer engagement with targeted promotions</p>
+              </div>
+            </div>
           </div>
-        </div>
 
-        {/* Active Coupons */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-4 text-center">
-            <p className="text-sm font-medium text-green-100 mb-2">Active Coupons</p>
-            <p className="text-4xl font-bold text-white">{filteredCoupons.filter(c => c.is_active && new Date(c.valid_until) > new Date()).length}</p>
-            <p className="text-xs text-green-200 mt-2">Live & Available</p>
+          {/* Enhanced KPI Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            
+            {/* Total Coupons */}
+            <div className="group">
+              <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 p-6 transform transition-all duration-300 hover:scale-105 hover:shadow-2xl">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-3">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+                    </svg>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-3xl font-bold text-gray-900 mb-1">{coupons.length}</p>
+                  <p className="text-sm font-medium text-gray-600">Total Coupons</p>
+                  <p className="text-xs text-blue-600 mt-1 font-medium">All promotions</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Active Coupons */}
+            <div className="group">
+              <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 p-6 transform transition-all duration-300 hover:scale-105 hover:shadow-2xl">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl p-3">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-3xl font-bold text-gray-900 mb-1">{filteredCoupons.filter(c => c.is_active && new Date(c.valid_until) > new Date()).length}</p>
+                  <p className="text-sm font-medium text-gray-600">Active Coupons</p>
+                  <p className="text-xs text-green-600 mt-1 font-medium">Live & available</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Expired Coupons */}
+            <div className="group">
+              <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 p-6 transform transition-all duration-300 hover:scale-105 hover:shadow-2xl">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-xl p-3">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-3xl font-bold text-gray-900 mb-1">{coupons.filter(c => new Date(c.valid_until) < new Date()).length}</p>
+                  <p className="text-sm font-medium text-gray-600">Expired Coupons</p>
+                  <p className="text-xs text-orange-600 mt-1 font-medium">Past due</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Usage Statistics */}
+            <div className="group">
+              <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 p-6 transform transition-all duration-300 hover:scale-105 hover:shadow-2xl">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl p-3">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-3xl font-bold text-gray-900 mb-1">{coupons.reduce((sum, c) => sum + c.usage_count, 0)}</p>
+                  <p className="text-sm font-medium text-gray-600">Total Usage</p>
+                  <p className="text-xs text-purple-600 mt-1 font-medium">Times redeemed</p>
+                </div>
+              </div>
+            </div>
+
           </div>
-        </div>
-
-        {/* Expired Coupons */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg p-4 text-center">
-            <p className="text-sm font-medium text-orange-100 mb-2">Expired</p>
-            <p className="text-4xl font-bold text-white">{coupons.filter(c => new Date(c.valid_until) < new Date()).length}</p>
-            <p className="text-xs text-orange-200 mt-2">Past Due</p>
-          </div>
-        </div>
-
-        {/* Usage Statistics */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg p-4 text-center">
-            <p className="text-sm font-medium text-purple-100 mb-2">Total Usage</p>
-            <p className="text-4xl font-bold text-white">{coupons.reduce((sum, c) => sum + c.usage_count, 0)}</p>
-            <p className="text-xs text-purple-200 mt-2">Times Used</p>
-          </div>
-        </div>
-
       </div>
 
       {/* Database Error State */}
@@ -560,19 +669,19 @@ const CouponsManagement: React.FC = () => {
         </div>
       )}
 
-      {/* Empty State with Migration */}
-      {!databaseError && coupons.length === 0 && !loading && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-8 mb-6 text-center">
-          <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-blue-600 text-3xl font-bold">🎟️</span>
-          </div>
-          <h3 className="text-xl font-semibold text-blue-800 mb-2">No Coupons in Database</h3>
-          <p className="text-blue-600 mb-6">Your PostgreSQL database is empty. Migrate existing coupons to get started.</p>
-          <div className="flex justify-center space-x-4">
-            <button
-              onClick={handleBulkMigration}
-              disabled={migrationStatus === 'migrating'}
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+        {/* Empty State with Migration */}
+        {!databaseError && coupons.length === 0 && !loading && (
+          <div className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 border-2 border-blue-200 rounded-2xl p-10 mb-8 text-center shadow-xl backdrop-blur-sm">
+            <div className="w-24 h-24 bg-gradient-to-br from-blue-200 to-indigo-300 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
+              <span className="text-blue-700 text-4xl font-bold">🎟️</span>
+            </div>
+            <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-700 to-indigo-700 bg-clip-text text-transparent mb-3">No Coupons in Database</h3>
+            <p className="text-blue-700 text-lg mb-8 font-medium">Your PostgreSQL database is empty. Migrate existing coupons to get started.</p>
+            <div className="flex justify-center space-x-4">
+              <button
+                onClick={handleBulkMigration}
+                disabled={migrationStatus === 'migrating'}
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-4 rounded-xl transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-3 shadow-lg font-semibold"
             >
               {migrationStatus === 'migrating' ? (
                 <>
@@ -586,60 +695,73 @@ const CouponsManagement: React.FC = () => {
                 </>
               )}
             </button>
-            <button
-              onClick={() => setShowForm(true)}
-              className="bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition-colors"
-            >
-              Create New Coupon
-            </button>
+              <button
+                onClick={() => setShowForm(true)}
+                className="bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white px-8 py-4 rounded-xl transition-all transform hover:scale-105 shadow-lg font-semibold"
+              >
+                Create New Coupon
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Header Actions - Show only when coupons exist */}
-      {!databaseError && coupons.length > 0 && (
-        <div className="flex items-center justify-between bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Coupon Management</h2>
-          </div>
-          <div className="flex space-x-3">
-            <button
-              onClick={() => setShowForm(true)}
-              className="bg-gradient-to-r from-pink-600 to-rose-600 text-white px-6 py-3 rounded-lg hover:from-pink-700 hover:to-rose-700 transition-all duration-200 flex items-center space-x-2 shadow-md hover:shadow-lg"
-            >
-              <span>Add New Coupon</span>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Filter Tabs - Show only when coupons exist */}
-      {!databaseError && coupons.length > 0 && (
-        <div className="bg-white rounded-lg shadow">
-          <div className="border-b border-gray-200">
-            <nav className="-mb-px flex">
-              {[
-                { id: 'all', name: 'All Coupons', count: coupons.length },
-                { id: 'active', name: 'Active', count: coupons.filter(c => c.is_active && !isCouponExpired(c)).length },
-                { id: 'inactive', name: 'Inactive', count: coupons.filter(c => !c.is_active).length },
-                { id: 'expired', name: 'Expired', count: coupons.filter(c => isCouponExpired(c)).length }
-              ].map((tab) => (
+        {/* Header Actions - Show only when coupons exist */}
+        {!databaseError && coupons.length > 0 && (
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 p-6">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+              <div className="mb-4 lg:mb-0">
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                  Coupon Operations
+                  <span className="text-sm font-normal text-gray-600 ml-2">• Manage promotions & discounts</span>
+                </h2>
+                <p className="text-gray-600 font-medium">Create attractive discount coupons and boost customer engagement</p>
+              </div>
+              <div className="flex space-x-3">
                 <button
-                  key={tab.id}
-                  onClick={() => setFilterStatus(tab.id as any)}
-                  className={`py-4 px-6 border-b-2 font-medium text-sm ${
-                    filterStatus === tab.id
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                  onClick={() => setShowForm(true)}
+                  className="group relative px-6 py-3 bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700 text-white rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl font-bold flex items-center space-x-2 overflow-hidden"
                 >
-                  {tab.name} ({tab.count})
+                  <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+                  <svg className="w-5 h-5 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  <span className="relative z-10">Add New Coupon</span>
                 </button>
-              ))}
-            </nav>
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* Filter Tabs - Show only when coupons exist */}
+        {!databaseError && coupons.length > 0 && (
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 overflow-hidden">
+            <div className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 px-6 py-4">
+              <h3 className="text-lg font-bold text-gray-900">Filter Coupons</h3>
+            </div>
+            <div className="p-4">
+              <nav className="flex flex-wrap gap-3">
+                {[
+                  { id: 'all', name: 'All Coupons', count: coupons.length, colors: { bg: 'from-blue-500 to-blue-600', hover: 'hover:from-blue-600 hover:to-blue-700', ring: 'ring-2 ring-blue-200' } },
+                  { id: 'active', name: 'Active', count: coupons.filter(c => c.is_active && !isCouponExpired(c)).length, colors: { bg: 'from-green-500 to-green-600', hover: 'hover:from-green-600 hover:to-green-700', ring: 'ring-2 ring-green-200' } },
+                  { id: 'inactive', name: 'Inactive', count: coupons.filter(c => !c.is_active).length, colors: { bg: 'from-gray-500 to-gray-600', hover: 'hover:from-gray-600 hover:to-gray-700', ring: 'ring-2 ring-gray-200' } },
+                  { id: 'expired', name: 'Expired', count: coupons.filter(c => isCouponExpired(c)).length, colors: { bg: 'from-red-500 to-red-600', hover: 'hover:from-red-600 hover:to-red-700', ring: 'ring-2 ring-red-200' } }
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setFilterStatus(tab.id as 'all' | 'active' | 'inactive' | 'expired')}
+                    className={`py-3 px-6 rounded-xl font-semibold text-sm transition-all transform hover:scale-105 shadow-md ${
+                      filterStatus === tab.id
+                        ? `bg-gradient-to-r ${tab.colors.bg} ${tab.colors.hover} text-white ${tab.colors.ring}`
+                        : 'bg-white/70 text-gray-600 hover:bg-white hover:text-gray-800 border border-gray-200'
+                    }`}
+                  >
+                    {tab.name} <span className="font-bold">({tab.count})</span>
+                  </button>
+                ))}
+              </nav>
+            </div>
+          </div>
+        )}
 
       {/* Add/Edit Form Modal */}
       {showForm && (
@@ -723,7 +845,7 @@ const CouponsManagement: React.FC = () => {
                     <select
                       required
                       value={formData.discount_type}
-                      onChange={(e) => setFormData({ ...formData, discount_type: e.target.value as any })}
+                      onChange={(e) => setFormData({ ...formData, discount_type: e.target.value as 'percentage' | 'fixed_amount' | 'free_service' })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="percentage">Percentage Off</option>
@@ -1087,6 +1209,7 @@ const CouponsManagement: React.FC = () => {
         </div>
       )}
     </div>
+    </>
   );
 };
 

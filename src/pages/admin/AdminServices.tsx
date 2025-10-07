@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useServices } from '../../contexts/ServiceContext';
-import { Service, ServiceCategory, ServiceFormData } from '../../types';
-import { Button, Input, Select, Card, CardHeader, CardContent, Modal, ModalHeader, ModalBody, ModalFooter, Badge, PhotoUpload, PhotoFile } from '../../components/ui';
+import { Service, ServiceFormData } from '../../types';
+import { Button, Input, Select, Card, CardContent, Modal, ModalHeader, ModalBody, ModalFooter, Badge, PhotoUpload } from '../../components/ui';
+import type { PhotoFile } from '../../components/ui';
 
 const AdminServices: React.FC = () => {
   const {

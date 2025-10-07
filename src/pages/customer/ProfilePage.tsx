@@ -10,7 +10,7 @@ interface NotificationSettings {
 }
 
 const ProfilePage: React.FC = () => {
-  const { user, updateProfile: updateAuthProfile, refreshUser } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -113,8 +113,9 @@ const ProfilePage: React.FC = () => {
       await usersService.updateProfile(profileData);
       await refreshUser(); // Refresh user data in auth context
       showMessage('success', 'Profile updated successfully');
-    } catch (error: any) {
-      showMessage('error', error.message || 'Failed to update profile');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update profile';
+      showMessage('error', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -138,8 +139,9 @@ const ProfilePage: React.FC = () => {
       await usersService.changePassword(passwordData.currentPassword, passwordData.newPassword);
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
       showMessage('success', 'Password changed successfully');
-    } catch (error: any) {
-      showMessage('error', error.message || 'Failed to change password');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to change password';
+      showMessage('error', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -150,8 +152,9 @@ const ProfilePage: React.FC = () => {
       setLoading(true);
       await usersService.updatePreferences(notificationSettings);
       showMessage('success', 'Notification settings updated successfully');
-    } catch (error: any) {
-      showMessage('error', error.message || 'Failed to update notification settings');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update notification settings';
+      showMessage('error', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -164,8 +167,9 @@ const ProfilePage: React.FC = () => {
       await usersService.deleteAddress(addressId);
       setAddresses(addresses.filter(addr => addr.id !== addressId));
       showMessage('success', 'Address deleted successfully');
-    } catch (error: any) {
-      showMessage('error', error.message || 'Failed to delete address');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to delete address';
+      showMessage('error', errorMessage);
     }
   };
 
@@ -192,8 +196,9 @@ const ProfilePage: React.FC = () => {
       });
       setShowAddAddressForm(false);
       showMessage('success', 'Address added successfully');
-    } catch (error: any) {
-      showMessage('error', error.message || 'Failed to add address');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to add address';
+      showMessage('error', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -244,8 +249,9 @@ const ProfilePage: React.FC = () => {
       });
       
       showMessage('success', 'Address updated successfully');
-    } catch (error: any) {
-      showMessage('error', error.message || 'Failed to update address');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update address';
+      showMessage('error', errorMessage);
     } finally {
       setLoading(false);
     }

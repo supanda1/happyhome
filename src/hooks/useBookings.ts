@@ -15,9 +15,9 @@ import { useNotify } from '../contexts/NotificationContext';
  */
 export const useBookings = (params: Parameters<typeof bookingsService.getBookings>[0] = {}) => {
   return useQuery({
-    queryKey: queryKeys.bookings.list(params),
+    queryKey: queryKeys.bookings.list(params as Record<string, unknown>),
     queryFn: () => bookingsService.getBookings(params),
-    keepPreviousData: true, // For pagination
+    placeholderData: (previousData) => previousData, // For pagination
   });
 };
 
@@ -39,7 +39,7 @@ export const useMyBookings = (params: Parameters<typeof bookingsService.getMyBoo
   return useQuery({
     queryKey: [...queryKeys.bookings.all, 'my-bookings', params],
     queryFn: () => bookingsService.getMyBookings(params),
-    keepPreviousData: true,
+    placeholderData: (previousData) => previousData,
   });
 };
 
@@ -51,7 +51,7 @@ export const useUserBookings = (userId: string, params: Parameters<typeof bookin
     queryKey: queryKeys.bookings.user(userId),
     queryFn: () => bookingsService.getUserBookings(userId, params),
     enabled: !!userId,
-    keepPreviousData: true,
+    placeholderData: (previousData) => previousData,
   });
 };
 
@@ -111,7 +111,7 @@ export const useCreateBooking = () => {
       invalidateQueries.bookings();
       notify.success('Booking created successfully!');
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       notify.error(error.message || 'Failed to create booking');
     },
   });
@@ -136,7 +136,7 @@ export const useUpdateBooking = () => {
       invalidateQueries.bookings();
       notify.success('Booking updated successfully!');
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       notify.error(error.message || 'Failed to update booking');
     },
   });
@@ -164,7 +164,7 @@ export const useCancelBooking = () => {
       });
       notify.success('Booking cancelled successfully');
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       notify.error(error.message || 'Failed to cancel booking');
     },
   });
@@ -187,7 +187,7 @@ export const useConfirmBooking = () => {
       invalidateQueries.bookings();
       notify.success('Booking confirmed successfully!');
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       notify.error(error.message || 'Failed to confirm booking');
     },
   });
@@ -210,7 +210,7 @@ export const useStartBooking = () => {
       invalidateQueries.bookings();
       notify.success('Booking started successfully!');
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       notify.error(error.message || 'Failed to start booking');
     },
   });
@@ -234,7 +234,7 @@ export const useCompleteBooking = () => {
       invalidateQueries.bookings();
       notify.success('Booking completed successfully!');
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       notify.error(error.message || 'Failed to complete booking');
     },
   });
@@ -266,7 +266,7 @@ export const useRescheduleBooking = () => {
       });
       notify.success('Booking rescheduled successfully!');
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       notify.error(error.message || 'Failed to reschedule booking');
     },
   });
@@ -290,7 +290,7 @@ export const useRequestRefund = () => {
       invalidateQueries.bookings();
       notify.success('Refund request submitted successfully');
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       notify.error(error.message || 'Failed to request refund');
     },
   });
@@ -316,7 +316,7 @@ export const useProcessRefund = () => {
         `Refund ${updatedBooking.status === 'refunded' ? 'approved' : 'rejected'} successfully`
       );
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       notify.error(error.message || 'Failed to process refund');
     },
   });
@@ -339,7 +339,7 @@ export const useAddAdminNotes = () => {
       );
       notify.success('Admin notes added successfully');
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       notify.error(error.message || 'Failed to add admin notes');
     },
   });
@@ -356,7 +356,7 @@ export const useSendConfirmationEmail = () => {
     onSuccess: () => {
       notify.success('Confirmation email sent successfully');
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       notify.error(error.message || 'Failed to send confirmation email');
     },
   });
@@ -373,7 +373,7 @@ export const useSendReminderEmail = () => {
     onSuccess: () => {
       notify.success('Reminder email sent successfully');
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       notify.error(error.message || 'Failed to send reminder email');
     },
   });

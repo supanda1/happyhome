@@ -93,8 +93,8 @@ const SuperAdminUserManagement: React.FC = () => {
   });
   
   // Error State
-  const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [, setError] = useState<string | null>(null);
+  const [, setSuccessMessage] = useState<string | null>(null);
 
   // Production-grade API Configuration
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -135,7 +135,7 @@ const SuperAdminUserManagement: React.FC = () => {
         let errorDetails = null;
         
         try {
-          const errorData: APIResponse<any> = await response.json();
+          const errorData: APIResponse<unknown> = await response.json();
           if (errorData.error) {
             errorMessage = errorData.error;
           } else if (errorData.message) {
@@ -158,7 +158,7 @@ const SuperAdminUserManagement: React.FC = () => {
         throw new Error(errorMessage);
       }
       
-      const data: APIResponse<any> = await response.json();
+      const data: APIResponse<unknown> = await response.json();
       
       if (!data.success) {
         throw new Error(data.error || 'API call failed');
@@ -341,6 +341,18 @@ const SuperAdminUserManagement: React.FC = () => {
     }
   }, [apiCall, updateLoadingState, clearError]);
 
+  // Reset create form
+  const resetCreateForm = useCallback(() => {
+    setFormData({ 
+      email: '', 
+      password: '', 
+      firstName: '', 
+      lastName: '', 
+      phone: '' 
+    });
+    setFormErrors({});
+  }, []);
+
   // Production-grade create user with validation and proper feedback
   const createUser = useCallback(async () => {
     try {
@@ -399,19 +411,7 @@ const SuperAdminUserManagement: React.FC = () => {
     } finally {
       updateLoadingState('createUser', false);
     }
-  }, [formData, validateForm, users, apiCall, fetchUsers, updateLoadingState, clearError, showSuccess, sanitizeInput]);
-
-  // Reset create form
-  const resetCreateForm = useCallback(() => {
-    setFormData({ 
-      email: '', 
-      password: '', 
-      firstName: '', 
-      lastName: '', 
-      phone: '' 
-    });
-    setFormErrors({});
-  }, []);
+  }, [formData, validateForm, users, apiCall, fetchUsers, updateLoadingState, clearError, showSuccess, sanitizeInput, resetCreateForm]);
 
   // Production-grade toggle user status
   const toggleUserStatus = useCallback(async (userId: string, currentStatus: boolean) => {
@@ -625,14 +625,6 @@ const SuperAdminUserManagement: React.FC = () => {
     await fetchUserPermissions(user.id);
   }, [fetchUserPermissions]);
 
-  // Memoized computed values for performance
-  const userStats = useMemo(() => ({
-    total: users.length,
-    active: users.filter(user => user.is_active).length,
-    inactive: users.filter(user => !user.is_active).length,
-    admins: users.filter(user => user.role === 'admin').length,
-    superAdmins: users.filter(user => user.role === 'super_admin').length
-  }), [users]);
 
   const isMainLoading = useMemo(() => 
     loadingStates.users && users.length === 0, 

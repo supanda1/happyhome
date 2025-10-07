@@ -10,6 +10,27 @@ import {
   type Subcategory
 } from '../../utils/adminDataManager';
 
+// Custom CSS for enhanced animations
+const customStyles = `
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  @keyframes bounce-in {
+    0% { transform: translateY(-100px) scale(0.8); opacity: 0; }
+    50% { transform: translateY(0px) scale(1.05); opacity: 1; }
+    65% { transform: translateY(-10px) scale(1.02); }
+    81% { transform: translateY(0px) scale(1); }
+    100% { transform: translateY(0px) scale(1); opacity: 1; }
+  }
+  
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+`;
+
 interface SubcategoryFormData {
   category_id: string;
   name: string;
@@ -180,106 +201,209 @@ const SubcategoriesManagement: React.FC<SubcategoriesManagementProps> = ({ onCat
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
+      <>
+        <style>{customStyles}</style>
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center animate-fade-in">
+          <div className="text-center animate-bounce-in">
+            <div className="relative mb-8">
+              <div className="animate-spin rounded-full h-20 w-20 border-4 border-transparent bg-gradient-to-r from-purple-500 via-indigo-500 to-blue-500 bg-clip-border mx-auto"></div>
+              <div className="absolute inset-3 bg-white rounded-full"></div>
+              <div className="absolute inset-4 animate-pulse bg-gradient-to-r from-purple-400 via-indigo-500 to-blue-500 rounded-full"></div>
+            </div>
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl px-8 py-6 shadow-2xl border border-white/50 relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent -skew-x-12 animate-shimmer"></div>
+              <div className="relative z-10">
+                <h3 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent mb-3">
+                  Loading Subcategories
+                </h3>
+                <p className="text-gray-600 font-medium">Fetching service subcategories and hierarchy data...</p>
+                <div className="flex items-center justify-center space-x-2 mt-4">
+                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"></div>
+                  <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-purple-600 to-indigo-700 rounded-xl p-8 text-white relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full transform translate-x-16 -translate-y-16"></div>
-        <div className="absolute bottom-0 left-0 w-24 h-24 bg-white opacity-5 rounded-full transform -translate-x-12 translate-y-12"></div>
-        <div className="relative z-10">
-          <h1 className="text-3xl font-bold mb-3 tracking-tight">Subcategories Management</h1>
-          <p className="text-purple-100 text-lg leading-relaxed">Organize and manage service subcategories for better customer navigation</p>
-        </div>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        
-        {/* Total Subcategories */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-4 text-center">
-            <p className="text-sm font-medium text-blue-100 mb-2">Total Subcategories</p>
-            <p className="text-4xl font-bold text-white">{subcategories.length}</p>
-            <p className="text-xs text-blue-200 mt-2">Available</p>
+    <>
+      <style>{customStyles}</style>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 animate-fade-in">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+          {/* Enhanced Header Section */}
+          <div className="relative overflow-hidden">
+            <div className="bg-gradient-to-r from-purple-600 to-indigo-700 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full transform translate-x-16 -translate-y-16 blur-2xl"></div>
+              <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full transform -translate-x-12 translate-y-12 blur-xl"></div>
+              <div className="relative z-10">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center space-x-3 mb-4">
+                      <div className="bg-white/20 rounded-2xl p-3">
+                        <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h1 className="text-4xl font-bold text-white tracking-tight">Subcategories Management</h1>
+                        <p className="text-purple-100 text-lg">Organize service hierarchy and improve customer navigation</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="hidden md:block">
+                    <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-white">{subcategories.length}</div>
+                        <div className="text-sm text-purple-100">Total Subcategories</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-purple-100 text-xl leading-relaxed mt-4">Create and manage subcategories to organize your service offerings effectively</p>
+              </div>
+            </div>
           </div>
-        </div>
 
-        {/* Active Subcategories */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-4 text-center">
-            <p className="text-sm font-medium text-green-100 mb-2">Active</p>
-            <p className="text-4xl font-bold text-white">{subcategories.filter(s => s.is_active).length}</p>
-            <p className="text-xs text-green-200 mt-2">Live</p>
+          {/* Enhanced KPI Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            
+            {/* Total Subcategories */}
+            <div className="group">
+              <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 p-6 transform transition-all duration-300 hover:scale-105 hover:shadow-2xl">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-3">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+                    </svg>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-3xl font-bold text-gray-900 mb-1">{subcategories.length}</p>
+                  <p className="text-sm font-medium text-gray-600">Total Subcategories</p>
+                  <p className="text-xs text-blue-600 mt-1 font-medium">Available items</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Active Subcategories */}
+            <div className="group">
+              <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 p-6 transform transition-all duration-300 hover:scale-105 hover:shadow-2xl">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl p-3">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-3xl font-bold text-gray-900 mb-1">{subcategories.filter(s => s.is_active).length}</p>
+                  <p className="text-sm font-medium text-gray-600">Active Subcategories</p>
+                  <p className="text-xs text-green-600 mt-1 font-medium">Live & visible</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Parent Categories */}
+            <div className="group">
+              <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 p-6 transform transition-all duration-300 hover:scale-105 hover:shadow-2xl">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl p-3">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-3xl font-bold text-gray-900 mb-1">{categories.length}</p>
+                  <p className="text-sm font-medium text-gray-600">Parent Categories</p>
+                  <p className="text-xs text-purple-600 mt-1 font-medium">Main groups</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Average per Category */}
+            <div className="group">
+              <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 p-6 transform transition-all duration-300 hover:scale-105 hover:shadow-2xl">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-xl p-3">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-3xl font-bold text-gray-900 mb-1">{categories.length > 0 ? Math.round(subcategories.length / categories.length) : 0}</p>
+                  <p className="text-sm font-medium text-gray-600">Avg per Category</p>
+                  <p className="text-xs text-orange-600 mt-1 font-medium">Sub-items</p>
+                </div>
+              </div>
+            </div>
+
           </div>
-        </div>
 
-        {/* Parent Categories */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg p-4 text-center">
-            <p className="text-sm font-medium text-purple-100 mb-2">Parent Categories</p>
-            <p className="text-4xl font-bold text-white">{categories.length}</p>
-            <p className="text-xs text-purple-200 mt-2">Main Groups</p>
+          {/* Enhanced Header Actions */}
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 p-6">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+              <div className="mb-4 lg:mb-0">
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                  Subcategory Operations
+                  <span className="text-sm font-normal text-gray-600 ml-2">• Organize service hierarchy</span>
+                </h2>
+                <p className="text-gray-600 font-medium">Create and manage subcategories to organize your service offerings effectively</p>
+              </div>
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => setShowForm(true)}
+                  disabled={categories.length === 0}
+                  className="group relative px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed text-white rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl font-bold flex items-center space-x-2 overflow-hidden"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+                  <svg className="w-5 h-5 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  <span className="relative z-10">Add Subcategory</span>
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
 
-        {/* Average per Category */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg p-4 text-center">
-            <p className="text-sm font-medium text-orange-100 mb-2">Avg per Category</p>
-            <p className="text-4xl font-bold text-white">{categories.length > 0 ? Math.round(subcategories.length / categories.length) : 0}</p>
-            <p className="text-xs text-orange-200 mt-2">Sub-Items</p>
+          {/* Enhanced Category Filter */}
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 overflow-hidden">
+            <div className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 px-6 py-4">
+              <h3 className="text-lg font-bold text-gray-900">Filter by Category</h3>
+            </div>
+            <div className="p-6">
+              <div className="flex flex-wrap items-center gap-4">
+                <label className="text-sm font-semibold text-gray-700">Show subcategories for:</label>
+                <select
+                  value={selectedCategoryFilter}
+                  onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+                  className="px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors font-medium"
+                >
+                  <option value="">All Categories</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+                {selectedCategoryFilter && (
+                  <button
+                    onClick={() => setSelectedCategoryFilter('')}
+                    className="group relative px-4 py-2 bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white rounded-lg transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-lg font-medium text-sm overflow-hidden"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+                    <span className="relative z-10">Clear Filter</span>
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
-
-      </div>
-
-      {/* Header Actions */}
-      <div className="flex items-center justify-between bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900">Subcategory Operations</h2>
-          <p className="text-gray-600 text-sm">Create and manage subcategories to organize your service offerings</p>
-        </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 flex items-center space-x-2 shadow-md hover:shadow-lg disabled:opacity-50"
-          disabled={categories.length === 0}
-        >
-          <span>Add Subcategory</span>
-        </button>
-      </div>
-
-      {/* Category Filter */}
-      <div className="bg-white rounded-lg shadow p-4">
-        <div className="flex flex-wrap items-center gap-4">
-          <label className="text-sm font-medium text-gray-700">Filter by Category:</label>
-          <select
-            value={selectedCategoryFilter}
-            onChange={(e) => setSelectedCategoryFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">All Categories</option>
-            {categories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
-          </select>
-          {selectedCategoryFilter && (
-            <button
-              onClick={() => setSelectedCategoryFilter('')}
-              className="text-blue-600 hover:text-blue-800 text-sm"
-            >
-              Clear Filter
-            </button>
-          )}
-        </div>
-      </div>
 
       {/* Add/Edit Form Modal */}
       {showForm && (
@@ -540,7 +664,9 @@ const SubcategoriesManagement: React.FC<SubcategoriesManagementProps> = ({ onCat
         )}
       </div>
 
-    </div>
+        </div>
+      </div>
+    </>
   );
 };
 

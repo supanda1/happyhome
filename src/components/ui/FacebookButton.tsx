@@ -80,7 +80,8 @@ const FacebookButton: React.FC<FacebookButtonProps> = ({
           });
           onSuccess?.();
           return;
-        } catch (shareError) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        } catch (_shareError) {
           // Fall through to Facebook sharing if native sharing is cancelled
         }
       }
@@ -111,7 +112,8 @@ const FacebookButton: React.FC<FacebookButtonProps> = ({
           link.click();
           document.body.removeChild(link);
           clearTimeout(fallbackTimeout);
-        } catch (appError) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        } catch (_appError) {
           // Web version already opened, ignore app error
         }
       }
@@ -125,7 +127,8 @@ const FacebookButton: React.FC<FacebookButtonProps> = ({
       try {
         await navigator.clipboard.writeText(`Facebook: ${facebookUrl}\nShare: ${shareUrl}`);
         alert(`Facebook couldn't open automatically. Link copied to clipboard!\n\nFacebook: ${facebookUrl}\nShare: ${shareUrl}`);
-      } catch (clipboardError) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (_clipboardError) {
         alert(`Facebook couldn't open. Please visit:\n\nFacebook: ${facebookUrl}\nShare: ${shareUrl}`);
       }
       

@@ -19,7 +19,7 @@ export const useProfile = () => {
     queryFn: authService.getProfile,
     enabled: authService.isAuthenticated(),
     staleTime: 1000 * 60 * 5, // 5 minutes
-    retry: (failureCount, error: any) => {
+    retry: (failureCount, error: Error & { status?: number }) => {
       // Don't retry if user is not authenticated
       if (error?.status === 401) return false;
       return failureCount < 3;
@@ -58,7 +58,7 @@ export const useLogin = () => {
       // Invalidate and refetch user-specific data
       invalidateQueries.bookings();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       notify.error(error.message || 'Login failed');
     },
   });
@@ -78,7 +78,7 @@ export const useRegister = () => {
       queryClient.setQueryData(queryKeys.auth.user, data.user);
       notify.success('Registration successful!');
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       notify.error(error.message || 'Registration failed');
     },
   });
@@ -98,7 +98,7 @@ export const useLogout = () => {
       queryClient.clear();
       notify.success('Logged out successfully');
     },
-    onError: (error: any) => {
+    onError: () => {
       // Even if logout fails on server, clear local data
       queryClient.clear();
       notify.info('Logged out');
@@ -120,7 +120,7 @@ export const useUpdateProfile = () => {
       queryClient.setQueryData(queryKeys.auth.user, updatedUser);
       notify.success('Profile updated successfully!');
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       notify.error(error.message || 'Failed to update profile');
     },
   });
@@ -137,7 +137,7 @@ export const useChangePassword = () => {
     onSuccess: () => {
       notify.success('Password changed successfully!');
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       notify.error(error.message || 'Failed to change password');
     },
   });
@@ -154,7 +154,7 @@ export const useForgotPassword = () => {
     onSuccess: () => {
       notify.success('Password reset email sent!');
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       notify.error(error.message || 'Failed to send reset email');
     },
   });
@@ -171,7 +171,7 @@ export const useResetPassword = () => {
     onSuccess: () => {
       notify.success('Password reset successfully!');
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       notify.error(error.message || 'Failed to reset password');
     },
   });
@@ -191,7 +191,7 @@ export const useVerifyEmail = () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.auth.user });
       notify.success('Email verified successfully!');
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       notify.error(error.message || 'Failed to verify email');
     },
   });
@@ -208,7 +208,7 @@ export const useResendVerification = () => {
     onSuccess: () => {
       notify.success('Verification email sent!');
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       notify.error(error.message || 'Failed to send verification email');
     },
   });

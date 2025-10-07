@@ -10,7 +10,7 @@ export interface ApiError {
   timestamp: string;
 }
 
-export interface ValidationError {
+export interface ValidationErrorDetail {
   field: string;
   message: string;
   code: string;
@@ -78,9 +78,9 @@ export class AuthorizationError extends AppError {
 }
 
 export class ValidationError extends AppError {
-  public readonly validationErrors: ValidationError[];
+  public readonly validationErrors: ValidationErrorDetail[];
 
-  constructor(message: string, validationErrors: ValidationError[] = []) {
+  constructor(message: string, validationErrors: ValidationErrorDetail[] = []) {
     super(message, 'VALIDATION_ERROR', 400);
     this.name = 'ValidationError';
     this.validationErrors = validationErrors;
@@ -108,7 +108,18 @@ export class RateLimitError extends AppError {
   }
 }
 
-export const createErrorFromResponse = (error: any): AppError => {
+export const createErrorFromResponse = (error: { 
+  message?: string; 
+  response?: { 
+    status: number; 
+    data?: { 
+      message?: string; 
+      code?: string; 
+      details?: Record<string, unknown>;
+      validationErrors?: ValidationErrorDetail[];
+    }
+  } 
+}): AppError => {
   // Network error
   if (!error.response) {
     return new NetworkError(error.message || 'Network connection failed');

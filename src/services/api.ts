@@ -10,6 +10,16 @@ import type {
   ApiResponse
 } from '../types/api';
 
+// Assignment history type
+type AssignmentHistory = {
+  id: string;
+  orderId: string;
+  itemId: string;
+  assignedTo: string;
+  assignedAt: string;
+  assignedBy: string;
+};
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 // Generic API request function - Session-based authentication
@@ -66,19 +76,19 @@ export const ordersAPI = {
     }
     
     const queryString = searchParams.toString();
-    const endpoint = queryString ? `/v1/orders/?${queryString}` : '/v1/orders/';
+    const endpoint = queryString ? `/orders/?${queryString}` : '/orders/';
     
     return apiRequest<Order[]>(endpoint);
   },
 
   // Get single order by ID
   getById: async (id: string): Promise<ApiResponse<Order>> => {
-    return apiRequest<Order>(`/v1/orders/${id}`);
+    return apiRequest<Order>(`/orders/${id}`);
   },
 
   // Create new order (from checkout)
   create: async (orderData: CreateOrderRequest): Promise<ApiResponse<Order>> => {
-    return apiRequest<Order>('/v1/orders/', {
+    return apiRequest<Order>('/orders/', {
       method: 'POST',
       body: JSON.stringify(orderData),
     });
@@ -86,7 +96,7 @@ export const ordersAPI = {
 
   // Update order (status, priority, notes)
   update: async (id: string, updates: UpdateOrderRequest): Promise<ApiResponse<Order>> => {
-    return apiRequest<Order>(`/v1/orders/${id}`, {
+    return apiRequest<Order>(`/orders/${id}`, {
       method: 'PUT',
       body: JSON.stringify(updates),
     });
@@ -98,7 +108,7 @@ export const ordersAPI = {
     itemId: string, 
     updates: UpdateOrderItemRequest
   ): Promise<ApiResponse<OrderItem>> => {
-    return apiRequest<OrderItem>(`/v1/orders/${orderId}/items/${itemId}`, {
+    return apiRequest<OrderItem>(`/orders/${orderId}/items/${itemId}`, {
       method: 'PUT',
       body: JSON.stringify(updates),
     });
@@ -110,7 +120,7 @@ export const ordersAPI = {
     itemId: string, 
     assignment: AssignEngineerRequest
   ): Promise<ApiResponse<OrderItem>> => {
-    return apiRequest<OrderItem>(`/v1/orders/${orderId}/items/${itemId}/assign`, {
+    return apiRequest<OrderItem>(`/orders/${orderId}/items/${itemId}/assign`, {
       method: 'POST',
       body: JSON.stringify(assignment),
     });
@@ -126,8 +136,8 @@ export const ordersAPI = {
       scheduled_date?: string;
       scheduled_time_slot?: string;
     }>
-  ): Promise<ApiResponse<any>> => {
-    return apiRequest<any>('/v1/orders/bulk-assign', {
+  ): Promise<ApiResponse<{ assignments: string[] }>> => {
+    return apiRequest<{ assignments: string[] }>('/orders/bulk-assign', {
       method: 'POST',
       body: JSON.stringify({ assignments }),
     });
@@ -137,24 +147,24 @@ export const ordersAPI = {
   getAssignmentHistory: async (
     orderId: string, 
     itemId?: string
-  ): Promise<ApiResponse<any[]>> => {
+  ): Promise<ApiResponse<AssignmentHistory[]>> => {
     const endpoint = itemId 
-      ? `/v1/orders/${orderId}/items/${itemId}/assignments/history`
-      : `/v1/orders/${orderId}/assignments/history`;
+      ? `/orders/${orderId}/items/${itemId}/assignments/history`
+      : `/orders/${orderId}/assignments/history`;
     
-    return apiRequest<any[]>(endpoint);
+    return apiRequest<AssignmentHistory[]>(endpoint);
   },
 
   // Auto-assign engineers based on expertise and workload
-  autoAssignEngineers: async (orderId: string): Promise<ApiResponse<any>> => {
-    return apiRequest<any>(`/v1/orders/${orderId}/auto-assign`, {
+  autoAssignEngineers: async (orderId: string): Promise<ApiResponse<{ success: boolean; message: string }>> => {
+    return apiRequest<{ success: boolean; message: string }>(`/orders/${orderId}/auto-assign`, {
       method: 'POST',
     });
   },
 
   // Delete order
   delete: async (id: string): Promise<ApiResponse<null>> => {
-    return apiRequest<null>(`/v1/orders/${id}`, {
+    return apiRequest<null>(`/orders/${id}`, {
       method: 'DELETE',
     });
   },
@@ -196,7 +206,18 @@ export const ordersAPI = {
       }>;
     }>;
   }>> => {
-    return apiRequest<any>('/v1/orders/workload/engineers');
+    return apiRequest<{
+      success: boolean;
+      data: Array<{
+        id: string;
+        name: string;
+        workload: {
+          active_orders: number;
+          pending_assignments: number;
+          priority: string;
+        };
+      }>;
+    }>('/orders/workload/engineers');
   },
 };
 
@@ -264,18 +285,18 @@ export const employeesAPI = {
 // Health Check API
 export const healthAPI = {
   // Check API health
-  checkAPI: async (): Promise<ApiResponse<any>> => {
-    return apiRequest<any>('/health');
+  checkAPI: async (): Promise<ApiResponse<{ status: string; timestamp: string }>> => {
+    return apiRequest<{ status: string; timestamp: string }>('/health');
   },
 
   // Check database health
-  checkDatabase: async (): Promise<ApiResponse<any>> => {
-    return apiRequest<any>('/health/readiness');
+  checkDatabase: async (): Promise<ApiResponse<{ status: string; connection: boolean }>> => {
+    return apiRequest<{ status: string; connection: boolean }>('/health/readiness');
   },
 };
 
 // Error handling helper
-export const handleAPIError = (error: any): string => {
+export const handleAPIError = (error: unknown): string => {
   if (error instanceof Error) {
     return error.message;
   }
@@ -299,9 +320,8 @@ export const checkBackendConnection = async (): Promise<boolean> => {
 // Development helper: Test if backend is running
 export const testBackendConnection = async (): Promise<void> => {
   try {
-    const health = await healthAPI.checkAPI();
-    
-    const dbHealth = await healthAPI.checkDatabase();
+    await healthAPI.checkAPI();
+    await healthAPI.checkDatabase();
   } catch (error) {
     console.error('❌ Backend connection test failed:', error);
   }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { employeesAPI, handleAPIError } from '../../services/api';
 import { type Employee } from '../../types/api';
-import { getSubcategories } from '../../utils/adminDataManager';
+import { getSubcategories, type Subcategory } from '../../utils/adminDataManager';
 
 interface EmployeeFormData {
   employee_id: string;
@@ -55,7 +55,7 @@ const EmployeesManagement: React.FC = () => {
   const loadExpertiseAreas = async () => {
     try {
       const subcategories = await getSubcategories();
-      const areas = subcategories.map((sub: any) => sub.name).sort();
+      const areas = subcategories.map((sub: Subcategory) => sub.name).sort();
       setExpertiseAreas(areas);
     } catch (error) {
       console.error('Error loading expertise areas:', error);
@@ -192,25 +192,95 @@ const EmployeesManagement: React.FC = () => {
     });
   };
 
+  // Custom CSS for enhanced animations
+  const customStyles = `
+    @keyframes fade-in {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    @keyframes bounce-in {
+      0% { transform: translateY(-100px) scale(0.8); opacity: 0; }
+      50% { transform: translateY(0px) scale(1.05); opacity: 1; }
+      65% { transform: translateY(-10px) scale(1.02); }
+      81% { transform: translateY(0px) scale(1); }
+      100% { transform: translateY(0px) scale(1); opacity: 1; }
+    }
+    
+    @keyframes shimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+  `;
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
+      <>
+        <style>{customStyles}</style>
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center animate-fade-in">
+          <div className="text-center animate-bounce-in">
+            <div className="relative mb-8">
+              <div className="animate-spin rounded-full h-20 w-20 border-4 border-transparent bg-gradient-to-r from-indigo-500 via-purple-500 to-blue-500 bg-clip-border mx-auto"></div>
+              <div className="absolute inset-3 bg-white rounded-full"></div>
+              <div className="absolute inset-4 animate-pulse bg-gradient-to-r from-blue-400 via-purple-500 to-indigo-500 rounded-full"></div>
+            </div>
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl px-8 py-6 shadow-2xl border border-white/50 relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent -skew-x-12 animate-shimmer"></div>
+              <div className="relative z-10">
+                <h3 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-3">
+                  Loading Employees
+                </h3>
+                <p className="text-gray-600 font-medium">Fetching staff information and expertise data...</p>
+                <div className="flex items-center justify-center space-x-2 mt-4">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
+                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                  <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-700 rounded-xl p-6 text-white relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full transform translate-x-16 -translate-y-16"></div>
-        <div className="absolute bottom-0 left-0 w-24 h-24 bg-white opacity-5 rounded-full transform -translate-x-12 translate-y-12"></div>
-        <div className="relative z-10">
-          <h1 className="text-2xl font-bold mb-2">Employee Management Dashboard</h1>
-          <p className="text-indigo-100">Manage your workforce, track expertise, and optimize team performance</p>
-        </div>
-      </div>
+    <>
+      <style>{customStyles}</style>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 animate-fade-in">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+          {/* Enhanced Header Section */}
+          <div className="relative overflow-hidden">
+            <div className="bg-gradient-to-r from-indigo-600 to-purple-700 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full transform translate-x-16 -translate-y-16 blur-2xl"></div>
+              <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full transform -translate-x-12 translate-y-12 blur-xl"></div>
+              <div className="relative z-10">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center space-x-3 mb-4">
+                      <div className="bg-white/20 rounded-2xl p-3">
+                        <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h1 className="text-4xl font-bold text-white">Employee Management</h1>
+                        <p className="text-indigo-100 text-lg">Manage workforce, track expertise, and optimize performance</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="hidden md:block">
+                    <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-white">{employees.length}</div>
+                        <div className="text-sm text-indigo-100">Total Staff</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -551,8 +621,10 @@ const EmployeesManagement: React.FC = () => {
             </button>
           </div>
         )}
+        </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 };
 

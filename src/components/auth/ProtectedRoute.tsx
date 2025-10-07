@@ -2,7 +2,7 @@
  * Protected Route component for authentication and role-based access control
  */
 
-import React, { ReactNode } from 'react';
+import React, { type ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Loading } from '../ui';
@@ -27,7 +27,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   if (isLoading && showLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loading size="large" text="Checking authentication..." />
+        <Loading size="lg" text="Checking authentication..." />
       </div>
     );
   }

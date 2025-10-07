@@ -6,13 +6,35 @@ import {
   type Category,
   type Subcategory
 } from '../../utils/adminDataManager';
+import type { Service } from '../../types';
+
+// Custom CSS for enhanced animations
+const customStyles = `
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  @keyframes bounce-in {
+    0% { transform: translateY(-100px) scale(0.8); opacity: 0; }
+    50% { transform: translateY(0px) scale(1.05); opacity: 1; }
+    65% { transform: translateY(-10px) scale(1.02); }
+    81% { transform: translateY(0px) scale(1); }
+    100% { transform: translateY(0px) scale(1); opacity: 1; }
+  }
+  
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+`;
 
 interface BulkUploadData {
   fileName: string;
   fileType: 'excel' | 'pdf';
   category_id: string;
   subcategory_id?: string;
-  services: any[];
+  services: Record<string, unknown>[];
   uploadStatus: 'pending' | 'processing' | 'completed' | 'error';
   errorMessage?: string;
   processedCount?: number;
@@ -146,7 +168,7 @@ const BulkUploadManagement: React.FC<BulkUploadManagementProps> = ({ onServiceCh
 
         // Process services and create them
         let processedCount = 0;
-        const createdServices: any[] = [];
+        const createdServices: Service[] = [];
         const errors: string[] = [];
 
         for (let i = 0; i < validatedServices.length; i++) {
@@ -204,7 +226,7 @@ const BulkUploadManagement: React.FC<BulkUploadManagementProps> = ({ onServiceCh
     }
   };
 
-  const validateServices = (services: any[]): any[] => {
+  const validateServices = (services: Record<string, unknown>[]): Record<string, unknown>[] => {
     if (!services || !Array.isArray(services)) {
       console.warn('Invalid services array provided to validateServices');
       return [];
@@ -279,7 +301,7 @@ const BulkUploadManagement: React.FC<BulkUploadManagementProps> = ({ onServiceCh
     return null;
   };
 
-  const parseFile = async (file: File, fileType: 'excel' | 'pdf'): Promise<any[]> => {
+  const parseFile = async (file: File, fileType: 'excel' | 'pdf'): Promise<Record<string, unknown>[]> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       
@@ -310,7 +332,7 @@ const BulkUploadManagement: React.FC<BulkUploadManagementProps> = ({ onServiceCh
     });
   };
 
-  const parseExcelContent = (content: string, fileName: string): any[] => {
+  const parseExcelContent = (content: string, fileName: string): Record<string, unknown>[] => {
     const lines = content.split('\n').filter(line => line.trim());
     const services = [];
 
@@ -358,13 +380,13 @@ const BulkUploadManagement: React.FC<BulkUploadManagementProps> = ({ onServiceCh
     return services;
   };
 
-  const parsePdfContent = (content: string, fileName: string): any[] => {
+  const parsePdfContent = (content: string, fileName: string): Record<string, unknown>[] => {
     const services = [];
     
     // Basic PDF text parsing - look for service patterns
     const lines = content.split('\n').filter(line => line.trim());
     
-    let currentService: any = null;
+    let currentService: Record<string, unknown> | null = null;
     
     for (const line of lines) {
       const trimmedLine = line.trim();
@@ -471,65 +493,150 @@ const BulkUploadManagement: React.FC<BulkUploadManagementProps> = ({ onServiceCh
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        <span className="ml-3 text-gray-600">Loading categories...</span>
-      </div>
+      <>
+        <style>{customStyles}</style>
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center animate-fade-in">
+          <div className="text-center animate-bounce-in">
+            <div className="relative mb-8">
+              <div className="animate-spin rounded-full h-20 w-20 border-4 border-transparent bg-gradient-to-r from-indigo-500 via-purple-500 to-rose-500 bg-clip-border mx-auto"></div>
+              <div className="absolute inset-3 bg-white rounded-full"></div>
+              <div className="absolute inset-4 animate-pulse bg-gradient-to-r from-indigo-400 via-purple-500 to-rose-500 rounded-full"></div>
+            </div>
+            <div className="bg-white/90 backdrop-blur-sm rounded-2xl px-8 py-6 shadow-2xl border border-white/50 relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent -skew-x-12 animate-shimmer"></div>
+              <div className="relative z-10">
+                <h3 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-3">
+                  Loading Bulk Upload
+                </h3>
+                <p className="text-gray-600 font-medium">Preparing file upload system and categories...</p>
+                <div className="flex items-center justify-center space-x-2 mt-4">
+                  <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce"></div>
+                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                  <div className="w-2 h-2 bg-rose-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-700 rounded-xl p-8 text-white relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full transform translate-x-16 -translate-y-16"></div>
-        <div className="absolute bottom-0 left-0 w-24 h-24 bg-white opacity-5 rounded-full transform -translate-x-12 translate-y-12"></div>
-        <div className="relative z-10">
-          <h1 className="text-3xl font-bold mb-3 tracking-tight">Bulk Upload Management</h1>
-          <p className="text-indigo-100 text-lg leading-relaxed">Upload Excel sheets and PDF files to create multiple services efficiently at once</p>
-        </div>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        
-        {/* Total Uploads */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-4 text-center">
-            <p className="text-sm font-medium text-blue-100 mb-2">Total Uploads</p>
-            <p className="text-4xl font-bold text-white">{uploads.length}</p>
-            <p className="text-xs text-blue-200 mt-2">Files Processed</p>
+    <>
+      <style>{customStyles}</style>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 animate-fade-in">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+          {/* Enhanced Header Section */}
+          <div className="relative overflow-hidden">
+            <div className="bg-gradient-to-r from-indigo-600 to-purple-700 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full transform translate-x-16 -translate-y-16 blur-2xl"></div>
+              <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full transform -translate-x-12 translate-y-12 blur-xl"></div>
+              <div className="relative z-10">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center space-x-3 mb-4">
+                      <div className="bg-white/20 rounded-2xl p-3">
+                        <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h1 className="text-4xl font-bold text-white tracking-tight">Bulk Upload Management</h1>
+                        <p className="text-indigo-100 text-lg">Create multiple services efficiently from Excel and PDF files</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="hidden md:block">
+                    <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-white">{uploads.length}</div>
+                        <div className="text-sm text-indigo-100">Total Uploads</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-indigo-100 text-xl leading-relaxed mt-4">Upload Excel sheets and PDF files to create multiple services at once with intelligent parsing</p>
+              </div>
+            </div>
           </div>
-        </div>
 
-        {/* Successful Uploads */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-4 text-center">
-            <p className="text-sm font-medium text-green-100 mb-2">Successful</p>
-            <p className="text-4xl font-bold text-white">{uploads.filter(u => u.uploadStatus === 'completed').length}</p>
-            <p className="text-xs text-green-200 mt-2">Completed</p>
+          {/* Enhanced KPI Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            
+            {/* Total Uploads */}
+            <div className="group">
+              <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 p-6 transform transition-all duration-300 hover:scale-105 hover:shadow-2xl">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-3">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-3xl font-bold text-gray-900 mb-1">{uploads.length}</p>
+                  <p className="text-sm font-medium text-gray-600">Total Uploads</p>
+                  <p className="text-xs text-blue-600 mt-1 font-medium">Files processed</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Successful Uploads */}
+            <div className="group">
+              <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 p-6 transform transition-all duration-300 hover:scale-105 hover:shadow-2xl">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl p-3">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-3xl font-bold text-gray-900 mb-1">{uploads.filter(u => u.uploadStatus === 'completed').length}</p>
+                  <p className="text-sm font-medium text-gray-600">Successful Uploads</p>
+                  <p className="text-xs text-green-600 mt-1 font-medium">Completed</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Services Created */}
+            <div className="group">
+              <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 p-6 transform transition-all duration-300 hover:scale-105 hover:shadow-2xl">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl p-3">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m8 0H8m8 0v6a2 2 0 01-2 2H10a2 2 0 01-2-2V6m8 0V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2" />
+                    </svg>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-3xl font-bold text-gray-900 mb-1">{uploads.reduce((sum, u) => sum + (u.processedCount || 0), 0)}</p>
+                  <p className="text-sm font-medium text-gray-600">Services Created</p>
+                  <p className="text-xs text-purple-600 mt-1 font-medium">Total services</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Processing Status */}
+            <div className="group">
+              <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 p-6 transform transition-all duration-300 hover:scale-105 hover:shadow-2xl">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-xl p-3">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-3xl font-bold text-gray-900 mb-1">{uploads.filter(u => u.uploadStatus === 'processing').length}</p>
+                  <p className="text-sm font-medium text-gray-600">Processing</p>
+                  <p className="text-xs text-orange-600 mt-1 font-medium">In progress</p>
+                </div>
+              </div>
+            </div>
+
           </div>
-        </div>
-
-        {/* Services Created */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg p-4 text-center">
-            <p className="text-sm font-medium text-purple-100 mb-2">Services Created</p>
-            <p className="text-4xl font-bold text-white">{uploads.reduce((sum, u) => sum + (u.processedCount || 0), 0)}</p>
-            <p className="text-xs text-purple-200 mt-2">Total Services</p>
-          </div>
-        </div>
-
-        {/* Processing Status */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg p-4 text-center">
-            <p className="text-sm font-medium text-orange-100 mb-2">Processing</p>
-            <p className="text-4xl font-bold text-white">{uploads.filter(u => u.uploadStatus === 'processing').length}</p>
-            <p className="text-xs text-orange-200 mt-2">In Progress</p>
-          </div>
-        </div>
-
-      </div>
 
       {/* Header Actions */}
       <div className="flex items-center justify-between bg-white rounded-lg shadow-sm border border-gray-200 p-4">
@@ -922,7 +1029,10 @@ const BulkUploadManagement: React.FC<BulkUploadManagementProps> = ({ onServiceCh
           )}
         </div>
       )}
-    </div>
+
+        </div>
+      </div>
+    </>
   );
 };
 

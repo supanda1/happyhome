@@ -12,9 +12,26 @@ export interface ServiceHealth {
   lastChecked: string;
   url?: string;
   error?: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
   uptime?: string;
   version?: string;
+}
+
+interface ServiceConfig {
+  name: string;
+  url: string;
+  timeout: number;
+  critical: boolean;
+  healthEndpoint?: string;
+  isRuntime?: boolean;
+}
+
+interface ContainerInfo {
+  name: string;
+  status: string;
+  image: string;
+  uptime: string;
+  ports: string[];
 }
 
 export interface SystemHealth {
@@ -42,7 +59,7 @@ class HealthMonitorService {
   private alerts: HealthAlert[] = [];
   private subscribers: ((health: SystemHealth) => void)[] = [];
   private alertSubscribers: ((alert: HealthAlert) => void)[] = [];
-  private checkInterval: NodeJS.Timeout | null = null;
+  private checkInterval: number | null = null;
   private isMonitoring = false;
 
   private readonly SERVICES_CONFIG = {
@@ -185,7 +202,7 @@ class HealthMonitorService {
   /**
    * Check individual service health
    */
-  private async checkService(key: string, config: any): Promise<ServiceHealth> {
+  private async checkService(key: string, config: ServiceConfig): Promise<ServiceHealth> {
     const startTime = Date.now();
     
     // Special handling for frontend - if this code is running, frontend is healthy
@@ -270,15 +287,14 @@ class HealthMonitorService {
     try {
       // Try to check if Docker containers are running via backend API
       const response = await fetch(`${import.meta.env.VITE_BACKEND_PYTHON_URL || 'http://localhost:8000'}/admin/system/containers`, {
-        credentials: 'include',
-        timeout: 5000
-      } as any);
+        credentials: 'include'
+      } as RequestInit);
 
       if (response.ok) {
         const data = await response.json();
         
         if (data.success && Array.isArray(data.data)) {
-          data.data.forEach((container: any) => {
+          data.data.forEach((container: ContainerInfo) => {
             containerServices.push({
               name: `Container: ${container.name}`,
               status: container.status === 'running' ? 'healthy' : 'error',
@@ -292,7 +308,7 @@ class HealthMonitorService {
           });
         }
       }
-    } catch (error) {
+    } catch {
       // Docker monitoring not available
       console.log('ℹ️ Docker container monitoring not available');
     }
@@ -305,8 +321,8 @@ class HealthMonitorService {
    */
   private async processHealthAlerts(systemHealth: SystemHealth): Promise<void> {
     const criticalServices = Object.entries(this.SERVICES_CONFIG)
-      .filter(([_, config]) => config.critical)
-      .map(([key, config]) => config.name);
+      .filter(([, config]) => config.critical)
+      .map(([, config]) => config.name);
 
     for (const service of systemHealth.services) {
       const isCritical = criticalServices.includes(service.name);

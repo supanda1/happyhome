@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from './contexts/AuthContext';
 import { useServices } from './hooks/useBackendData';
 import LoginPage from './pages/customer/LoginPage';
@@ -19,24 +19,51 @@ import CartSidebarFixed from './components/cart/CartSidebarFixed';
 // Import WhatsApp component
 import WhatsAppButton from './components/ui/WhatsAppButton';
 // Import Facebook component  
-import FacebookButton from './components/ui/FacebookButton';
+// import FacebookButton from './components/ui/FacebookButton'; // TODO: Add Facebook integration when needed
 // Import WhatsApp Tester (Development only)
 import WhatsAppTester from './components/test/WhatsAppTester';
 // Import required utilities (keeping existing working functionality)
 import { 
   getCategories, // Using async API for real-time admin sync
   getSubcategories, // Using async API for real-time admin sync  
-  getServices, // Using async API for real-time admin sync
+  // getServices, // Using async API for real-time admin sync - TODO: Add when needed
   initializeAllAdminData,
   addToCart,
   getCart,
   getContactSettings,
   type Category, 
   type Subcategory,
-  type Service,
+  // type Service, // TODO: Add when needed
   type ContactSettings
 } from './utils/adminDataManager';
 import { formatPrice } from './utils/priceFormatter';
+
+// Define backend service interface based on actual API response
+interface BackendService {
+  id: string;
+  name: string;
+  category_id: string;
+  category_name: string;
+  subcategory_name?: string;
+  description: string;
+  short_description?: string;
+  base_price: number;
+  discounted_price?: number;
+  rating?: number;
+  review_count?: number;
+  booking_count?: number;
+  is_active: boolean;
+  tags?: string[];
+  inclusions?: string[];
+  exclusions?: string[];
+  requirements?: string[];
+  services?: string[];
+  notes?: string;
+  warranty?: string;
+  gallery_images?: string[];
+  images?: string[];
+  faq?: Array<{ question: string; answer: string }>;
+}
 
 // Use existing working types from adminDataManager
 
@@ -53,6 +80,7 @@ const App: React.FC = () => {
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [serviceCategories, setServiceCategories] = useState<Record<string, string[]>>({});
   const [globalCartCount, setGlobalCartCount] = useState(0);
+  const [cartRefreshTrigger, setCartRefreshTrigger] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchCategory, setSearchCategory] = useState('All Services');
   const [headerSearchQuery, setHeaderSearchQuery] = useState('');
@@ -62,6 +90,32 @@ const App: React.FC = () => {
 
   // Get real backend services data
   const { services, loading: servicesLoading } = useServices();
+
+  // Helper function to convert Service[] to BackendService[]
+  const convertToBackendServices = (frontendServices: typeof services): BackendService[] => {
+    if (!frontendServices || !Array.isArray(frontendServices)) {
+      return [];
+    }
+    return frontendServices.filter(service => service && (service as any).category_name).map(service => {      
+      const apiService = service as any; // Type assertion for API response structure
+      return ({
+        id: apiService.id,
+        name: apiService.name,
+        category_id: apiService.category_id,
+        category_name: apiService.category_name,
+        subcategory_name: apiService.subcategory_name || '',
+        description: apiService.description,
+        short_description: apiService.short_description,
+        base_price: apiService.base_price,
+        discounted_price: apiService.discounted_price,
+        rating: apiService.rating,
+        is_active: apiService.is_active,
+        duration: apiService.duration,
+        inclusions: apiService.inclusions,
+        exclusions: apiService.exclusions
+      });
+    });
+  };
 
   // Helper function to show success message for a specific service and expand cart sidebar
   const showCartSuccessMessage = (serviceId: string, message: string) => {
@@ -75,7 +129,8 @@ const App: React.FC = () => {
     
     setTimeout(() => {
       setCartSuccessMessages(prev => {
-        const { [serviceId]: removed, ...rest } = prev;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { [serviceId]: _removed, ...rest } = prev;
         return rest;
       });
     }, 3000);
@@ -93,9 +148,12 @@ const App: React.FC = () => {
         });
         
         if (response.ok) {
+          console.log('Backend health check passed');
         } else {
+          console.warn('Backend health check failed with status:', response.status);
         }
       } catch (error) {
+        console.error('Backend health check error:', error);
       }
       
       await initializeAllAdminData();
@@ -118,18 +176,22 @@ const App: React.FC = () => {
       const settings = await getContactSettings();
       setContactSettings(settings);
     } catch (error) {
+      console.error('Failed to load contact settings:', error);
     }
   };
 
   // Update global cart count from backend API
-  const updateGlobalCartCount = async () => {
+  const updateGlobalCartCount = useCallback(async () => {
     try {
       const cart = await getCart();
-      setGlobalCartCount(cart.totalItems);
+      setGlobalCartCount(cart?.totalItems || 0);
+      // Trigger cart sidebar refresh
+      setCartRefreshTrigger(prev => prev + 1);
     } catch (error) {
+      console.error('Error updating cart count:', error);
       setGlobalCartCount(0);
     }
-  };
+  }, []);
 
   // Load categories and subcategories from admin data (REAL-TIME API)
   const loadCategoriesData = async () => {
@@ -274,10 +336,10 @@ const App: React.FC = () => {
   };
 
   // Search function - use real backend services from useServices hook
-  const searchServices = (query: string, category: string) => {
+  const searchServices = (query: string, category: string): BackendService[] => {
     // Use real backend services from the component's useServices hook
-    const allServices: any[] = services || [];
-    let filteredServices = allServices.filter((service: any) => service.is_active);
+    const allServices = convertToBackendServices(services) || [];
+    let filteredServices = allServices.filter((service) => service.is_active);
 
     // Filter by category if not "All Services"
     if (category !== 'All Services') {
@@ -295,9 +357,8 @@ const App: React.FC = () => {
           service.name,
           service.description,
           service.short_description,
-          ...service.tags,
-          ...service.inclusions,
-          ...service.requirements
+          ...(service.tags || []),
+          ...(service.inclusions || []),
         ].join(' ').toLowerCase();
 
         return searchTerms.every(term => searchableText.includes(term));
@@ -355,15 +416,8 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
     // Find the category from backend data
     const category = categories.find(cat => cat.name === categoryName);
     
-    // If category has a type field in the database, use it
-    if (category?.category_type) {
-      return category.category_type;
-    }
-    
-    // If category has extended metadata, check there
-    if (category?.metadata?.type) {
-      return category.metadata.type;
-    }
+    // Note: category_type and metadata are not available in current Category interface
+    // Using category name to determine type for now
     
     // Fallback: derive from category description or use generic
     if (category?.description) {
@@ -484,11 +538,12 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                         }
 
                         // Add to cart logic
-                        const cartItem = await addToCart(service.id, undefined, 1);
+                        const cartItem = await addToCart(service.id, 1);
                         if (cartItem) {
                           updateGlobalCartCount();
                           showCartSuccessMessage(service.id, 'Service added to cart!');
                         } else {
+                          console.error('Failed to add service to cart');
                         }
                       }}
                     >
@@ -581,33 +636,33 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
   };
 
   // Function to get backend service data for customer display
-  const getServiceForCustomer = (categoryName: string, serviceName: string) => {
+  const getServiceForCustomer = (categoryName: string, serviceName: string): BackendService | null => {
     // Use real backend services from the useServices hook
     if (!services || servicesLoading) return null;
     
     // Find matching service by category and service name
-    const matchingService = services.find((service: any) => {
+    const matchingService = convertToBackendServices(services).find((service) => {
       const categoryMatch = service.category_name?.toLowerCase() === categoryName.toLowerCase();
       const serviceNameMatch = service.name?.toLowerCase().includes(serviceName.toLowerCase()) ||
                              service.subcategory_name?.toLowerCase().includes(serviceName.toLowerCase());
       return categoryMatch && serviceNameMatch && service.is_active;
     });
     
-    return matchingService;
+    return matchingService || null;
   };
 
   // REMOVED: Massive hardcoded service data - now using backend PostgreSQL API
   // All service data now comes from adminDataManager.ts backend APIs
 
-  // ENHANCED SERVICE DETAIL PAGE WITH DYNAMIC DATA
+  // PRODUCTION-GRADE SERVICE DETAIL PAGE WITH ENHANCED STYLING
   const ServiceDetailPage = ({ categoryName, serviceName }: { categoryName: string; serviceName: string }) => {
     const [selectedTab, setSelectedTab] = useState('services');
     const [quantity, setQuantity] = useState(1);
     const [selectedImageIndex, setSelectedImageIndex] = useState(0);
     const [expandedFAQ, setExpandedFAQ] = useState<number | null>(null);
     
-    // Cart state
-    const [cartCount, setCartCount] = useState(0);
+    // Cart state (for local display only)
+    const [, setCartCount] = useState(0);
     const [clickCount, setClickCount] = useState(0);
     const [addToCartSuccess, setAddToCartSuccess] = useState(false);
 
@@ -624,16 +679,14 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
     }, [clickCount]);
     
     // Find the real backend service that matches this page (only when not loading)
-    const adminService: any = !servicesLoading ? (
-      services?.find((service: any) => {
-        // For Premium variant, use Classic service data as base
-        const searchName = serviceName === 'Toilet Services (Premium)' ? 'Toilet Services (Classic)' : serviceName;
+    const adminService: BackendService | null = !servicesLoading ? (
+      convertToBackendServices(services)?.find((service) => {
         // Match by service name and category
-        const nameMatch = service.name?.toLowerCase().includes(searchName.toLowerCase());
-        const subcategoryMatch = service.subcategory_name?.toLowerCase().includes(searchName.toLowerCase());
+        const nameMatch = service.name?.toLowerCase().includes(serviceName.toLowerCase());
+        const subcategoryMatch = service.subcategory_name?.toLowerCase().includes(serviceName.toLowerCase());
         const categoryMatch = service.category_name?.toLowerCase() === categoryName.toLowerCase();
         return (nameMatch || subcategoryMatch) && categoryMatch && service.is_active;
-      }) || getServiceForCustomer(categoryName, serviceName === 'Toilet Services (Premium)' ? 'Toilet Services (Classic)' : serviceName) // Try to find from backend
+      }) || getServiceForCustomer(categoryName, serviceName) // Try to find from backend
     ) : null;
     
     
@@ -643,47 +696,27 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
       serviceName.toLowerCase().includes(sub.name.toLowerCase())
     );
     
-    // Convert admin service data to customer display format or fallback to hardcoded data
+    // Convert admin service data to customer display format or fallback to generic data
     const serviceData = adminService ? {
-      name: serviceName === 'Toilet Services (Premium)' ? 'Toilet Services (Premium)' : adminService.name,
-      rating: adminService.rating,
-      reviewCount: adminService.review_count,
-      monthlyBookings: adminService.booking_count,
-      originalPrice: serviceName === 'Toilet Services (Premium)' ? 399 : adminService.base_price,
-      discountedPrice: serviceName === 'Toilet Services (Premium)' ? 299 : (adminService.discounted_price || adminService.base_price),
-      discount: serviceName === 'Toilet Services (Premium)' ? 25 : (adminService.discounted_price ? Math.round((1 - adminService.discounted_price / adminService.base_price) * 100) : 0),
-      description: serviceName === 'Toilet Services (Premium)' ? 'Premium toilet installation, repair, and maintenance services with enhanced warranty coverage and priority support.' : adminService.description,
+      name: adminService.name || serviceName,
+      rating: adminService.rating || 4.5,
+      reviewCount: adminService.review_count || 100,
+      monthlyBookings: adminService.booking_count || 50,
+      originalPrice: adminService.base_price || 299,
+      discountedPrice: adminService.discounted_price || adminService.base_price || 299,
+      discount: adminService.discounted_price ? Math.round((1 - adminService.discounted_price / adminService.base_price) * 100) : 0,
+      description: adminService.description || `Professional ${serviceName.toLowerCase()} service for your home.`,
       images: serviceSubcategory?.image_paths || adminService.gallery_images || adminService.images || [],
-      warranty: "30 Days", protection: "₹10,000", verified: true,
-      services: serviceName === 'Toilet Services (Premium)' ? [
-        'Premium toilet installation & repair',
-        'Advanced diagnostic tools',
-        'Enhanced warranty coverage',
-        'Priority customer support',
-        'Quality premium materials'
-      ] : (adminService.requirements || []),
-      included: serviceName === 'Toilet Services (Premium)' ? [
-        'Premium technician visit',
-        'Advanced tools and quality materials', 
-        'Extended service warranty',
-        'Priority support hotline',
-        'Follow-up service check'
-      ] : (adminService.inclusions || []),
-      notes: serviceName === 'Toilet Services (Premium)' ? [
-        'Premium service with enhanced warranty',
-        'Priority scheduling available',
-        'Premium quality materials included',
-        'Comprehensive service coverage'
-      ] : [adminService.notes || 'No additional notes available'],
-      faq: serviceName === 'Toilet Services (Premium)' ? [
-        { question: "What makes this Premium service different?", answer: "Premium service includes advanced diagnostic tools, enhanced warranty, priority support, and premium quality materials for superior results." },
-        { question: "What's included in the Premium package?", answer: "Premium technician visit, advanced tools, quality materials, extended warranty, priority support hotline, and follow-up service check." },
-        { question: "What warranty do I get?", answer: "Extended warranty coverage with priority support and guaranteed service quality with premium materials." },
-        { question: "How quickly can I get service?", answer: "Priority scheduling available for Premium customers with faster response times." }
-      ] : [
-        { question: "What's included in this service?", answer: adminService.inclusions?.join(', ') || 'Standard service inclusions apply.' },
-        { question: "What's excluded?", answer: adminService.exclusions?.join(', ') || 'Standard exclusions apply.' },
-        { question: "Any special requirements?", answer: adminService.requirements?.join(', ') || 'No special requirements.' }
+      warranty: adminService.warranty || "30 Days", 
+      protection: "₹10,000", 
+      verified: true,
+      services: adminService.requirements || adminService.services || [`Professional ${serviceName.toLowerCase()} service`, "Quality workmanship", "Timely completion"],
+      included: adminService.inclusions || ["Expert technician visit", "Standard tools and materials", "Service warranty", "Quality assurance"],
+      notes: adminService.notes ? [adminService.notes] : ["Service availability subject to location", "Additional charges may apply for complex work", "Customer satisfaction guaranteed"],
+      faq: adminService?.faq || [
+        { question: "What's included in this service?", answer: adminService.inclusions?.join(', ') || 'Professional service with expert technician and quality assurance.' },
+        { question: "What's excluded?", answer: adminService.exclusions?.join(', ') || 'Additional materials and complex modifications may incur extra charges.' },
+        { question: "Any special requirements?", answer: adminService.requirements?.join(', ') || 'Basic access to service area required.' }
       ]
     } : {
       // Default service data when backend service not found
@@ -691,39 +724,18 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
       rating: 4.5,
       reviewCount: 100,
       monthlyBookings: 50,
-      originalPrice: serviceName === 'Toilet Services (Premium)' ? 399 : 299,
-      discountedPrice: serviceName === 'Toilet Services (Premium)' ? 299 : 199,
-      discount: serviceName === 'Toilet Services (Premium)' ? 25 : 33,
-      description: serviceName === 'Toilet Services (Premium)' ? 
-        'Premium toilet installation, repair, and maintenance services with enhanced warranty coverage and priority support.' :
-        `Professional ${serviceName.toLowerCase()} service for your home.`,
+      originalPrice: 299,
+      discountedPrice: 199,
+      discount: 33,
+      description: `Professional ${serviceName.toLowerCase()} service for your home.`,
       images: serviceSubcategory?.image_paths || [],
-      warranty: serviceName === 'Toilet Services (Premium)' ? "Extended Warranty" : "30 Days", 
+      warranty: "30 Days", 
       protection: "₹10,000", 
       verified: true,
-      services: serviceName === 'Toilet Services (Premium)' ? [
-        'Premium toilet installation & repair',
-        'Advanced diagnostic tools', 
-        'Enhanced warranty coverage',
-        'Priority customer support'
-      ] : [`Professional ${serviceName.toLowerCase()} service`, "Quality workmanship", "Timely completion"],
-      included: serviceName === 'Toilet Services (Premium)' ? [
-        'Premium technician visit',
-        'Advanced tools and quality materials',
-        'Extended service warranty', 
-        'Priority support hotline'
-      ] : ["Expert technician visit", "Standard tools and materials", "Service warranty", "Quality assurance"],
-      notes: serviceName === 'Toilet Services (Premium)' ? [
-        'Premium service with enhanced warranty',
-        'Priority scheduling available', 
-        'Premium quality materials included'
-      ] : ["Service availability subject to location", "Additional charges may apply for complex work", "Customer satisfaction guaranteed"],
-      faq: serviceName === 'Toilet Services (Premium)' ? [
-        { question: "What makes this Premium service different?", answer: "Premium service includes advanced diagnostic tools, enhanced warranty, priority support, and premium quality materials for superior results." },
-        { question: "What's included in the Premium package?", answer: "Premium technician visit, advanced tools, quality materials, extended warranty, priority support hotline, and follow-up service check." },
-        { question: "What warranty do I get?", answer: "Extended warranty coverage with priority support and guaranteed service quality with premium materials." },
-        { question: "How quickly can I get service?", answer: "Priority scheduling available for Premium customers with faster response times." }
-      ] : [
+      services: [`Professional ${serviceName.toLowerCase()} service`, "Quality workmanship", "Timely completion"],
+      included: ["Expert technician visit", "Standard tools and materials", "Service warranty", "Quality assurance"],
+      notes: ["Service availability subject to location", "Additional charges may apply for complex work", "Customer satisfaction guaranteed"],
+      faq: [
         { question: "What's included in this service?", answer: "Professional service with expert technician and quality assurance." },
         { question: "How long does the service take?", answer: "Service duration depends on the complexity of work required." },
         { question: "Do you provide warranty?", answer: "Yes, we provide service warranty as per our terms and conditions." }
@@ -746,7 +758,7 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
     const updateCartDisplay = async () => {
       try {
         const cart = await getCart();
-        setCartCount(cart.totalItems);
+        setCartCount(cart?.totalItems || 0);
       } catch (error) {
         console.error('Error updating cart display:', error);
         setCartCount(0);
@@ -807,25 +819,32 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
 
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-purple-50 to-blue-50 relative overflow-y-auto pb-20" style={{backgroundImage: 'radial-gradient(circle at 15% 85%, rgba(139, 69, 199, 0.08) 0%, transparent 70%), radial-gradient(circle at 85% 15%, rgba(59, 130, 246, 0.06) 0%, transparent 70%), radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.04) 0%, transparent 60%), linear-gradient(45deg, rgba(236, 72, 153, 0.03) 0%, transparent 50%)'}}>
-        {/* Compact Navigation Bar */}
-        <div className="bg-white shadow-sm border-b border-gray-200">
-          <div className="max-w-7xl mx-auto px-4 py-3">
-            <div className="flex items-center space-x-3 text-sm">
+        {/* Enhanced Navigation Bar */}
+        <div className="bg-white/95 backdrop-blur-md shadow-lg border-b border-orange-200">
+          <div className="max-w-7xl mx-auto px-6 py-4">
+            <div className="flex items-center space-x-3 text-base font-medium">
               <button 
                 onClick={() => navigateToHome()}
-                className="text-purple-600 hover:text-purple-800 font-medium"
+                className="flex items-center space-x-2 text-purple-600 hover:text-purple-700 transition-all duration-200 hover:scale-105"
               >
-                Home
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+                <span className="font-semibold tracking-wide">Home</span>
               </button>
-              <span className="text-gray-400">/</span>
+              <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
               <button 
                 onClick={() => navigateToCategory(categoryName)}
-                className="text-purple-600 hover:text-purple-800 font-medium"
+                className="text-purple-600 hover:text-purple-700 transition-all duration-200 hover:scale-105"
               >
-                {categoryName}
+                <span className="font-semibold tracking-wide">{categoryName}</span>
               </button>
-              <span className="text-gray-400">/</span>
-              <span className="text-gray-700 font-medium">{serviceName}</span>
+              <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+              <span className="text-purple-700 bg-gradient-to-r from-orange-100 to-purple-100 px-3 py-1.5 rounded-full">{serviceName}</span>
             </div>
           </div>
         </div>
@@ -834,36 +853,46 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
         <div className="max-w-7xl mx-auto px-4 py-8">
           <div className="flex flex-wrap lg:flex-nowrap gap-8">
             
-            {/* Left Column - Images (25% width) */}
+            {/* Left Column - Premium Image Gallery (25% width) */}
             <div className="w-full lg:w-1/4 flex-shrink-0">
-              <div className="bg-gradient-to-br from-orange-50 via-purple-50 to-blue-50 rounded-2xl p-6 shadow-xl border border-orange-200/50">
-                <h3 className="text-lg font-bold mb-4 bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 bg-clip-text text-transparent">🖼️ Service Gallery</h3>
+              <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-6 shadow-2xl border border-orange-200/60 hover:shadow-3xl transition-all duration-300">
+                <div className="flex items-center space-x-3 mb-6">
+                  <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-purple-600 rounded-xl flex items-center justify-center">
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl text-purple-800">Service Gallery</h3>
+                </div>
                 
                 {/* Main Image */}
-                <div className="mb-4">
-                  <div className="aspect-square rounded-xl border shadow-md overflow-hidden">
+                <div className="mb-6">
+                  <div className="aspect-square rounded-2xl border-2 border-orange-200 shadow-lg overflow-hidden group relative">
                     <ServiceImage
                       categoryName={categoryName}
                       serviceName={serviceName}
                       imageIndex={selectedImageIndex}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                     />
+                    <div className="absolute inset-0 bg-gradient-to-t from-purple-900/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                   </div>
-                  <div className="text-center mt-2 text-sm text-gray-500">
-                    Image {selectedImageIndex + 1} of 5
+                  <div className="text-center mt-3 text-sm text-purple-600 font-medium">
+                    <span className="bg-gradient-to-r from-orange-100 to-purple-100 px-3 py-1 rounded-full">
+                      {selectedImageIndex + 1} of 5 photos
+                    </span>
                   </div>
                 </div>
                 
-                {/* Thumbnails */}
-                <div className="flex flex-wrap gap-2">
+                {/* Enhanced Thumbnails */}
+                <div className="grid grid-cols-5 gap-2">
                   {Array.from({ length: 5 }, (_, index) => (
                     <button
                       key={index}
                       onClick={() => setSelectedImageIndex(index)}
-                      className={`w-12 h-12 rounded-lg border-2 transition-all overflow-hidden ${
+                      className={`aspect-square rounded-lg border-2 transition-all duration-200 overflow-hidden hover:scale-105 ${
                         selectedImageIndex === index 
-                          ? 'border-purple-400 shadow-lg ring-2 ring-purple-200' 
-                          : 'border-gray-300 hover:border-purple-300'
+                          ? 'border-purple-500 shadow-lg ring-2 ring-purple-200 scale-105' 
+                          : 'border-orange-300 hover:border-purple-400'
                       }`}
                     >
                       <ServiceImage
@@ -878,142 +907,205 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
               </div>
             </div>
 
-            {/* Center Column - Service Details (50% width) */}
+            {/* Center Column - Premium Service Details (50% width) */}
             <div className="w-full lg:w-1/2 flex-grow">
-              <div className="bg-gradient-to-br from-orange-50 via-purple-50 to-blue-50 rounded-2xl p-6 shadow-xl border border-orange-200/50">
-                {/* Service Header */}
-                <div className="mb-6">
-                  <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 bg-clip-text text-transparent mb-3">{serviceData.name}</h1>
-                  <div className="flex items-center space-x-4 mb-2">
-                    <div className="flex items-center space-x-2 bg-gradient-to-r from-orange-100 via-purple-100 to-blue-100 px-4 py-2 rounded-full shadow-md">
+              <div className="bg-white/90 backdrop-blur-sm rounded-3xl p-8 shadow-2xl border border-orange-200/60 hover:shadow-3xl transition-all duration-300">
+                {/* Enhanced Service Header */}
+                <div className="mb-8">
+                  <div className="flex items-start justify-between mb-4">
+                    <h1 className="text-4xl bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 bg-clip-text text-transparent mb-2 leading-tight">{serviceData.name}</h1>
+                    <div className="flex items-center space-x-1 bg-purple-50 px-3 py-1.5 rounded-full">
+                      <svg className="w-4 h-4 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
+                      </svg>
+                      <span className="text-purple-700 text-xs font-bold">Verified</span>
+                    </div>
+                  </div>
+                  
+                  {/* Rating & Reviews */}
+                  <div className="flex items-center space-x-6 mb-4">
+                    <div className="flex items-center space-x-3 bg-gradient-to-r from-amber-50 to-orange-50 px-6 py-3 rounded-2xl shadow-sm border border-amber-200">
                       {renderStars(serviceData.rating, 'sm')}
-                      <span className="font-bold text-purple-800">{serviceData.rating}</span>
+                      <span className="text-purple-800 text-lg">{serviceData.rating}</span>
                       <button 
                         onClick={() => setCurrentPage('plumbing-bath-fittings-reviews')}
-                        className="text-purple-600 hover:text-blue-700 text-sm underline font-medium"
+                        className="text-purple-600 hover:text-purple-700 text-sm transition-colors duration-200"
                       >
                         ({serviceData.reviewCount.toLocaleString()} reviews)
                       </button>
                     </div>
-                  </div>
-                  <div className="text-green-600 text-sm font-medium">
-                    📅 {serviceData.monthlyBookings} booked last month
+                    
+                    <div className="flex items-center space-x-2 text-purple-700">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <span className="text-sm">{serviceData.monthlyBookings} booked this month</span>
+                    </div>
                   </div>
                 </div>
 
-                {/* Enhanced Pricing */}
-                <div className="mb-6 bg-gradient-to-r from-emerald-50 to-green-50 p-5 rounded-xl border border-emerald-200 shadow-lg">
-                  <div className="flex items-center space-x-4 mb-3">
-                    <div className="text-3xl font-bold text-emerald-600">{formatPrice(serviceData.discountedPrice)}</div>
-                    <div className="space-y-1">
-                      <div className="text-gray-500 line-through text-base">MRP {formatPrice(serviceData.originalPrice)}</div>
-                      <div className="bg-emerald-500 text-white px-2 py-1 rounded text-xs font-bold">
-                        {Math.round(((serviceData.originalPrice - serviceData.discountedPrice) / serviceData.originalPrice) * 100)}% OFF
+                {/* Premium Pricing Section */}
+                <div className="mb-8 bg-gradient-to-br from-orange-50 via-purple-50 to-blue-50 p-8 rounded-3xl border-2 border-orange-200/50 shadow-xl relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 rounded-full -translate-y-16 translate-x-16" />
+                  
+                  <div className="flex items-start justify-between mb-6">
+                    <div className="flex items-baseline space-x-4">
+                      <span className="text-5xl bg-gradient-to-r from-orange-600 via-purple-700 to-blue-600 bg-clip-text text-transparent">{formatPrice(serviceData.discountedPrice)}</span>
+                      <div className="space-y-1">
+                        <div className="text-purple-500 line-through text-lg">MRP {formatPrice(serviceData.originalPrice)}</div>
+                        <div className="bg-gradient-to-r from-red-500 to-pink-600 text-white px-3 py-1.5 rounded-full text-sm shadow-lg">
+                          {Math.round(((serviceData.originalPrice - serviceData.discountedPrice) / serviceData.originalPrice) * 100)}% OFF
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="text-right">
+                      <div className="text-sm text-purple-600 mb-1">Starting from</div>
+                      <div className="bg-white/80 backdrop-blur-sm px-4 py-2 rounded-xl border border-orange-200">
+                        <span className="text-purple-700">All inclusive</span>
                       </div>
                     </div>
                   </div>
-                  <div className="text-gray-600 text-sm bg-white/70 px-3 py-2 rounded-lg mb-3">
-                    {serviceData.description}
+                  
+                  <div className="bg-white/80 backdrop-blur-sm p-4 rounded-2xl border border-purple-200/50">
+                    <p className="text-purple-800 text-base leading-relaxed">
+                      {serviceData.description}
+                    </p>
                   </div>
                 </div>
 
-                {/* Service Description */}
-                <div className="mb-6 bg-gradient-to-br from-orange-50 to-purple-50 p-4 rounded-xl border border-orange-200">
-                  <h3 className="text-lg font-bold text-purple-800 mb-3">
-                    About This Service
-                  </h3>
-                  <p className="text-gray-700 text-sm leading-relaxed mb-3">
-                    {serviceData.description}
-                  </p>
-                  <div className="grid grid-cols-2 gap-3 text-xs">
-                    <div className="flex items-center text-gray-600">
-                      <span className="text-green-500 mr-2">✓</span>
-                      Expert Service
+                {/* Premium Service Features */}
+                <div className="mb-8 bg-gradient-to-br from-orange-50 to-purple-50 p-6 rounded-2xl border border-orange-200">
+                  <div className="flex items-center space-x-3 mb-6">
+                    <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-purple-600 rounded-xl flex items-center justify-center">
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                      </svg>
                     </div>
-                    <div className="flex items-center text-gray-600">
-                      <span className="text-green-500 mr-2">✓</span>
-                      Quality Assurance
-                    </div>
-                    <div className="flex items-center text-gray-600">
-                      <span className="text-green-500 mr-2">✓</span>
-                      Timely Completion
-                    </div>
-                    <div className="flex items-center text-gray-600">
-                      <span className="text-green-500 mr-2">✓</span>
-                      Professional Support
-                    </div>
+                    <h3 className="text-xl text-purple-900">Why Choose This Service</h3>
                   </div>
-                </div>
-
-                {/* Improved Service Guarantees - Urban Company Style */}
-                <div className="mb-6">
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="bg-white p-3 rounded-lg border border-orange-200 text-center shadow-sm hover:shadow-md transition-all duration-200">
-                      <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                        <svg className="w-5 h-5 text-orange-600" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 1l3 3h4a2 2 0 012 2v8a2 2 0 01-2 2H3a2 2 0 01-2-2V6a2 2 0 012-2h4l3-3z" clipRule="evenodd"/>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex items-center space-x-3 p-3 bg-white/60 rounded-xl">
+                      <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <svg className="w-4 h-4 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                         </svg>
                       </div>
-                      <div className="font-bold text-sm text-gray-800 mb-1">{serviceData.warranty}</div>
-                      <div className="text-xs text-gray-600">Service Warranty</div>
+                      <span className="text-purple-700">Expert Technicians</span>
                     </div>
-                    <div className="bg-white p-3 rounded-lg border border-emerald-200 text-center shadow-sm hover:shadow-md transition-all duration-200">
-                      <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                        <svg className="w-5 h-5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd"/>
+                    <div className="flex items-center space-x-3 p-3 bg-white/60 rounded-xl">
+                      <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <svg className="w-4 h-4 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                         </svg>
                       </div>
-                      <div className="font-bold text-sm text-gray-800 mb-1">{serviceData.protection}</div>
-                      <div className="text-xs text-gray-600">Damage Coverage</div>
+                      <span className="text-purple-700">Quality Materials</span>
                     </div>
-                    <div className="bg-white p-3 rounded-lg border border-purple-200 text-center shadow-sm hover:shadow-md transition-all duration-200">
-                      <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                        <svg className="w-5 h-5 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                    <div className="flex items-center space-x-3 p-3 bg-white/60 rounded-xl">
+                      <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <svg className="w-4 h-4 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <span className="text-purple-700">Timely Completion</span>
+                    </div>
+                    <div className="flex items-center space-x-3 p-3 bg-white/60 rounded-xl">
+                      <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <svg className="w-4 h-4 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <span className="text-purple-700">24/7 Support</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Premium Service Guarantees */}
+                <div className="mb-8">
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="group bg-white/80 backdrop-blur-sm p-6 rounded-2xl border border-amber-200/50 text-center shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+                      <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg group-hover:shadow-xl transition-shadow">
+                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
+                      </div>
+                      <div className="text-purple-900 mb-2">{serviceData.warranty}</div>
+                      <div className="text-sm text-purple-600">Service Warranty</div>
+                    </div>
+                    
+                    <div className="group bg-white/80 backdrop-blur-sm p-6 rounded-2xl border border-purple-200/50 text-center shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+                      <div className="w-12 h-12 bg-gradient-to-br from-purple-400 to-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg group-hover:shadow-xl transition-shadow">
+                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                      </div>
+                      <div className="text-purple-900 mb-2">{serviceData.protection}</div>
+                      <div className="text-sm text-purple-600">Damage Coverage</div>
+                    </div>
+                    
+                    <div className="group bg-white/80 backdrop-blur-sm p-6 rounded-2xl border border-purple-200/50 text-center shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+                      <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg group-hover:shadow-xl transition-shadow">
+                        <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
                         </svg>
                       </div>
-                      <div className="font-bold text-sm text-gray-800 mb-1">HH Verified</div>
-                      <div className="text-xs text-gray-600">Quality Assured</div>
+                      <div className="text-purple-900 mb-2">HH Verified</div>
+                      <div className="text-sm text-purple-600">Quality Assured</div>
                     </div>
                   </div>
                 </div>
 
-                {/* Enhanced 3D Service Details Tabs with Light Colors */}
-                <div className="bg-gradient-to-br from-orange-50 via-purple-50 to-blue-50 rounded-2xl overflow-hidden shadow-xl border border-orange-200/30">
-                  {/* 3D Tab Headers with Light Colors */}
-                  <div className="flex bg-gradient-to-r from-white to-blue-50 p-2 gap-2">
+                {/* Premium Service Details Tabs */}
+                <div className="bg-white/90 backdrop-blur-sm rounded-3xl overflow-hidden shadow-2xl border border-orange-200/60">
+                  {/* Modern Tab Headers */}
+                  <div className="flex bg-gradient-to-r from-orange-50 to-purple-50 p-3 gap-2">
                     {['services', 'included', 'notes'].map((tab) => (
                       <button
                         key={tab}
                         onClick={() => setSelectedTab(tab)}
-                        className={`flex-1 px-4 py-4 text-sm font-bold capitalize transition-all duration-300 rounded-xl transform hover:scale-105 active:scale-95 ${
+                        className={`flex-1 px-6 py-4 text-sm capitalize transition-all duration-300 rounded-2xl ${
                           selectedTab === tab
-                            ? 'bg-gradient-to-br from-orange-500 via-purple-600 to-blue-600 text-white shadow-2xl shadow-orange-300/50 ring-2 ring-orange-200 scale-105'
-                            : 'bg-gradient-to-br from-white to-orange-50 text-gray-700 shadow-lg hover:shadow-xl border border-orange-200 hover:border-purple-300'
-                        } hover:rotate-1`}
-                        style={{
-                          boxShadow: selectedTab === tab 
-                            ? '0 20px 25px -5px rgba(139, 69, 199, 0.3), inset 0 2px 4px 0 rgba(255, 255, 255, 0.1)' 
-                            : '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05), inset 0 2px 4px 0 rgba(255, 255, 255, 0.3)'
-                        }}
+                            ? 'bg-gradient-to-br from-orange-500 via-purple-600 to-blue-600 text-white shadow-2xl shadow-purple-500/30 scale-105'
+                            : 'bg-white/80 backdrop-blur-sm text-purple-700 shadow-lg hover:shadow-xl border border-orange-200 hover:border-purple-300 hover:scale-102'
+                        }`}
                       >
-                        <div className={`${selectedTab === tab ? 'text-yellow-200' : 'text-purple-600'} mb-1`}>
-                          {tab === 'services' ? '🛠️' : tab === 'included' ? '✅' : '📋'}
-                        </div>
-                        <div className={selectedTab === tab ? 'text-white' : 'text-gray-700'}>
-                          {tab === 'services' ? 'Services' : tab === 'included' ? 'Included' : 'Notes'}
+                        <div className="flex flex-col items-center space-y-2">
+                          <div className={`text-xl ${selectedTab === tab ? 'text-orange-100' : 'text-purple-600'}`}>
+                            {tab === 'services' ? (
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              </svg>
+                            ) : tab === 'included' ? (
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            ) : (
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                              </svg>
+                            )}
+                          </div>
+                          <span className="text-xs">
+                            {tab === 'services' ? 'What We Do' : tab === 'included' ? "What's Included" : 'Important Notes'}
+                          </span>
                         </div>
                       </button>
                     ))}
                   </div>
 
                   {/* Enhanced Tab Content */}
-                  <div className="p-6 bg-gradient-to-br from-white to-blue-50/30">
+                  <div className="p-8 bg-gradient-to-br from-white to-purple-50/30">
                     <ul className="space-y-4">
                       {(currentTabs[selectedTab as keyof typeof currentTabs] || []).map((item: string, index: number) => (
-                        <li key={index} className="flex items-start bg-gradient-to-r from-white to-orange-50 p-4 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 border border-orange-100/50 hover:border-purple-200 transform hover:scale-102">
-                          <span className="text-emerald-500 mr-3 mt-1 text-lg drop-shadow-sm">✓</span>
-                          <span className="text-gray-700 text-sm font-medium leading-relaxed">{item}</span>
+                        <li key={index} className="group flex items-start bg-white/80 backdrop-blur-sm p-5 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 border border-orange-200/50 hover:border-purple-300/50 hover:scale-102">
+                          <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-xl flex items-center justify-center mr-4 shadow-lg group-hover:shadow-xl transition-shadow">
+                            <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <span className="text-purple-800 text-base leading-relaxed">{item}</span>
                         </li>
                       ))}
                     </ul>
@@ -1026,7 +1118,7 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                     <h3 className="font-bold text-gray-800 text-lg">Frequently Asked Questions</h3>
                   </div>
                   <div className="divide-y divide-gray-100">
-                    {serviceData.faq.map((faqItem: any, index: number) => (
+                    {serviceData.faq.map((faqItem: { question: string; answer: string }, index: number) => (
                       <div key={index} className="p-4">
                         <button
                           onClick={() => toggleFAQ(index)}
@@ -1063,94 +1155,127 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
               </div>
             </div>
 
-            {/* Right Column - Booking Panel (25% width) */}
+            {/* Right Column - Premium Booking Panel (25% width) */}
             <div className="w-full lg:w-1/4 flex-shrink-0">
-              <div className="bg-white rounded-2xl p-6 shadow-lg sticky top-6">
+              <div className="bg-white/95 backdrop-blur-md rounded-3xl p-8 shadow-2xl border border-orange-200/60 sticky top-6 hover:shadow-3xl transition-all duration-300">
                 
+                {/* Header */}
+                <div className="text-center mb-8">
+                  <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-1.68 4.22a1 1 0 00.95 1.28h9.46a1 1 0 00.95-1.28L15 13M9 19a2 2 0 11-4 0 2 2 0 014 0zm10 0a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl text-purple-900">Book This Service</h3>
+                  <p className="text-sm text-purple-600 mt-1">Professional service at your doorstep</p>
+                </div>
 
-                {/* Quantity */}
-                <div className="mb-6">
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Quantity</label>
-                  <div className="flex items-center border-2 border-gray-200 rounded-xl overflow-hidden">
+                {/* Premium Quantity Selector */}
+                <div className="mb-8">
+                  <label className="block text-base text-purple-800 mb-4">Select Quantity</label>
+                  <div className="flex items-center bg-orange-50 border-2 border-orange-200 rounded-2xl overflow-hidden shadow-inner">
                     <button 
                       onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                      className="px-4 py-3 bg-red-500 text-white font-bold hover:bg-red-600"
+                      className="px-6 py-4 bg-gradient-to-br from-orange-500 to-orange-600 text-white hover:from-orange-600 hover:to-orange-700 transition-all duration-200 hover:scale-105 active:scale-95"
                     >
-                      −
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M20 12H4" />
+                      </svg>
                     </button>
-                    <span className="flex-1 text-center py-3 bg-orange-50 font-bold text-gray-800">{quantity}</span>
+                    <span className="flex-1 text-center py-4 bg-white text-xl text-purple-900 border-x border-orange-200">{quantity}</span>
                     <button 
                       onClick={() => setQuantity(quantity + 1)}
-                      className="px-4 py-3 bg-green-500 text-white font-bold hover:bg-green-600"
+                      className="px-6 py-4 bg-gradient-to-br from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 transition-all duration-200 hover:scale-105 active:scale-95"
                     >
-                      +
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
+                      </svg>
                     </button>
                   </div>
                 </div>
 
-                {/* Add to Cart - Simplified */}
+                {/* Premium Add to Cart Button */}
                 <button 
                   onClick={() => {
                     handleAddToCart();
                     setClickCount(prev => prev + 1);
                   }}
-                  className="w-full bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 hover:from-orange-600 hover:via-purple-700 hover:to-blue-700 text-white font-bold py-4 px-6 rounded-lg transition-all duration-200 text-base mb-4 shadow-lg hover:shadow-xl"
+                  className="w-full bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 hover:from-orange-600 hover:via-purple-700 hover:to-blue-700 text-white py-5 px-8 rounded-2xl transition-all duration-300 text-lg mb-6 shadow-2xl hover:shadow-3xl transform hover:scale-105 active:scale-95"
                 >
-                  Add to Cart - {formatPrice(subtotal)}
+                  <div className="flex items-center justify-center space-x-3">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-1.68 4.22a1 1 0 00.95 1.28h9.46a1 1 0 00.95-1.28L15 13M9 19a2 2 0 11-4 0 2 2 0 014 0zm10 0a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    <span>Add to Cart • {formatPrice(subtotal)}</span>
+                  </div>
                 </button>
 
-                {/* Inline Success Message */}
+                {/* Premium Success Message */}
                 {addToCartSuccess && (
-                  <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded-lg flex items-center animate-pulse">
-                    <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                    <span className="font-medium">Successfully Added to Cart!</span>
+                  <div className="mb-6 p-4 bg-gradient-to-r from-emerald-50 to-green-50 border-2 border-emerald-200 text-emerald-800 rounded-2xl flex items-center shadow-lg animate-bounce">
+                    <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center mr-3 shadow-lg">
+                      <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <span className="">Successfully Added to Cart!</span>
                   </div>
                 )}
 
-
-                {/* Note about coupons */}
-                <div className="mb-6 p-3 bg-gradient-to-br from-orange-50 via-purple-50 to-blue-50 rounded-xl border border-orange-200">
-                  <div className="flex items-center space-x-2 text-purple-700">
-                    <span className="text-lg">💡</span>
-                    <div className="text-sm">
-                      <div className="font-semibold">Pro Tip!</div>
-                      <div>Apply coupons at checkout for additional discounts on your total order.</div>
+                {/* Premium Info Cards */}
+                <div className="space-y-4 mb-8">
+                  {/* Location */}
+                  <div className="p-4 bg-gradient-to-br from-purple-50 to-blue-50 rounded-2xl border border-purple-200">
+                    <div className="flex items-start space-x-3">
+                      <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-blue-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg">
+                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <div className="text-purple-800 text-sm mb-1">Service Area</div>
+                        <div className="text-purple-700 text-sm">Bhubaneswar, Odisha</div>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Location */}
-                <div className="mb-6 p-3 bg-gradient-to-br from-orange-50 via-purple-50 to-blue-50 rounded-xl border border-orange-200">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-lg">📍</span>
-                    <div>
-                      <div className="text-sm font-bold">Services to</div>
-                      <div className="text-xs text-gray-600">Bhubaneswar, Odisha</div>
+                {/* Premium Trust Badges */}
+                <div className="bg-gradient-to-br from-orange-50 to-purple-50 p-6 rounded-2xl border border-orange-200">
+                  <h4 className="text-purple-900 mb-4 text-center">Why Choose Happy Homes</h4>
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-6 h-6 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full flex items-center justify-center flex-shrink-0">
+                        <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <span className="text-purple-800 text-sm">Certified Professionals</span>
                     </div>
-                  </div>
-                </div>
-
-                {/* Compact HH Promises - Urban Company Style */}
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-6">
-                  <h4 className="font-bold text-gray-800 mb-3 text-center">Why Choose Happy Homes?</h4>
-                  <div className="space-y-2">
-                    <div className="flex items-center text-sm">
-                      <span className="text-green-500 mr-2">✓</span>
-                      <span className="text-gray-700">Certified Professionals</span>
+                    <div className="flex items-center space-x-3">
+                      <div className="w-6 h-6 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full flex items-center justify-center flex-shrink-0">
+                        <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <span className="text-purple-800 text-sm">Same Day Service</span>
                     </div>
-                    <div className="flex items-center text-sm">
-                      <span className="text-green-500 mr-2">✓</span>
-                      <span className="text-gray-700">Quick Response Time</span>
+                    <div className="flex items-center space-x-3">
+                      <div className="w-6 h-6 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full flex items-center justify-center flex-shrink-0">
+                        <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <span className="text-purple-800 text-sm">Transparent Pricing</span>
                     </div>
-                    <div className="flex items-center text-sm">
-                      <span className="text-green-500 mr-2">✓</span>
-                      <span className="text-gray-700">Transparent Pricing</span>
-                    </div>
-                    <div className="flex items-center text-sm">
-                      <span className="text-green-500 mr-2">✓</span>
-                      <span className="text-gray-700">Quality Assurance</span>
+                    <div className="flex items-center space-x-3">
+                      <div className="w-6 h-6 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full flex items-center justify-center flex-shrink-0">
+                        <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <span className="text-purple-800 text-sm">Quality Guarantee</span>
                     </div>
                   </div>
                 </div>
@@ -1262,9 +1387,9 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 max-w-7xl mx-auto">
-            {activeCategories.map((category, index) => {
+            {activeCategories.map((category, categoryIndex) => {
               // Check if this category has services
-              const hasServices = services?.some((service: any) => 
+              const hasServices = convertToBackendServices(services)?.some((service) => 
                 service.category_name === category.name && service.is_active
               );
               
@@ -1274,7 +1399,7 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
               ).slice(0, 2);
 
               // Unified color scheme to match plumbing/category pages exactly
-              const getCategoryColors = (categoryName: string) => {
+              const getCategoryColors = () => {
                 // Match the exact same light colors used in category pages
                 return {
                   gradient: hasServices 
@@ -1289,11 +1414,11 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                 };
               };
 
-              const colors = getCategoryColors(category.name);
+              const colors = getCategoryColors();
               
               return (
                 <div 
-                  key={category.id}
+                  key={category.id || categoryIndex}
                   onClick={() => hasServices ? navigateToCategory(category.name) : null}
                   className={`${colors.gradient} ${colors.shadow} ${
                     hasServices 
@@ -1387,7 +1512,7 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
     const categorySubcategories = allCategorySubcategories;
 
     // Enhanced color scheme to match home banner's vibrant violet-fuchsia-cyan theme
-    const getCategoryPageColors = (categoryName: string) => {
+    const getCategoryPageColors = () => {
       // Match home banner's vibrant color combination
       return {
         bgGradient: 'from-orange-50 via-purple-50 to-blue-50',
@@ -1408,7 +1533,7 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
       };
     };
 
-    const colors = getCategoryPageColors(categoryName);
+    const colors = getCategoryPageColors();
     
     return (
       <div className={`min-h-screen bg-gradient-to-br ${colors.bgGradient} py-8 relative overflow-y-auto`} style={{backgroundImage: colors.bgRadial}}>
@@ -1418,17 +1543,17 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
             <div className="flex items-center space-x-2">
               <button 
                 onClick={navigateToHome}
-                className={`${colors.breadcrumbColor} text-sm font-medium hover:scale-105 transition-all duration-200 flex items-center space-x-1`}
+                className={`${colors.breadcrumbColor} text-base font-semibold hover:scale-105 transition-all duration-200 flex items-center space-x-1`}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                 </svg>
-                <span>Home</span>
+                <span className="font-bold tracking-wide">Home</span>
               </button>
               <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
-              <span className={`${colors.descColor} text-sm font-semibold`}>{categoryName}</span>
+              <span className={`${colors.descColor} text-base font-bold tracking-wide`}>{categoryName}</span>
             </div>
           </nav>
 
@@ -1463,9 +1588,9 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
           {/* Subcategories Grid */}
           {categorySubcategories.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {categorySubcategories.map((subcategory, index) => {
+              {categorySubcategories.map((subcategory, subcategoryIndex) => {
                 // Find the service for this subcategory
-                const subcategoryService: any = services?.find((service: any) => 
+                const subcategoryService = convertToBackendServices(services)?.find((service) => 
                   service.subcategory_name === subcategory.name && 
                   service.category_name === categoryName &&
                   service.is_active
@@ -1473,7 +1598,7 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
 
                 return (
                   <div
-                    key={subcategory.id}
+                    key={subcategory.id || subcategoryIndex}
                     className={`${colors.cardGradient} rounded-xl p-6 ${colors.cardShadow} hover:shadow-xl transition-all duration-300 transform hover:scale-105 border-2 ${colors.cardBorder} hover:-translate-y-1`}
                   >
                     <div className="text-center">
@@ -1501,7 +1626,7 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                             e.stopPropagation();
                             if (subcategoryService && subcategoryService.id) {
                               try {
-                                const cartItem = await addToCart(subcategoryService.id, undefined, 1);
+                                const cartItem = await addToCart(subcategoryService.id, 1);
                                 if (cartItem) {
                                   updateGlobalCartCount();
                                   showCartSuccessMessage(subcategoryService.id, `${subcategory.name === 'Toilets' ? 'Toilet Services (Classic)' : subcategory.name} added to cart!`);
@@ -1566,12 +1691,12 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                       </div>
 
                       {/* Success Message Display */}
-                      {subcategoryService && (subcategoryService as any).id && cartSuccessMessages[(subcategoryService as any).id] && (
+                      {subcategoryService && subcategoryService.id && cartSuccessMessages[subcategoryService.id] && (
                         <div className="mt-3 p-2 bg-green-100 border border-green-400 text-green-700 rounded-lg flex items-center justify-center animate-pulse text-xs">
                           <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                           </svg>
-                          <span className="font-medium">{cartSuccessMessages[(subcategoryService as any).id]}</span>
+                          <span className="font-medium">{cartSuccessMessages[subcategoryService.id]}</span>
                         </div>
                       )}
                     </div>
@@ -1685,7 +1810,7 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                   >
                     <option value="All Services">All Services</option>
                     {categories.filter(cat => cat.is_active).map(category => {
-                      const hasServices = services?.some((service: any) => 
+                      const hasServices = convertToBackendServices(services)?.some((service) => 
                         service.category_name === category.name && service.is_active
                       );
                       return (
@@ -1792,7 +1917,7 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                             onClick={navigateToAdmin}
                             className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-purple-600 font-medium"
                           >
-                            🛠️ Admin Panel
+                            Admin Panel
                           </button>
                         )}
                         <button 
@@ -1861,12 +1986,12 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                     : '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05), inset 0 2px 4px 0 rgba(255, 255, 255, 0.3)'
                 }}
               >
-                <span className={currentPage === 'home' ? 'text-white' : 'text-gray-700'}>Home</span>
+                <span className={`font-semibold tracking-wide ${currentPage === 'home' ? 'text-white' : 'text-gray-700'}`}>Home</span>
               </button>
               
               {/* Render all active categories in navigation */}
               {categories.filter(cat => cat.is_active).map(category => {
-                const hasServices = services?.some((service: any) => 
+                const hasServices = convertToBackendServices(services)?.some((service) => 
                   service.category_name === category.name && service.is_active
                 );
                 const categoryPageName = category.name.toLowerCase().replace(/\s+/g, '-').replace('&', '&');
@@ -1891,20 +2016,12 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                     disabled={!hasServices}
                   >
                     <span className="flex items-center space-x-1">
-                      <span>{category.name === 'Finance & Insurance' ? 'Finance' : category.name}</span>
+                      <span className="tracking-wide">{category.name === 'Finance & Insurance' ? 'Finance' : category.name}</span>
                       {!hasServices && <span className="text-xs">🔒</span>}
                     </span>
                   </button>
                 );
               })}
-              
-              <a href="#" className="px-4 py-3 rounded-xl text-sm font-bold transition-all duration-300 whitespace-nowrap transform hover:scale-105 active:scale-95 bg-gradient-to-br from-white to-orange-50 text-gray-700 shadow-lg hover:shadow-xl border border-orange-200 hover:border-purple-300 hover:rotate-1"
-                style={{
-                  boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05), inset 0 2px 4px 0 rgba(255, 255, 255, 0.3)'
-                }}
-              >
-                <span>Top Rated</span>
-              </a>
               
               <button 
                 onClick={() => setCurrentPage('offers')} 
@@ -2092,6 +2209,7 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                 onToggleCollapse={() => setIsCartCollapsed(!isCartCollapsed)}
                 onCheckout={navigateToCheckout}
                 onCartUpdate={updateGlobalCartCount}
+                refreshTrigger={cartRefreshTrigger}
               />
             </div>
           );
@@ -2104,7 +2222,7 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
               {currentPage === 'login' && <LoginPage navigateHome={navigateToHome} navigateToSignup={navigateToSignup} />}
               {currentPage === 'signup' && <RegisterPage navigateHome={navigateToHome} navigateToLogin={navigateToLogin} />}
               {currentPage === 'cart' && <CartPage navigateHome={navigateToHome} navigateToLogin={navigateToLogin} navigateToCheckout={navigateToCheckout} updateCartCount={updateGlobalCartCount} />}
-              {currentPage === 'checkout' && <CheckoutPage navigateHome={navigateToHome} navigateToCart={navigateToCart} navigateToLogin={navigateToLogin} navigateToAddAddress={navigateToAddAddress} updateCartCount={updateGlobalCartCount} />}
+              {currentPage === 'checkout' && <CheckoutPage navigateHome={navigateToHome} navigateToCart={navigateToCart} navigateToLogin={navigateToLogin} navigateToAddAddress={navigateToAddAddress} navigateToMyBookings={navigateToMyBookings} updateCartCount={updateGlobalCartCount} />}
               {currentPage === 'add-address' && <AddAddressPage navigateHome={navigateToHome} navigateToCheckout={navigateToCheckout} />}
               {currentPage === 'my-bookings' && <MyBookingsPage />}
               {currentPage === 'profile' && <ProfilePage />}

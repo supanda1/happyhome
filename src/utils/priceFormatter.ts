@@ -162,6 +162,31 @@ export const formatCompactPrice = (price: number | string): string => {
 };
 
 /**
+ * Format price with exact decimals (for totals/revenue)
+ * @param price - Price value (can be string or number)
+ * @param showSymbol - Whether to show ₹ symbol (default: true)
+ * @returns Formatted price string with decimals
+ */
+export const formatExactPrice = (price: number | string, showSymbol: boolean = true): string => {
+  if (!price && price !== 0) return showSymbol ? '₹0.00' : '0.00';
+  
+  const numericPrice = typeof price === 'string' ? parseFloat(price) : price;
+  
+  if (isNaN(numericPrice)) return showSymbol ? '₹0.00' : '0.00';
+  
+  // Keep exact decimals (up to 2 decimal places)
+  const exactPrice = parseFloat(numericPrice.toFixed(2));
+  
+  // Format with Indian number system (crores, lakhs, etc.)
+  const formattedNumber = exactPrice.toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+  
+  return showSymbol ? `₹${formattedNumber}` : formattedNumber;
+};
+
+/**
  * Default export for common usage
  */
 export default formatPrice;

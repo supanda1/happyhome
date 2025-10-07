@@ -85,6 +85,9 @@ export const dashboardService = {
     const response = await apiClient.get<ApiResponse<DashboardStats>>(
       `/dashboard/stats?${queryParams.toString()}`
     );
+    if (!response.data) {
+      throw new Error('Failed to get dashboard statistics');
+    }
     return response.data;
   },
 
@@ -105,6 +108,9 @@ export const dashboardService = {
     const response = await apiClient.get<ApiResponse<FinancialAnalytics>>(
       `/dashboard/revenue?${queryParams.toString()}`
     );
+    if (!response.data) {
+      throw new Error('Failed to get revenue analytics');
+    }
     return response.data;
   },
 
@@ -123,6 +129,9 @@ export const dashboardService = {
     const response = await apiClient.get<ApiResponse<BookingAnalytics>>(
       `/dashboard/bookings?${queryParams.toString()}`
     );
+    if (!response.data) {
+      throw new Error('Failed to get booking analytics');
+    }
     return response.data;
   },
 
@@ -141,6 +150,9 @@ export const dashboardService = {
     const response = await apiClient.get<ApiResponse<CustomerAnalytics>>(
       `/dashboard/customers?${queryParams.toString()}`
     );
+    if (!response.data) {
+      throw new Error('Failed to get customer analytics');
+    }
     return response.data;
   },
 
@@ -162,6 +174,9 @@ export const dashboardService = {
     const response = await apiClient.get<ApiResponse<ServicePerformance[]>>(
       `/dashboard/service-performance?${queryParams.toString()}`
     );
+    if (!response.data) {
+      throw new Error('Failed to get service performance data');
+    }
     return response.data;
   },
 
@@ -172,6 +187,9 @@ export const dashboardService = {
     const response = await apiClient.get<ApiResponse<Booking[]>>(
       `/dashboard/recent-bookings?limit=${limit}`
     );
+    if (!response.data) {
+      throw new Error('Failed to get recent bookings');
+    }
     return response.data;
   },
 
@@ -193,6 +211,9 @@ export const dashboardService = {
     const response = await apiClient.get<ApiResponse<ServicePerformance[]>>(
       `/dashboard/top-services?${queryParams.toString()}`
     );
+    if (!response.data) {
+      throw new Error('Failed to get top services data');
+    }
     return response.data;
   },
 
@@ -203,6 +224,9 @@ export const dashboardService = {
     const response = await apiClient.get<ApiResponse<RevenueData[]>>(
       `/dashboard/monthly-revenue?months=${months}`
     );
+    if (!response.data) {
+      throw new Error('Failed to get monthly revenue data');
+    }
     return response.data;
   },
 
@@ -224,9 +248,16 @@ export const dashboardService = {
       }
     });
 
-    const response = await apiClient.get<ApiResponse<any>>(
+    const response = await apiClient.get<ApiResponse<Array<{
+      period: string;
+      bookings: number;
+      revenue: number;
+    }>>>(
       `/dashboard/booking-trends?${queryParams.toString()}`
     );
+    if (!response.data) {
+      throw new Error('Failed to get booking trends data');
+    }
     return response.data;
   },
 
@@ -247,9 +278,17 @@ export const dashboardService = {
       }
     });
 
-    const response = await apiClient.get<ApiResponse<any>>(
+    const response = await apiClient.get<ApiResponse<Array<{
+      location: string;
+      bookings: number;
+      revenue: number;
+      customers: number;
+    }>>>(
       `/dashboard/geographic?${queryParams.toString()}`
     );
+    if (!response.data) {
+      throw new Error('Failed to get geographic analytics data');
+    }
     return response.data;
   },
 
@@ -264,7 +303,17 @@ export const dashboardService = {
     pendingReviews: number;
     lowStockAlerts: number;
   }> {
-    const response = await apiClient.get<ApiResponse<any>>('/dashboard/real-time');
+    const response = await apiClient.get<ApiResponse<{
+      activeBookings: number;
+      todayBookings: number;
+      todayRevenue: number;
+      onlineCustomers: number;
+      pendingReviews: number;
+      lowStockAlerts: number;
+    }>>('/dashboard/real-time');
+    if (!response.data) {
+      throw new Error('Failed to get real-time metrics');
+    }
     return response.data;
   },
 
@@ -280,7 +329,18 @@ export const dashboardService = {
     createdAt: string;
     isRead: boolean;
   }>> {
-    const response = await apiClient.get<ApiResponse<any>>('/dashboard/alerts');
+    const response = await apiClient.get<ApiResponse<Array<{
+      id: string;
+      type: 'warning' | 'error' | 'info';
+      title: string;
+      message: string;
+      priority: 'low' | 'medium' | 'high';
+      createdAt: string;
+      isRead: boolean;
+    }>>>('/dashboard/alerts');
+    if (!response.data) {
+      throw new Error('Failed to get admin alerts');
+    }
     return response.data;
   },
 
@@ -317,7 +377,29 @@ export const dashboardService = {
       averageOrderValue: number;
     };
   }> {
-    const response = await apiClient.post<ApiResponse<any>>('/dashboard/performance-comparison', params);
+    const response = await apiClient.post<ApiResponse<{
+      current: {
+        revenue: number;
+        bookings: number;
+        customers: number;
+        averageOrderValue: number;
+      };
+      comparison: {
+        revenue: number;
+        bookings: number;
+        customers: number;
+        averageOrderValue: number;
+      };
+      growth: {
+        revenue: number;
+        bookings: number;
+        customers: number;
+        averageOrderValue: number;
+      };
+    }>>('/dashboard/performance-comparison', params);
+    if (!response.data) {
+      throw new Error('Failed to get performance comparison data');
+    }
     return response.data;
   },
 

@@ -61,6 +61,9 @@ export const authService = {
     );
     
     // Store tokens in the API client
+    if (!response.data) {
+      throw new Error('Failed to login: No response data received');
+    }
     const { accessToken, refreshToken } = response.data;
     apiClient.setTokens(accessToken, refreshToken);
     
@@ -87,6 +90,9 @@ export const authService = {
     );
     
     // Store tokens in the API client
+    if (!response.data) {
+      throw new Error('Failed to register user: No response data received');
+    }
     const { accessToken, refreshToken } = response.data;
     apiClient.setTokens(accessToken, refreshToken);
     
@@ -117,6 +123,9 @@ export const authService = {
     );
     
     // Update tokens in the API client
+    if (!response.data) {
+      throw new Error('Failed to refresh token: No response data received');
+    }
     const { accessToken, refreshToken: newRefreshToken } = response.data;
     apiClient.setTokens(accessToken, newRefreshToken);
     
@@ -128,6 +137,9 @@ export const authService = {
    */
   async getProfile(): Promise<User> {
     const response = await apiClient.get<ApiResponse<User>>('/auth/profile');
+    if (!response.data) {
+      throw new Error('Failed to get user profile: No response data received');
+    }
     return response.data;
   },
 
@@ -136,7 +148,11 @@ export const authService = {
    */
   async updateProfile(updates: UpdateProfileRequest): Promise<User> {
     // Convert camelCase to snake_case for backend
-    const backendUpdates: any = {};
+    const backendUpdates: {
+      first_name?: string;
+      last_name?: string;
+      phone?: string;
+    } = {};
     if (updates.firstName !== undefined) backendUpdates.first_name = updates.firstName;
     if (updates.lastName !== undefined) backendUpdates.last_name = updates.lastName;
     if (updates.phone !== undefined) backendUpdates.phone = updates.phone;
@@ -145,6 +161,9 @@ export const authService = {
       '/auth/profile',
       backendUpdates
     );
+    if (!response.data) {
+      throw new Error('Failed to update user profile: No response data received');
+    }
     return response.data;
   },
 

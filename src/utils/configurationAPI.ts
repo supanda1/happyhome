@@ -288,7 +288,7 @@ export const getCachedImageConfig = async (type: 'category' | 'subcategory' | 's
       case 'subcategory':
         imageConfig = await getSubcategoryImages(id);
         break;
-      case 'service':
+      case 'service': {
         const serviceImages = await getServiceImages(id);
         if (serviceImages.length > 0) {
           imageConfig = {
@@ -299,6 +299,7 @@ export const getCachedImageConfig = async (type: 'category' | 'subcategory' | 's
           };
         }
         break;
+      }
     }
     
     if (imageConfig) {

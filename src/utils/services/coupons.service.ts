@@ -32,7 +32,7 @@ interface CreateCouponRequest {
   isActive: boolean;
 }
 
-interface UpdateCouponRequest extends Partial<CreateCouponRequest> {}
+type UpdateCouponRequest = Partial<CreateCouponRequest>;
 
 interface ValidateCouponRequest {
   code: string;
@@ -86,6 +86,9 @@ export const couponsService = {
   async getAvailableCoupons(serviceId?: string): Promise<Coupon[]> {
     const params = serviceId ? `?serviceId=${serviceId}` : '';
     const response = await apiClient.get<ApiResponse<Coupon[]>>(`/coupons/available${params}`);
+    if (!response.data) {
+      throw new Error('Failed to get available coupons');
+    }
     return response.data;
   },
 
@@ -94,6 +97,9 @@ export const couponsService = {
    */
   async getCoupon(id: string): Promise<Coupon> {
     const response = await apiClient.get<ApiResponse<Coupon>>(`/coupons/${id}`);
+    if (!response.data) {
+      throw new Error(`Failed to get coupon with ID: ${id}`);
+    }
     return response.data;
   },
 
@@ -102,6 +108,9 @@ export const couponsService = {
    */
   async getCouponByCode(code: string): Promise<Coupon> {
     const response = await apiClient.get<ApiResponse<Coupon>>(`/coupons/code/${code}`);
+    if (!response.data) {
+      throw new Error(`Failed to get coupon with code: ${code}`);
+    }
     return response.data;
   },
 
@@ -113,6 +122,9 @@ export const couponsService = {
       '/coupons/validate',
       request
     );
+    if (!response.data) {
+      throw new Error(`Failed to validate coupon: ${request.code}`);
+    }
     return response.data;
   },
 
@@ -128,7 +140,14 @@ export const couponsService = {
     finalAmount: number;
     coupon: Coupon;
   }> {
-    const response = await apiClient.post<ApiResponse<any>>('/coupons/apply', request);
+    const response = await apiClient.post<ApiResponse<{
+      discountAmount: number;
+      finalAmount: number;
+      coupon: Coupon;
+    }>>('/coupons/apply', request);
+    if (!response.data) {
+      throw new Error(`Failed to apply coupon: ${request.code}`);
+    }
     return response.data;
   },
 
@@ -137,6 +156,9 @@ export const couponsService = {
    */
   async createCoupon(couponData: CreateCouponRequest): Promise<Coupon> {
     const response = await apiClient.post<ApiResponse<Coupon>>('/coupons', couponData);
+    if (!response.data) {
+      throw new Error('Failed to create coupon');
+    }
     return response.data;
   },
 
@@ -145,6 +167,9 @@ export const couponsService = {
    */
   async updateCoupon(id: string, updates: UpdateCouponRequest): Promise<Coupon> {
     const response = await apiClient.patch<ApiResponse<Coupon>>(`/coupons/${id}`, updates);
+    if (!response.data) {
+      throw new Error(`Failed to update coupon with ID: ${id}`);
+    }
     return response.data;
   },
 
@@ -160,6 +185,9 @@ export const couponsService = {
    */
   async toggleCouponStatus(id: string): Promise<Coupon> {
     const response = await apiClient.patch<ApiResponse<Coupon>>(`/coupons/${id}/toggle-status`);
+    if (!response.data) {
+      throw new Error(`Failed to toggle coupon status for ID: ${id}`);
+    }
     return response.data;
   },
 
@@ -170,6 +198,9 @@ export const couponsService = {
     const response = await apiClient.post<ApiResponse<Coupon>>(`/coupons/${id}/duplicate`, {
       code: newCode,
     });
+    if (!response.data) {
+      throw new Error(`Failed to duplicate coupon with ID: ${id}`);
+    }
     return response.data;
   },
 
@@ -186,7 +217,19 @@ export const couponsService = {
       discountGiven: number;
     }>;
   }> {
-    const response = await apiClient.get<ApiResponse<any>>(`/coupons/${couponId}/stats`);
+    const response = await apiClient.get<ApiResponse<{
+      totalUsage: number;
+      totalDiscountGiven: number;
+      averageDiscountAmount: number;
+      usageByMonth: Array<{
+        date: string;
+        count: number;
+        discountGiven: number;
+      }>;
+    }>>(`/coupons/${couponId}/stats`);
+    if (!response.data) {
+      throw new Error(`Failed to get coupon usage statistics for ID: ${couponId}`);
+    }
     return response.data;
   },
 
@@ -195,6 +238,9 @@ export const couponsService = {
    */
   async getOverallCouponStats(): Promise<CouponUsageStats> {
     const response = await apiClient.get<ApiResponse<CouponUsageStats>>('/coupons/statistics');
+    if (!response.data) {
+      throw new Error('Failed to get overall coupon statistics');
+    }
     return response.data;
   },
 
@@ -205,6 +251,9 @@ export const couponsService = {
     const response = await apiClient.get<ApiResponse<Coupon[]>>(
       `/coupons/expiring-soon?days=${days}`
     );
+    if (!response.data) {
+      throw new Error(`Failed to get coupons expiring in ${days} days`);
+    }
     return response.data;
   },
 
@@ -214,6 +263,9 @@ export const couponsService = {
   async getMyAvailableCoupons(serviceId?: string): Promise<Coupon[]> {
     const params = serviceId ? `?serviceId=${serviceId}` : '';
     const response = await apiClient.get<ApiResponse<Coupon[]>>(`/coupons/my-available${params}`);
+    if (!response.data) {
+      throw new Error('Failed to get user available coupons');
+    }
     return response.data;
   },
 
@@ -226,7 +278,15 @@ export const couponsService = {
     discountAmount: number;
     orderId: string;
   }>> {
-    const response = await apiClient.get<ApiResponse<any>>('/coupons/my-used');
+    const response = await apiClient.get<ApiResponse<Array<{
+      coupon: Coupon;
+      usedAt: string;
+      discountAmount: number;
+      orderId: string;
+    }>>>('/coupons/my-used');
+    if (!response.data) {
+      throw new Error('Failed to get user used coupons');
+    }
     return response.data;
   },
 
@@ -241,6 +301,9 @@ export const couponsService = {
     const response = await apiClient.get<ApiResponse<{ canUse: boolean; reason?: string }>>(
       `/coupons/${couponId}/can-use${params}`
     );
+    if (!response.data) {
+      throw new Error(`Failed to check if user can use coupon with ID: ${couponId}`);
+    }
     return response.data;
   },
 
@@ -252,6 +315,9 @@ export const couponsService = {
     const response = await apiClient.get<ApiResponse<{ code: string }>>(
       `/coupons/generate-code${params}`
     );
+    if (!response.data) {
+      throw new Error('Failed to generate coupon code');
+    }
     return response.data;
   },
 
@@ -265,9 +331,20 @@ export const couponsService = {
       error: string;
     }>;
   }> {
-    const response = await apiClient.post<ApiResponse<any>>('/coupons/bulk-create', {
+    const response = await apiClient.post<ApiResponse<{
+      created: number;
+      failed: number;
+      results: Array<{
+        success: boolean;
+        coupon: CreateCouponRequest;
+        error: string;
+      }>;
+    }>>('/coupons/bulk-create', {
       coupons,
     });
+    if (!response.data) {
+      throw new Error('Failed to bulk create coupons');
+    }
     return response.data;
   },
 

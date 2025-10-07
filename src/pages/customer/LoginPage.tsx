@@ -34,8 +34,9 @@ const LoginPage: React.FC<LoginPageProps> = ({
       } else {
         setError('Invalid email or password. Please try again.');
       }
-    } catch (err: any) {
-      setError(err.message || 'Login failed. Please try again.');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Login failed. Please try again.';
+      setError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }

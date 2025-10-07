@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
   getCart, 
@@ -7,17 +7,14 @@ import {
   clearCart, 
   applyCouponToCart, 
   removeCouponFromCart,
-  validateCoupon,
-  getServices,
-  getCoupons,
+  getActiveCoupons,
   getContactSettings,
   type Cart, 
-  type CartItem,
-  type ContactSettings
+  type ContactSettings,
+  type Coupon
 } from '../../utils/adminDataManager';
 import { formatPrice } from '../../utils/priceFormatter';
 import WhatsAppButton from '../../components/ui/WhatsAppButton';
-import FacebookButton from '../../components/ui/FacebookButton';
 
 interface CartPageProps {
   navigateHome?: () => void;
@@ -40,17 +37,17 @@ const CartPage: React.FC<CartPageProps> = ({
   const [couponSuccess, setCouponSuccess] = useState('');
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
   const [selectedCouponOption, setSelectedCouponOption] = useState('manual');
-  const [availableCoupons, setAvailableCoupons] = useState<any[]>([]);
+  const [availableCoupons, setAvailableCoupons] = useState<Coupon[]>([]);
   const [contactSettings, setContactSettings] = useState<ContactSettings | null>(null);
 
   // Load available coupons from database API
   const loadAvailableCoupons = async () => {
     try {
-      const coupons = await getCoupons();
+      const coupons = await getActiveCoupons();
       const currentDate = new Date();
       
       // Filter out expired and inactive coupons (same logic as CheckoutPage)
-      const validCoupons = coupons.filter((coupon: any) => {
+      const validCoupons = coupons.filter((coupon: Coupon) => {
         if (!coupon.is_active) {
           return false;
         }
@@ -75,7 +72,7 @@ const CartPage: React.FC<CartPageProps> = ({
       });
       
       // Transform API format to match CartPage display format
-      const formattedCoupons = validCoupons.map((coupon: any) => ({
+      const formattedCoupons = validCoupons.map((coupon: Coupon) => ({
         code: coupon.code,
         title: coupon.title,
         description: coupon.description,
@@ -117,15 +114,7 @@ const CartPage: React.FC<CartPageProps> = ({
     }
   };
 
-  // Load cart data on component mount
-  useEffect(() => {
-    loadCart();
-    loadAvailableCoupons();
-    loadContactSettings();
-  }, []);
-
-
-  const loadCart = async () => {
+  const loadCart = useCallback(async () => {
     setIsLoading(true);
     try {
       const cartData = await getCart();
@@ -154,7 +143,14 @@ const CartPage: React.FC<CartPageProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [updateCartCount]);
+
+  // Load cart data on component mount
+  useEffect(() => {
+    loadCart();
+    loadAvailableCoupons();
+    loadContactSettings();
+  }, [loadCart]);
 
   const updateQuantity = async (id: string, newQuantity: number) => {
     try {
@@ -682,17 +678,6 @@ const CartPage: React.FC<CartPageProps> = ({
                   </WhatsAppButton>
                 </div>
 
-                {/* Facebook Share */}
-                <div className="mt-4 mb-4">
-                  <FacebookButton
-                    variant="share"
-                    shareUrl={window.location.href}
-                    message={`Check out my cart on Happy Homes! ${cart.totalItems} great services for just ₹${cart.finalAmount}. Amazing deals!`}
-                    className="w-full justify-center"
-                  >
-                    Share Cart on Facebook
-                  </FacebookButton>
-                </div>
 
                 {/* Security Note */}
                 <div className="mt-4 flex items-center justify-center text-xs text-gray-500">

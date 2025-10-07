@@ -35,11 +35,15 @@ export const initializeBackendEnforcer = () => {
   console.log('🛡️ Backend Enforcer: Blocking localStorage for backend-managed data');
 
   // Store original localStorage methods
+  // eslint-disable-next-line no-restricted-globals, no-restricted-syntax
   const originalSetItem = localStorage.setItem;
+  // eslint-disable-next-line no-restricted-globals, no-restricted-syntax
   const originalGetItem = localStorage.getItem;
+  // eslint-disable-next-line no-restricted-globals, no-restricted-syntax
   const originalRemoveItem = localStorage.removeItem;
 
   // Override localStorage.setItem
+  // eslint-disable-next-line no-restricted-globals, no-restricted-syntax
   localStorage.setItem = function(key: string, value: string) {
     if (BLOCKED_LOCALSTORAGE_KEYS.includes(key)) {
       console.warn(`🚫 BLOCKED localStorage.setItem('${key}') - This data should use backend API`);
@@ -55,6 +59,7 @@ export const initializeBackendEnforcer = () => {
   };
 
   // Override localStorage.getItem  
+  // eslint-disable-next-line no-restricted-globals, no-restricted-syntax
   localStorage.getItem = function(key: string): string | null {
     if (BLOCKED_LOCALSTORAGE_KEYS.includes(key)) {
       console.warn(`🚫 BLOCKED localStorage.getItem('${key}') - This data should come from backend API`);
@@ -64,6 +69,7 @@ export const initializeBackendEnforcer = () => {
   };
 
   // Override localStorage.removeItem
+  // eslint-disable-next-line no-restricted-globals, no-restricted-syntax
   localStorage.removeItem = function(key: string) {
     if (BLOCKED_LOCALSTORAGE_KEYS.includes(key)) {
       console.warn(`🚫 BLOCKED localStorage.removeItem('${key}') - Use backend API to delete`);
@@ -80,8 +86,10 @@ export const cleanupBlockedLocalStorage = () => {
   console.log('🧹 Cleaning up blocked localStorage keys...');
   
   BLOCKED_LOCALSTORAGE_KEYS.forEach(key => {
+    // eslint-disable-next-line no-restricted-globals, no-restricted-syntax
     if (localStorage.getItem(key)) {
       console.log(`🗑️ Removing localStorage key: ${key}`);
+      // eslint-disable-next-line no-restricted-globals, no-restricted-syntax
       localStorage.removeItem(key);
     }
   });

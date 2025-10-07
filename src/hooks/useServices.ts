@@ -109,7 +109,6 @@ export const useServiceAvailability = (serviceId: string, date?: string) => {
  * Create category mutation
  */
 export const useCreateCategory = () => {
-  const queryClient = useQueryClient();
   const notify = useNotify();
 
   return useMutation({
@@ -118,7 +117,7 @@ export const useCreateCategory = () => {
       invalidateQueries.services();
       notify.success('Category created successfully!');
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       notify.error(error.message || 'Failed to create category');
     },
   });
@@ -128,7 +127,6 @@ export const useCreateCategory = () => {
  * Update category mutation
  */
 export const useUpdateCategory = () => {
-  const queryClient = useQueryClient();
   const notify = useNotify();
 
   return useMutation({
@@ -138,7 +136,7 @@ export const useUpdateCategory = () => {
       invalidateQueries.services();
       notify.success('Category updated successfully!');
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       notify.error(error.message || 'Failed to update category');
     },
   });
@@ -148,7 +146,6 @@ export const useUpdateCategory = () => {
  * Delete category mutation
  */
 export const useDeleteCategory = () => {
-  const queryClient = useQueryClient();
   const notify = useNotify();
 
   return useMutation({
@@ -157,7 +154,7 @@ export const useDeleteCategory = () => {
       invalidateQueries.services();
       notify.success('Category deleted successfully!');
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       notify.error(error.message || 'Failed to delete category');
     },
   });
@@ -169,7 +166,6 @@ export const useDeleteCategory = () => {
  * Create service mutation
  */
 export const useCreateService = () => {
-  const queryClient = useQueryClient();
   const notify = useNotify();
 
   return useMutation({
@@ -178,7 +174,7 @@ export const useCreateService = () => {
       invalidateQueries.services();
       notify.success('Service created successfully!');
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       notify.error(error.message || 'Failed to create service');
     },
   });
@@ -204,7 +200,7 @@ export const useUpdateService = () => {
       invalidateQueries.services();
       notify.success('Service updated successfully!');
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       notify.error(error.message || 'Failed to update service');
     },
   });
@@ -225,7 +221,7 @@ export const useDeleteService = () => {
       invalidateQueries.services();
       notify.success('Service deleted successfully!');
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       notify.error(error.message || 'Failed to delete service');
     },
   });
@@ -251,7 +247,7 @@ export const useToggleServiceStatus = () => {
         `Service ${updatedService.isActive ? 'activated' : 'deactivated'} successfully!`
       );
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       notify.error(error.message || 'Failed to update service status');
     },
   });
@@ -265,7 +261,7 @@ export const useUpdateServiceAvailability = () => {
   const notify = useNotify();
 
   return useMutation({
-    mutationFn: ({ serviceId, availability }: { serviceId: string; availability: any }) => 
+    mutationFn: ({ serviceId, availability }: { serviceId: string; availability: { isAvailable: boolean; timeSlots: string[] } }) => 
       servicesService.updateServiceAvailability(serviceId, availability),
     onSuccess: (_, { serviceId }) => {
       // Invalidate availability queries for this service
@@ -274,7 +270,7 @@ export const useUpdateServiceAvailability = () => {
       });
       notify.success('Service availability updated successfully!');
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       notify.error(error.message || 'Failed to update service availability');
     },
   });
@@ -288,7 +284,7 @@ export const useUploadServicePhotos = () => {
 
   return useMutation({
     mutationFn: servicesService.uploadServicePhotos,
-    onError: (error: any) => {
+    onError: (error: Error) => {
       notify.error(error.message || 'Failed to upload photos');
     },
   });

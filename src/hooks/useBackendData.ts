@@ -1,12 +1,13 @@
 // Custom hooks to replace localStorage with backend API calls
 import { useState, useEffect } from 'react';
 import { APP_CONFIG } from '../config/app.config';
+import type { AddToCartRequest } from '../utils/services/cart.service';
+import type { ServiceCategory, Service } from '../types';
 
 // Categories Hook - Replace localStorage categories with backend
 export const useCategories = () => {
-  const [categories, setCategories] = useState([]);
+  const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -24,16 +25,52 @@ export const useCategories = () => {
           console.warn('Categories API failed, using fallback data');
           // Fallback to essential categories for functionality
           setCategories([
-            { id: 'b181c7f3-03cd-43ea-9fcd-85368fbfa628', name: 'Plumbing', icon: '🔧' },
-            { id: '5750b6f5-0a36-4839-8b5d-783aa5f4a40a', name: 'Electrical', icon: '⚡' },
-            { id: '48857699-7785-4875-a787-d1f0b7d2f28c', name: 'Cleaning', icon: '🧹' },
+            {
+              id: 'b181c7f3-03cd-43ea-9fcd-85368fbfa628',
+              name: 'Plumbing',
+              description: 'Plumbing repair and installation services',
+              icon: '🔧',
+              isActive: true,
+              sortOrder: 1,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            },
+            {
+              id: '5750b6f5-0a36-4839-8b5d-783aa5f4a40a',
+              name: 'Electrical',
+              description: 'Electrical repair and installation services',
+              icon: '⚡',
+              isActive: true,
+              sortOrder: 2,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            },
+            {
+              id: '48857699-7785-4875-a787-d1f0b7d2f28c',
+              name: 'Cleaning',
+              description: 'Professional cleaning services',
+              icon: '🧹',
+              isActive: true,
+              sortOrder: 3,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            },
           ]);
         }
       } catch (err) {
         console.error('Failed to fetch categories:', err);
         // Use minimal fallback for functionality
         setCategories([
-          { id: 'b181c7f3-03cd-43ea-9fcd-85368fbfa628', name: 'Plumbing', icon: '🔧' },
+          {
+            id: 'b181c7f3-03cd-43ea-9fcd-85368fbfa628',
+            name: 'Plumbing',
+            description: 'Plumbing repair and installation services',
+            icon: '🔧',
+            isActive: true,
+            sortOrder: 1,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          },
         ]);
       } finally {
         setLoading(false);
@@ -43,12 +80,12 @@ export const useCategories = () => {
     fetchCategories();
   }, []);
 
-  return { categories, loading, error };
+  return { categories, loading };
 };
 
 // Services Hook - Replace localStorage services with backend
 export const useServices = () => {
-  const [services, setServices] = useState([]);
+  const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   
   useEffect(() => {
@@ -70,8 +107,37 @@ export const useServices = () => {
             {
               id: '459218e6-b7c6-4200-a556-e3234b90bc3f',
               name: 'Bath Fittings Installation & Repair',
-              category_id: 'b181c7f3-03cd-43ea-9fcd-85368fbfa628',
-              subcategory_id: '75b29657-b107-4fa4-a4df-563e388911ad',
+              categoryId: 'b181c7f3-03cd-43ea-9fcd-85368fbfa628',
+              category: {
+                id: 'b181c7f3-03cd-43ea-9fcd-85368fbfa628',
+                name: 'Plumbing',
+                description: 'Plumbing repair and installation services',
+                icon: '🔧',
+                isActive: true,
+                sortOrder: 1,
+                createdAt: new Date(),
+                updatedAt: new Date()
+              },
+              description: 'Professional bath fittings installation and repair service',
+              shortDescription: 'Bath fittings installation & repair',
+              basePrice: 200,
+              duration: 120,
+              inclusions: ['Installation', 'Basic repair'],
+              exclusions: ['Materials cost'],
+              photos: [],
+              reviews: [],
+              rating: 4.5,
+              reviewCount: 0,
+              isActive: true,
+              isFeatured: false,
+              tags: ['plumbing', 'fittings'],
+              availability: {
+                isAvailable: true,
+                timeSlots: [],
+                blackoutDates: []
+              },
+              createdAt: new Date(),
+              updatedAt: new Date()
             }
           ]);
         }
@@ -94,7 +160,7 @@ export const useCart = (userId?: string) => {
   const [cart, setCart] = useState({ items: [], subtotal: 0, finalAmount: 0 });
   const [loading, setLoading] = useState(false);
 
-  const addToCart = async (serviceData: any) => {
+  const addToCart = async (serviceData: AddToCartRequest) => {
     if (!APP_CONFIG.FORCE_BACKEND_API || !userId) {
       console.warn('Cart add blocked - no backend API or user ID');
       return false;
@@ -142,34 +208,10 @@ export const useCart = (userId?: string) => {
   return { cart, addToCart, getCartData, loading };
 };
 
-// Block localStorage usage globally
-export const blockLocalStorage = () => {
-  if (APP_CONFIG.DEVELOPMENT.WARN_ON_LOCALSTORAGE_USE) {
-    // Override localStorage methods to show warnings
-    const originalSetItem = localStorage.setItem;
-    const originalGetItem = localStorage.getItem;
-    
-    localStorage.setItem = function(key: string, value: string) {
-      if (key.includes('happyhomes') && key !== 'happyhomes_token') {
-        console.warn(`🚫 BLOCKED: localStorage.setItem('${key}') - Use backend API instead`);
-        return;
-      }
-      originalSetItem.call(this, key, value);
-    };
-    
-    localStorage.getItem = function(key: string) {
-      if (key.includes('happyhomes') && key !== 'happyhomes_token') {
-        console.warn(`🚫 BLOCKED: localStorage.getItem('${key}') - Use backend API instead`);
-        return null;
-      }
-      return originalGetItem.call(this, key);
-    };
-  }
-};
+// localStorage usage is completely blocked - use safeLocalStorage from app.config.ts instead
 
 export default {
   useCategories,
   useServices,
-  useCart,
-  blockLocalStorage
+  useCart
 };

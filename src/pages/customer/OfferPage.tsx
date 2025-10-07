@@ -22,14 +22,11 @@ interface OfferPageProps {
 }
 
 const OfferPage: React.FC<OfferPageProps> = ({
-  navigateHome = () => window.location.href = '/',
-  navigateToLogin = () => window.location.href = '/#login',
-  navigateToCheckout = () => window.location.href = '/#checkout',
   navigateToCart = () => window.location.href = '/#cart'
 }) => {
   const [offerPlans, setOfferPlans] = useState<OfferPlan[]>([]);
   const [services, setServices] = useState<Service[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [, setCategories] = useState<Category[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<OfferPlan | null>(null);
   const [selectedServices, setSelectedServices] = useState<{[serviceId: string]: number}>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -122,7 +119,8 @@ const OfferPage: React.FC<OfferPageProps> = ({
     setSelectedServices(prev => {
       const currentQty = prev[serviceId] || 0;
       if (currentQty <= 1) {
-        const { [serviceId]: removed, ...rest } = prev;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { [serviceId]: _removed, ...rest } = prev;
         return rest;
       }
       return {
@@ -177,7 +175,7 @@ const OfferPage: React.FC<OfferPageProps> = ({
       // Auto-apply the coupon to cart
       await applyCouponToCart(offerCouponCode);
       
-    } catch (error) {
+    } catch {
       // Try to apply existing coupon anyway
       await applyCouponToCart(offerCouponCode);
     }

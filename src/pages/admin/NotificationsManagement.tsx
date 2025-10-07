@@ -300,7 +300,7 @@ const NotificationsManagement: React.FC<NotificationsManagementProps> = ({ onNav
             ].map(tab => (
               <button
                 key={tab.key}
-                onClick={() => setActiveTab(tab.key as any)}
+                onClick={() => setActiveTab(tab.key as 'history' | 'templates' | 'analytics' | 'settings')}
                 className={`py-4 px-1 border-b-2 font-medium text-sm ${
                   activeTab === tab.key
                     ? 'border-blue-500 text-blue-600'

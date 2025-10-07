@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, ReactNode } from 'react';
+import React, { createContext, useContext, useReducer, type ReactNode } from 'react';
 import type { Service, ServiceCategory, ServiceFilters, Review } from '../types/index.ts';
 import { servicesService, reviewsService } from '../utils/services';
 
@@ -93,26 +93,30 @@ const filterServices = (services: Service[], filters: ServiceFilters): Service[]
 
   // Sort services
   filtered.sort((a, b) => {
-    let aValue: any, bValue: any;
+    let aValue: string | number, bValue: string | number;
 
     switch (filters.sortBy) {
-      case 'price':
+      case 'price': {
         aValue = a.discountedPrice || a.basePrice;
         bValue = b.discountedPrice || b.basePrice;
         break;
-      case 'rating':
+      }
+      case 'rating': {
         aValue = a.rating;
         bValue = b.rating;
         break;
-      case 'newest':
+      }
+      case 'newest': {
         aValue = new Date(a.createdAt).getTime();
         bValue = new Date(b.createdAt).getTime();
         break;
+      }
       case 'name':
-      default:
+      default: {
         aValue = a.name.toLowerCase();
         bValue = b.name.toLowerCase();
         break;
+      }
     }
 
     if (filters.sortOrder === 'desc') {
@@ -153,14 +157,15 @@ const serviceReducer = (state: ServiceState, action: ServiceAction): ServiceStat
         filters: action.payload,
         filteredServices: filterServices(state.services, action.payload),
       };
-    case 'ADD_SERVICE':
+    case 'ADD_SERVICE': {
       const servicesWithNew = [...state.services, action.payload];
       return {
         ...state,
         services: servicesWithNew,
         filteredServices: filterServices(servicesWithNew, state.filters),
       };
-    case 'UPDATE_SERVICE':
+    }
+    case 'UPDATE_SERVICE': {
       const updatedServices = state.services.map(service =>
         service.id === action.payload.id ? action.payload : service
       );
@@ -169,14 +174,16 @@ const serviceReducer = (state: ServiceState, action: ServiceAction): ServiceStat
         services: updatedServices,
         filteredServices: filterServices(updatedServices, state.filters),
       };
-    case 'DELETE_SERVICE':
+    }
+    case 'DELETE_SERVICE': {
       const remainingServices = state.services.filter(service => service.id !== action.payload);
       return {
         ...state,
         services: remainingServices,
         filteredServices: filterServices(remainingServices, state.filters),
       };
-    case 'ADD_REVIEW':
+    }
+    case 'ADD_REVIEW': {
       const servicesWithReview = state.services.map(service => {
         if (service.id === action.payload.serviceId) {
           const updatedReviews = [...service.reviews, action.payload.review];
@@ -197,6 +204,7 @@ const serviceReducer = (state: ServiceState, action: ServiceAction): ServiceStat
         services: servicesWithReview,
         filteredServices: filterServices(servicesWithReview, state.filters),
       };
+    }
     case 'FILTER_SERVICES':
       return {
         ...state,
@@ -245,7 +253,15 @@ export const ServiceProvider: React.FC<ServiceProviderProps> = ({ children }) =>
   // Create service
   const createService = async (serviceData: Omit<Service, 'id' | 'createdAt' | 'updatedAt'>): Promise<boolean> => {
     try {
-      const newService = await servicesService.createService(serviceData);
+      // Transform Service data to CreateServiceRequest format
+      const { photos, ...restServiceData } = serviceData;
+      const createRequest = {
+        ...restServiceData,
+        // Don't include photos array in the request - they should be handled separately
+      };
+      // Note: photos are handled separately and not included in the request
+      void photos;
+      const newService = await servicesService.createService(createRequest);
       dispatch({ type: 'ADD_SERVICE', payload: newService });
       return true;
     } catch (error) {
@@ -258,7 +274,15 @@ export const ServiceProvider: React.FC<ServiceProviderProps> = ({ children }) =>
   // Update service
   const updateService = async (service: Service): Promise<boolean> => {
     try {
-      const updatedService = await servicesService.updateService(service.id, service);
+      // Transform Service data to UpdateServiceRequest format
+      const { id, photos, createdAt, updatedAt, ...restServiceData } = service;
+      const updateRequest = {
+        ...restServiceData,
+        // Don't include photos array in the request - they should be handled separately
+      };
+      // Note: photos, createdAt, updatedAt are excluded from the update request
+      void photos; void createdAt; void updatedAt;
+      const updatedService = await servicesService.updateService(id, updateRequest);
       dispatch({ type: 'UPDATE_SERVICE', payload: updatedService });
       return true;
     } catch (error) {
@@ -343,6 +367,7 @@ export const ServiceProvider: React.FC<ServiceProviderProps> = ({ children }) =>
 };
 
 // Custom hook to use service context
+// eslint-disable-next-line react-refresh/only-export-components
 export const useServices = (): ServiceContextType => {
   const context = useContext(ServiceContext);
   if (context === undefined) {

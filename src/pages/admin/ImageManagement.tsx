@@ -15,7 +15,9 @@ import {
   cleanupUnusedImages,
   getServices,
   getCategories,
-  getImageUrl
+  getImageUrl,
+  type Service,
+  type Category
 } from '../../utils/adminDataManager';
 
 interface ImageDownloadResult {
@@ -34,14 +36,12 @@ interface BulkDownloadStats {
 }
 
 const ImageManagement: React.FC = () => {
-  const [services, setServices] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState('');
   const [bulkStats, setBulkStats] = useState<BulkDownloadStats | null>(null);
   const [activeTab, setActiveTab] = useState<'services' | 'categories' | 'bulk' | 'cleanup'>('bulk');
-  const [selectedServices, setSelectedServices] = useState<string[]>([]);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [imageCount, setImageCount] = useState(5);
 
   useEffect(() => {
@@ -166,7 +166,7 @@ const ImageManagement: React.FC = () => {
     }
   };
 
-  const renderServiceItem = (service: any) => {
+  const renderServiceItem = (service: Service) => {
     const hasImages = service.imagePaths && service.imagePaths.length > 0;
     
     return (
@@ -224,7 +224,7 @@ const ImageManagement: React.FC = () => {
     );
   };
 
-  const renderCategoryItem = (category: any) => {
+  const renderCategoryItem = (category: Record<string, unknown>) => {
     const hasImages = category.imagePaths && category.imagePaths.length > 0;
     
     return (
@@ -326,7 +326,7 @@ const ImageManagement: React.FC = () => {
         ].map(({ key, label, icon: Icon }) => (
           <button
             key={key}
-            onClick={() => setActiveTab(key as any)}
+            onClick={() => setActiveTab(key as 'services' | 'categories' | 'bulk' | 'cleanup')}
             className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-colors ${
               activeTab === key
                 ? 'bg-white text-blue-600 shadow-sm'

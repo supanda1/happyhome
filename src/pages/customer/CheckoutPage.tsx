@@ -1,30 +1,32 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
   getCart, 
   applyCouponToCart, 
   removeCouponFromCart, 
-  getCoupons,
+  getActiveCoupons,
   clearCart,
   getUserAddresses,
   getDefaultUserAddress,
   getContactSettings,
   type Cart,
   type UserAddress,
-  type ContactSettings
+  type ContactSettings,
+  type Coupon
 } from '../../utils/adminDataManager';
 import { ordersAPI, handleAPIError } from '../../services/api';
 import { formatPrice } from '../../utils/priceFormatter';
 import WhatsAppButton from '../../components/ui/WhatsAppButton';
-import FacebookButton from '../../components/ui/FacebookButton';
+import { CheckoutPayment } from '../../components/payment';
 
-import type { CreateOrderRequest, OrderItem } from '../../types/api';
+import type { CreateOrderRequest } from '../../types/api';
 
 interface CheckoutPageProps {
   navigateHome?: () => void;
   navigateToCart?: () => void;
   navigateToLogin?: () => void;
   navigateToAddAddress?: () => void;
+  navigateToMyBookings?: () => void;
   updateCartCount?: () => void;
 }
 
@@ -33,6 +35,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
   navigateToCart = () => window.location.href = '/#cart',
   navigateToLogin = () => window.location.href = '/#login',
   navigateToAddAddress = () => window.location.href = '/#add-address',
+  navigateToMyBookings = () => window.location.href = '/#my-bookings',
   updateCartCount
 }) => {
   const [cart, setCart] = useState<Cart | null>(null);
@@ -41,9 +44,12 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>('');
   const [selectedAddress, setSelectedAddress] = useState<string>('');
   const [addresses, setAddresses] = useState<UserAddress[]>([]);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('upi');
   const [customerNotes, setCustomerNotes] = useState<string>('');
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [showPayment, setShowPayment] = useState(false);
+  const [orderSuccess, setOrderSuccess] = useState<{
+    orderId: string;
+    amount: number;
+  } | null>(null);
   
   const { user } = useAuth();
 
@@ -52,38 +58,54 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
   const [couponError, setCouponError] = useState('');
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
   const [showCouponDropdown, setShowCouponDropdown] = useState(false);
-  const [availableCoupons, setAvailableCoupons] = useState<any[]>([]);
+  const [availableCoupons, setAvailableCoupons] = useState<Coupon[]>([]);
   const [contactSettings, setContactSettings] = useState<ContactSettings | null>(null);
 
-  // Load cart, coupons, addresses, and time slots on component mount
-  useEffect(() => {
-    const initializeCheckout = async () => {
-      // Check authentication first
-      if (!user) {
-        const shouldLogin = confirm('🔐 Login Required\n\nYou need to be logged in to access checkout.\n\nWould you like to login now?');
-        
-        if (shouldLogin) {
-          navigateToLogin();
-        } else {
-          navigateToCart(); // Redirect back to cart if they don't want to login
-        }
-        return;
+  // Load addresses function (defined early to avoid hoisting issues)
+  const loadAddresses = useCallback(async () => {
+    try {
+      const userAddresses = await getUserAddresses();
+      setAddresses(userAddresses);
+      
+      // Auto-select default address if available (only if no address is currently selected)
+      const defaultAddress = await getDefaultUserAddress();
+      if (defaultAddress) {
+        setSelectedAddress(prev => prev || defaultAddress.id);
       }
-      
-      // Add small delay to ensure session is fully established after login
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      await loadCart();
-      loadAvailableCoupons();
-      await loadAddresses();
-      loadTimeSlots(); // Load time slots from backend
-      loadContactSettings();
-    };
-    
-    initializeCheckout();
-  }, [user]);
+    } catch (error) {
+      console.error('Failed to load addresses:', error);
+    }
+  }, []); // Remove selectedAddress dependency to break the loop
 
-  const loadCart = async () => {
+  // Load cart, coupons, addresses, and time slots on component mount
+  const initializeCheckout = useCallback(async () => {
+    // Check authentication first
+    if (!user) {
+      const shouldLogin = confirm('🔐 Login Required\n\nYou need to be logged in to access checkout.\n\nWould you like to login now?');
+      
+      if (shouldLogin) {
+        navigateToLogin();
+      } else {
+        navigateToCart(); // Redirect back to cart if they don't want to login
+      }
+      return;
+    }
+    
+    // Add small delay to ensure session is fully established after login
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    await loadCart();
+    loadAvailableCoupons();
+    await loadAddresses();
+    loadTimeSlots(); // Load time slots from backend
+    loadContactSettings();
+  }, [user, navigateToLogin, navigateToCart, loadAddresses]);
+
+  useEffect(() => {
+    initializeCheckout();
+  }, [initializeCheckout]);
+
+  const loadCart = useCallback(async () => {
     setIsLoading(true);
     try {
       const cartData = await getCart();
@@ -94,15 +116,16 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const loadAvailableCoupons = async () => {
+  const loadAvailableCoupons = useCallback(async (retryCount = 0) => {
+    const MAX_RETRIES = 2;
     try {
-      const coupons = await getCoupons();
+      const coupons = await getActiveCoupons();
       const currentDate = new Date();
       
       // Filter out expired and inactive coupons
-      const validCoupons = coupons.filter((coupon: any) => {
+      const validCoupons = coupons.filter((coupon: Coupon) => {
         if (!coupon.is_active) {
           return false;
         }
@@ -130,17 +153,25 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
       
     } catch (error) {
       console.error('Failed to load coupons:', error);
+      // Retry with exponential backoff, but limit retries to prevent infinite loops
+      if (retryCount < MAX_RETRIES) {
+        console.log(`Retrying coupons load (${retryCount + 1}/${MAX_RETRIES}) in ${1000 * (retryCount + 1)}ms`);
+        setTimeout(() => loadAvailableCoupons(retryCount + 1), 1000 * (retryCount + 1));
+        return;
+      }
+      // Set empty array on final failure
+      setAvailableCoupons([]);
     }
-  };
+  }, []);
 
-  const loadContactSettings = async () => {
+  const loadContactSettings = useCallback(async () => {
     try {
       const settings = await getContactSettings();
       setContactSettings(settings);
     } catch (error) {
       console.error('Failed to load contact settings:', error);
     }
-  };
+  }, []);
 
   // Coupon handling functions
   const handleApplyCoupon = async () => {
@@ -154,8 +185,8 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
     try {
       // First validate if coupon exists and is not expired
-      const allCoupons = await getCoupons();
-      const coupon = allCoupons.find((c: any) => c.code.toUpperCase() === couponCode.toUpperCase());
+      const allCoupons = await getActiveCoupons();
+      const coupon = allCoupons.find((c: Coupon) => c.code.toUpperCase() === couponCode.toUpperCase());
       
       if (!coupon) {
         setCouponError('Invalid coupon code');
@@ -189,7 +220,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
         setShowCouponDropdown(false);
         loadCart(); // Reload cart to show updated totals
       } else {
-        setCouponError(result.message);
+        setCouponError(result.error || 'Failed to apply coupon');
       }
     } catch (error) {
       setCouponError('Failed to apply coupon');
@@ -210,7 +241,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
     }
   };
 
-  const handleCouponSelect = (selectedCoupon: any) => {
+  const handleCouponSelect = (selectedCoupon: Coupon) => {
     setCouponCode(selectedCoupon.code);
     setShowCouponDropdown(false);
     setCouponError('');
@@ -220,7 +251,8 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
   const [timeSlots, setTimeSlots] = useState<string[]>([]);
   const [loadingTimeSlots, setLoadingTimeSlots] = useState(false);
 
-  const loadTimeSlots = async () => {
+  const loadTimeSlots = useCallback(async (retryCount = 0) => {
+    const MAX_RETRIES = 2;
     setLoadingTimeSlots(true);
     try {
       // Use the backend API endpoint for time slots - NO HARDCODED FALLBACKS
@@ -236,7 +268,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
         const data = await response.json();
         if (data.success && data.data && Array.isArray(data.data)) {
           // Use the display format from backend API
-          const slots = data.data.map((slot: any) => 
+          const slots = data.data.map((slot: Record<string, unknown>) => 
             slot.display || `${slot.start_time} - ${slot.end_time}`
           ).filter(Boolean); // Remove any empty slots
           setTimeSlots(slots);
@@ -250,34 +282,18 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
       }
     } catch (error) {
       console.error('Failed to load time slots from backend:', error);
+      // Retry with exponential backoff, but limit retries to prevent infinite loops
+      if (retryCount < MAX_RETRIES) {
+        console.log(`Retrying time slots load (${retryCount + 1}/${MAX_RETRIES}) in ${1000 * (retryCount + 1)}ms`);
+        setTimeout(() => loadTimeSlots(retryCount + 1), 1000 * (retryCount + 1));
+        return;
+      }
       setTimeSlots([]);
     } finally {
       setLoadingTimeSlots(false);
     }
-  };
+  }, []);
 
-  const loadAddresses = async () => {
-    try {
-      const userAddresses = await getUserAddresses();
-      setAddresses(userAddresses);
-      
-      // Auto-select default address if available
-      const defaultAddress = await getDefaultUserAddress();
-      if (defaultAddress && !selectedAddress) {
-        setSelectedAddress(defaultAddress.id);
-      }
-    } catch (error) {
-      console.error('Failed to load addresses:', error);
-    }
-  };
-
-  const paymentMethods = [
-    { id: 'upi', name: 'UPI', icon: '📱', description: 'PhonePe, Google Pay, Paytm' },
-    { id: 'cards', name: 'Cards', icon: '💳', description: 'Credit/Debit Cards' },
-    { id: 'wallet', name: 'Wallets', icon: '👛', description: 'Amazon Pay, Mobikwik' },
-    { id: 'netbanking', name: 'Net Banking', icon: '🏦', description: 'All major banks' },
-    { id: 'cod', name: 'Cash on Delivery', icon: '💵', description: 'Pay after service' }
-  ];
 
   // Generate date options (next 7 days)
   const generateDateOptions = () => {
@@ -299,239 +315,42 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
   const dateOptions = generateDateOptions();
 
-  const handlePlaceOrder = async () => {
-    // Check if user is authenticated
+  const handlePaymentSuccess = (orderId: string) => {
+    // Clear cart after successful order
+    updateCartCount?.();
+    
+    // Set order success state to show proper success message
+    setOrderSuccess({
+      orderId,
+      amount: cart?.finalAmount || 0
+    });
+    
+    // Clear other states
+    setShowPayment(false);
+  };
+
+  const handlePaymentError = (error: string) => {
+    alert(`❌ Payment Failed: ${error}\n\nPlease try again or contact support if the issue persists.`);
+    setShowPayment(false);
+  };
+
+  const handleBackToSummary = () => {
+    setShowPayment(false);
+  };
+
+  const handleProceedToPayment = () => {
     if (!user) {
       alert('Please log in to place an order');
       navigateToLogin();
       return;
     }
-    
-    // Double-check authentication status before making API call
-    try {
-      // Make a small test API call to verify session is working
-      const testResponse = await fetch(`${import.meta.env.VITE_API_BASE_URL}/auth/me`, {
-        method: 'GET',
-        credentials: 'include', // Include session cookies
-      });
-      
-      if (!testResponse.ok) {
-        throw new Error('Session expired or invalid');
-      }
-    } catch (error) {
-      console.error('Authentication verification failed:', error);
-      const shouldLogin = confirm('🔐 Session Expired\n\nYour login session has expired.\n\nWould you like to login again?');
-      
-      if (shouldLogin) {
-        navigateToLogin();
-      }
-      return;
-    }
 
-    if (!cart || !selectedAddress) {
+    if (!selectedAddress) {
       alert('Please select a delivery address to proceed');
       return;
     }
 
-    setIsProcessing(true);
-    
-    try {
-      const selectedAddressData = addresses.find(addr => addr.id === selectedAddress);
-      if (!selectedAddressData) {
-        alert('Please select a valid address');
-        return;
-      }
-
-      // Backend API functions to resolve IDs dynamically - ZERO HARDCODED VALUES
-      const getValidServiceId = async (serviceId: string): Promise<string> => {
-        try {
-          // If serviceId is already a valid UUID, return it
-          if (serviceId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)) {
-            return serviceId;
-          }
-          
-          // Use backend service resolution API - NO FALLBACKS TO HARDCODED VALUES
-          const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/config/resolve/service/${encodeURIComponent(serviceId)}`, {
-            method: 'GET',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
-            if (data.success && data.data && data.data.id) {
-              return data.data.id;
-            }
-          }
-          
-          console.warn(`⚠️ Could not resolve service ID: ${serviceId}, using as-is`);
-          return serviceId;
-        } catch (error) {
-          console.error('❌ Service ID resolution failed:', error);
-          return serviceId;
-        }
-      };
-
-      const getValidCategoryId = async (categoryId: string): Promise<string> => {
-        try {
-          // If categoryId is already a valid UUID, return it
-          if (categoryId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)) {
-            return categoryId;
-          }
-          
-          // Use backend category resolution API - NO HARDCODED FALLBACKS
-          const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/config/resolve/category/${encodeURIComponent(categoryId)}`, {
-            method: 'GET',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
-            if (data.success && data.data && data.data.id) {
-              return data.data.id;
-            }
-          }
-          
-          console.warn(`⚠️ Could not resolve category ID: ${categoryId}, using as-is`);
-          return categoryId;
-        } catch (error) {
-          console.error('❌ Category ID resolution failed:', error);
-          return categoryId;
-        }
-      };
-
-      const getValidSubcategoryId = async (subcategoryId: string): Promise<string> => {
-        try {
-          // If subcategoryId is already a valid UUID, return it
-          if (subcategoryId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)) {
-            return subcategoryId;
-          }
-          
-          // Use backend subcategory resolution API - NO HARDCODED MAPPINGS
-          const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/config/resolve/subcategory/${encodeURIComponent(subcategoryId)}`, {
-            method: 'GET',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
-            if (data.success && data.data && data.data.id) {
-              return data.data.id;
-            }
-          }
-          
-          console.warn(`⚠️ Could not resolve subcategory ID: ${subcategoryId}, using as-is`);
-          return subcategoryId;
-        } catch (error) {
-          console.error('❌ Subcategory ID resolution failed:', error);
-          return subcategoryId;
-        }
-      };
-      
-      // Create order items from cart items with proper field mapping (resolve IDs dynamically)
-      const orderItems = await Promise.all(cart.items.map(async (cartItem) => ({
-        // Don't set ID - let backend generate proper UUID
-        service_id: await getValidServiceId(cartItem.serviceId),
-        service_name: cartItem.serviceName || 'Bath Fittings Installation & Repair',
-        variant_id: cartItem.variantId || undefined,
-        variant_name: cartItem.variantName || undefined,
-        quantity: cartItem.quantity,
-        unit_price: cartItem.discountedPrice || cartItem.basePrice, // Use actual price from cart
-        total_price: cartItem.totalPrice, // Use cart's calculated total price
-        category_id: await getValidCategoryId(cartItem.categoryId),
-        subcategory_id: await getValidSubcategoryId(cartItem.subcategoryId),
-        item_status: 'pending' as const
-        // Optional fields will be undefined initially (assigned_engineer_id, scheduled_date, etc.)
-      })));
-
-      // Create order data for API
-      const orderData: CreateOrderRequest = {
-        customer_id: user?.id || '', // Use actual authenticated user ID from session
-        customer_name: user ? `${user.firstName} ${user.lastName}` : selectedAddressData.fullName,
-        customer_phone: user?.phone || selectedAddressData.mobileNumber || '',
-        customer_email: user?.email || '',
-        service_address: {
-          house_number: selectedAddressData.houseNumber,
-          area: selectedAddressData.area,
-          landmark: selectedAddressData.landmark || '',
-          city: selectedAddressData.city,
-          state: selectedAddressData.state,
-          pincode: selectedAddressData.pincode
-        },
-        items: orderItems,
-        total_amount: cart.subtotal,
-        discount_amount: cart.discountAmount || 0,
-        gst_amount: cart.gstAmount || 0,
-        service_charge: cart.serviceChargeAmount || 0,
-        final_amount: cart.finalAmount,
-        priority: 'medium', // All orders start as medium priority, admin can escalate to high/urgent
-        notes: customerNotes || undefined
-      };
-
-      // Simulate payment processing delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // Create order via API
-      const response = await ordersAPI.create(orderData);
-      
-      if (!response.success || !response.data) {
-        throw new Error(response.error || 'Failed to create order');
-      }
-      
-      const createdOrder = response.data;
-      
-      // Clear cart after successful order creation
-      clearCart();
-      
-      // Update cart count in header
-      updateCartCount?.();
-      
-      const scheduleInfo = selectedDate && selectedTimeSlot 
-        ? `• Scheduled: ${selectedDate} (${selectedTimeSlot})`
-        : `• Scheduling: Our agent will call to schedule your appointment`;
-      
-      alert(`Order placed successfully! 
-      
-🎉 Order Confirmation:
-• Order Number: ${createdOrder.order_number}
-• Services: ${createdOrder.items.length} item${createdOrder.items.length > 1 ? 's' : ''}
-• Total Amount: ₹${createdOrder.final_amount}
-${scheduleInfo}
-• Address: ${selectedAddressData.addressType.charAt(0).toUpperCase() + selectedAddressData.addressType.slice(1)} - ${selectedAddressData.fullName}
-${cart.appliedCoupon ? `• Coupon Applied: ${cart.appliedCoupon} (Saved ₹${cart.discountAmount})` : ''}
-
-Your order is now in the system and will be processed by our admin team.
-You will receive a confirmation SMS/email shortly.`);
-      
-      navigateHome(); // Navigate back to home after successful booking
-      
-    } catch (error) {
-      console.error('Order creation failed:', error);
-      const errorMessage = handleAPIError(error);
-      
-      // Check for authentication-related errors
-      if (errorMessage.includes('Authentication token required') || 
-          errorMessage.includes('Unauthorized') || 
-          errorMessage.includes('401') ||
-          errorMessage.includes('authentication') ||
-          errorMessage.includes('login required')) {
-        
-        // Show user-friendly login prompt
-        const shouldLogin = confirm('🔐 Login Required\n\nYou need to be logged in to place an order.\n\nWould you like to login now?');
-        
-        if (shouldLogin) {
-          navigateToLogin();
-        }
-        return;
-      }
-      
-      // For other errors, show the original error message
-      alert(`Failed to place order: ${errorMessage}\n\nPlease check if the backend server is running and try again.`);
-    } finally {
-      setIsProcessing(false);
-    }
+    setShowPayment(true);
   };
 
   // Show loading state
@@ -546,8 +365,101 @@ You will receive a confirmation SMS/email shortly.`);
     );
   }
 
-  // Show empty cart state
+  // Show order success state or empty cart state
   if (!cart || cart.items.length === 0) {
+    // If we have order success details, show success message
+    if (orderSuccess) {
+      return (
+        <div className="min-h-screen bg-gray-50">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="bg-white rounded-lg shadow-sm p-6 text-center">
+              {/* Success Icon */}
+              <div className="mx-auto mb-6 w-20 h-20 bg-gradient-to-br from-green-100 to-emerald-100 rounded-full flex items-center justify-center">
+                <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              
+              {/* Success Message */}
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">
+                🎉 Order Placed Successfully!
+              </h1>
+              
+              <div className="mb-6">
+                <div className="text-base text-gray-700 mb-2">
+                  <span className="font-medium">Order ID:</span> 
+                  <span className="ml-2 font-bold text-green-700 bg-green-50 px-2 py-1 rounded text-sm">
+                    {orderSuccess.orderId}
+                  </span>
+                </div>
+                <div className="text-base text-gray-700">
+                  <span className="font-medium">Amount Paid:</span> 
+                  <span className="ml-2 font-semibold">₹{orderSuccess.amount}</span>
+                </div>
+              </div>
+              
+              <p className="text-gray-600 mb-6">
+                Thank you for choosing Happy Homes! Our team will reach out to you soon to schedule your service.
+              </p>
+
+              {/* Next Steps */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <h3 className="font-semibold text-blue-900 mb-3">What happens next?</h3>
+                <ul className="text-left space-y-2 text-sm text-blue-800">
+                  <li className="flex items-center">
+                    <span className="w-2 h-2 bg-blue-500 rounded-full mr-3 flex-shrink-0"></span>
+                    You will receive an SMS confirmation shortly
+                  </li>
+                  <li className="flex items-center">
+                    <span className="w-2 h-2 bg-blue-500 rounded-full mr-3 flex-shrink-0"></span>
+                    Our team will contact you within 30 minutes to schedule the service
+                  </li>
+                  <li className="flex items-center">
+                    <span className="w-2 h-2 bg-blue-500 rounded-full mr-3 flex-shrink-0"></span>
+                    Track your order status in "My Bookings"
+                  </li>
+                  <li className="flex items-center">
+                    <span className="w-2 h-2 bg-blue-500 rounded-full mr-3 flex-shrink-0"></span>
+                    Need help? Contact us via WhatsApp
+                  </li>
+                </ul>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <button
+                  onClick={navigateHome}
+                  className="px-6 py-3 bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 text-white rounded-lg font-semibold hover:from-orange-600 hover:via-purple-700 hover:to-blue-700 transition-all duration-300 shadow-lg hover:shadow-xl"
+                >
+                  Browse More Services
+                </button>
+                
+                <button
+                  onClick={navigateToMyBookings}
+                  className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+                >
+                  View My Bookings
+                </button>
+              </div>
+
+              {/* WhatsApp Support */}
+              <div className="mt-6">
+                <WhatsAppButton
+                  phoneNumber={contactSettings?.whatsappNumber || '9437341234'}
+                  message={`Hi! I just placed an order (ID: ${orderSuccess.orderId}) for ₹${orderSuccess.amount}. Can you help me with the next steps?`}
+                  className="w-full justify-center bg-green-500 hover:bg-green-600 text-white py-3 px-6 rounded-lg font-semibold transition-colors"
+                  variant="inline"
+                >
+                  Contact Support on WhatsApp
+                </WhatsAppButton>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    // Show empty cart state if no order success
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -574,17 +486,17 @@ You will receive a confirmation SMS/email shortly.`);
           <p className="text-gray-600 mt-1">Complete your service booking</p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className={`grid grid-cols-1 ${showPayment ? 'lg:grid-cols-1' : 'lg:grid-cols-3'} gap-8`}>
           
           {/* Main Checkout Content */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className={`${showPayment ? '' : 'lg:col-span-2'} space-y-6`}>
             
             {/* Cart Items */}
             <div className="bg-white rounded-lg shadow-sm p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-6">Your Selected Services</h2>
               <div className="space-y-4">
                 {cart.items.map((item) => (
-                  <div key={item.id} className="border border-gray-200 rounded-lg p-4">
+                  <div key={item.serviceId} className="border border-gray-200 rounded-lg p-4">
                     <div className="flex items-start space-x-4">
                       <div className="w-16 h-16 bg-gradient-to-br from-orange-100 to-purple-100 rounded-lg flex items-center justify-center text-2xl flex-shrink-0">
                         🔧
@@ -594,16 +506,14 @@ You will receive a confirmation SMS/email shortly.`);
                           <div>
                             <h3 className="font-semibold text-gray-900">{item.serviceName}</h3>
                             <div className="flex items-center space-x-2 mt-1">
-                              {item.variantName && (
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                  {item.variantName}
-                                </span>
-                              )}
                               <span className="text-sm text-gray-500">Qty: {item.quantity}</span>
+                              <span className="text-sm text-gray-500">₹{item.basePrice} each</span>
                             </div>
-                            <div className="text-sm text-gray-500 mt-1">
-                              Duration: {item.duration} minutes • GST: {item.gstPercentage}%
-                            </div>
+                            {item.discountedPrice && (
+                              <div className="text-sm text-green-600 mt-1">
+                                Discounted: ₹{item.discountedPrice}
+                              </div>
+                            )}
                           </div>
                           <div className="text-right">
                             <div className="text-lg font-bold text-gray-900">{formatPrice(item.totalPrice)}</div>
@@ -619,38 +529,47 @@ You will receive a confirmation SMS/email shortly.`);
               </div>
             </div>
 
-            {/* Payment Method */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment Method</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {paymentMethods.map((method) => (
-                  <div
-                    key={method.id}
-                    className={`border rounded-lg p-4 cursor-pointer transition-all ${
-                      selectedPaymentMethod === method.id
-                        ? 'border-orange-500 bg-orange-50'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                    onClick={() => setSelectedPaymentMethod(method.id)}
+            {/* Payment Section */}
+            {showPayment ? (
+              <div>
+                <div className="mb-4">
+                  <button
+                    onClick={handleBackToSummary}
+                    className="flex items-center text-sm text-gray-600 hover:text-gray-900 transition-colors"
                   >
-                    <div className="flex items-center space-x-3">
-                      <input
-                        type="radio"
-                        name="payment"
-                        checked={selectedPaymentMethod === method.id}
-                        onChange={() => setSelectedPaymentMethod(method.id)}
-                        className="w-4 h-4 text-orange-600 focus:ring-orange-500"
-                      />
-                      <div className="text-xl">{method.icon}</div>
-                      <div className="flex-1">
-                        <div className="font-medium text-gray-900">{method.name}</div>
-                        <div className="text-sm text-gray-600">{method.description}</div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                    Back to Order Summary
+                  </button>
+                </div>
+                <CheckoutPayment
+                  cart={cart}
+                  selectedAddress={addresses.find(addr => addr.id === selectedAddress)}
+                  customerNotes={customerNotes}
+                  selectedDate={selectedDate}
+                  selectedTimeSlot={selectedTimeSlot}
+                  user={user}
+                  onSuccess={handlePaymentSuccess}
+                  onError={handlePaymentError}
+                  updateCartCount={updateCartCount}
+                />
               </div>
-            </div>
+            ) : (
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment</h3>
+                <p className="text-gray-600 mb-4">
+                  Complete your service details above, then proceed to payment.
+                </p>
+                <button
+                  onClick={handleProceedToPayment}
+                  disabled={!selectedAddress}
+                  className="w-full bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 text-white py-3 px-4 rounded-lg text-lg font-semibold hover:from-orange-600 hover:via-purple-700 hover:to-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-300 shadow-lg hover:shadow-xl"
+                >
+                  Proceed to Payment • {cart ? formatPrice(cart.finalAmount) : '₹0'}
+                </button>
+              </div>
+            )}
 
             {/* Scheduling */}
             <div className="bg-white rounded-lg shadow-sm p-6">
@@ -822,18 +741,18 @@ You will receive a confirmation SMS/email shortly.`);
                                 <div className="flex items-center justify-between">
                                   <div>
                                     <div className="font-semibold text-orange-600 text-sm">{coupon.code}</div>
-                                    <div className="text-xs text-gray-600 mt-1">{coupon.title}</div>
+                                    <div className="text-xs text-gray-600 mt-1">{coupon.name}</div>
                                     <div className="text-xs text-gray-500 mt-1">{coupon.description}</div>
                                   </div>
                                   <div className="text-right">
-                                    {coupon.discount_type === 'percentage' && (
+                                    {coupon.type === 'percentage' && (
                                       <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-semibold">
-                                        {coupon.discount_value}% OFF
+                                        {coupon.value}% OFF
                                       </span>
                                     )}
-                                    {coupon.discount_type === 'fixed_amount' && (
+                                    {coupon.type === 'fixed' && (
                                       <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded text-xs font-semibold">
-                                        {formatPrice(coupon.discount_value)} OFF
+                                        {formatPrice(coupon.value)} OFF
                                       </span>
                                     )}
                                   </div>
@@ -863,9 +782,9 @@ You will receive a confirmation SMS/email shortly.`);
                     <h4 className="font-medium text-orange-900 mb-2">Available Offers ({availableCoupons.length}):</h4>
                     <div className="space-y-1 text-sm text-orange-700">
                       {availableCoupons.length > 0 ? (
-                        availableCoupons.slice(0, 3).map((coupon: any) => (
+                        availableCoupons.slice(0, 3).map((coupon: Coupon) => (
                           <div key={coupon.id}>
-                            • {coupon.code} - {coupon.title}
+                            • {coupon.code} - {coupon.name}
                           </div>
                         ))
                       ) : (
@@ -883,7 +802,8 @@ You will receive a confirmation SMS/email shortly.`);
           </div>
 
           {/* Order Summary Sidebar */}
-          <div className="lg:col-span-1">
+          {!showPayment && (
+            <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-sm p-6 sticky top-4">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Order Summary</h3>
               
@@ -942,20 +862,15 @@ You will receive a confirmation SMS/email shortly.`);
                 </div>
               </div>
 
-              <button
-                onClick={handlePlaceOrder}
-                disabled={isProcessing || !selectedAddress}
-                className="w-full mt-6 bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 text-white py-3 px-4 rounded-lg text-lg font-semibold hover:from-orange-600 hover:via-purple-700 hover:to-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-300 shadow-lg hover:shadow-xl flex items-center justify-center"
-              >
-                {isProcessing ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                    Processing...
-                  </>
-                ) : (
-                  `Pay ${formatPrice(cart.finalAmount)}`
-                )}
-              </button>
+              {!showPayment && (
+                <button
+                  onClick={handleProceedToPayment}
+                  disabled={!selectedAddress}
+                  className="w-full mt-6 bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 text-white py-3 px-4 rounded-lg text-lg font-semibold hover:from-orange-600 hover:via-purple-700 hover:to-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-300 shadow-lg hover:shadow-xl"
+                >
+                  Proceed to Payment • {formatPrice(cart.finalAmount)}
+                </button>
+              )}
 
               {/* WhatsApp Support */}
               <div className="mt-4">
@@ -965,21 +880,10 @@ You will receive a confirmation SMS/email shortly.`);
                   className="w-full justify-center bg-green-500 hover:bg-green-600"
                   variant="inline"
                 >
-                  Get Checkout Help on WhatsApp
+                  Get Checkout with WhatsApp
                 </WhatsAppButton>
               </div>
 
-              {/* Facebook Share */}
-              <div className="mt-4">
-                <FacebookButton
-                  variant="share"
-                  shareUrl={window.location.href}
-                  message={`I'm about to complete my order on Happy Homes for ${formatPrice(cart.finalAmount)}! Great household services at amazing prices.`}
-                  className="w-full justify-center"
-                >
-                  Share Order on Facebook
-                </FacebookButton>
-              </div>
 
               {/* Service Address */}
               <div className="mt-6 pt-6 border-t border-gray-200">
@@ -1006,7 +910,7 @@ You will receive a confirmation SMS/email shortly.`);
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center space-x-2">
                             <span className="text-sm font-medium text-gray-900">
-                              {addr.addressType.charAt(0).toUpperCase() + addr.addressType.slice(1)} - {addr.fullName}
+                              {addr.addressType.charAt(0).toUpperCase() + addr.addressType.slice(1)}
                             </span>
                             {addr.isDefault && (
                               <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
@@ -1015,7 +919,7 @@ You will receive a confirmation SMS/email shortly.`);
                             )}
                           </div>
                           <p className="text-xs text-gray-600 mt-1 truncate">
-                            {addr.houseNumber}, {addr.area}, {addr.city}, {addr.state} - {addr.pincode}
+                            {addr.street}, {addr.city}, {addr.state} - {addr.zipCode}
                           </p>
                           {addr.landmark && (
                             <p className="text-xs text-gray-500 mt-0.5">Near {addr.landmark}</p>
@@ -1064,7 +968,8 @@ You will receive a confirmation SMS/email shortly.`);
                 Secure payment powered by Happy Homes
               </div>
             </div>
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
