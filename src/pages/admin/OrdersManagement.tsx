@@ -3,12 +3,12 @@ import {
   getOrders,
   updateOrderStatus,
   getEmployees,
-  getOrderHistory,
+  // getOrderHistory, // unused
   getEffectiveOrderStatus,
   getStatusDisplayName,
   getStatusColor
 } from '../../utils/adminDataManager';
-import type { OrderHistory } from '../../types/api';
+// import type { OrderHistory } from '../../types/api'; // unused
 
 // Enhanced Order and OrderItem types for this component
 interface OrderItem {
@@ -62,8 +62,8 @@ const OrdersManagement: React.FC = () => {
   // const [scheduleLoading, setScheduleLoading] = useState(false); // Removed - using inline scheduling
   // const [scheduledDate, setScheduledDate] = useState<string>(''); // Removed - using inline scheduling  
   // const [scheduledTimeSlot, setScheduledTimeSlot] = useState<string>(''); // Removed - using inline scheduling
-  const [showHistory, setShowHistory] = useState<string | null>(null);
-  const [orderHistory, setOrderHistory] = useState<Record<string, OrderHistory>>({});
+  // const [showHistory, setShowHistory] = useState<string | null>(null); // unused
+  // const [orderHistory, setOrderHistory] = useState<Record<string, OrderHistory>>({}); // unused
   // const [historyLoading, setHistoryLoading] = useState<string | null>(null); // Unused - keeping for future history feature
   
   // Status selection modal states

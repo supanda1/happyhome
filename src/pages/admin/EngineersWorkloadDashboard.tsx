@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { ordersAPI, handleAPIError } from '../../services/api';
 
-// Custom CSS for enhanced animations
+/* 
+// Custom CSS for enhanced animations - UNUSED
 const customStyles = `
   @keyframes fade-in {
     from { opacity: 0; transform: translateY(20px); }
@@ -21,6 +22,7 @@ const customStyles = `
     100% { transform: translateX(100%); }
   }
 `;
+*/
 
 interface EngineerWorkload {
   id: string;

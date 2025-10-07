@@ -167,7 +167,7 @@ const ImageManagement: React.FC = () => {
   };
 
   const renderServiceItem = (service: Service) => {
-    const hasImages = service.imagePaths && service.imagePaths.length > 0;
+    const hasImages = service.image_paths && service.image_paths.length > 0;
     
     return (
       <div key={service.id} className="bg-white rounded-lg border p-4">
@@ -179,7 +179,7 @@ const ImageManagement: React.FC = () => {
               {hasImages ? (
                 <div className="flex items-center text-green-600">
                   <FiCheck className="w-4 h-4 mr-1" />
-                  <span className="text-sm">{service.imagePaths.length} images</span>
+                  <span className="text-sm">{service.image_paths?.length || 0} images</span>
                 </div>
               ) : (
                 <div className="flex items-center text-gray-400">
@@ -192,7 +192,7 @@ const ImageManagement: React.FC = () => {
           <div className="flex items-center space-x-2">
             {hasImages && (
               <div className="flex space-x-1">
-                {service.imagePaths.slice(0, 3).map((imagePath: string, index: number) => (
+                {(service.image_paths as string[])?.slice(0, 3).map((imagePath: string, index: number) => (
                   <img
                     key={index}
                     src={getImageUrl(imagePath)}
@@ -203,15 +203,15 @@ const ImageManagement: React.FC = () => {
                     }}
                   />
                 ))}
-                {service.imagePaths.length > 3 && (
+                {(service.image_paths as string[])?.length > 3 && (
                   <div className="w-8 h-8 rounded bg-gray-100 flex items-center justify-center text-xs text-gray-500">
-                    +{service.imagePaths.length - 3}
+                    +{((service.image_paths as string[])?.length || 0) - 3}
                   </div>
                 )}
               </div>
             )}
             <button
-              onClick={() => handleDownloadServiceImages(service.id, service.name, service.categoryId)}
+              onClick={() => handleDownloadServiceImages(service.id, service.name, service.category_id)}
               disabled={isLoading}
               className="btn-sm btn-secondary flex items-center"
             >
@@ -225,7 +225,7 @@ const ImageManagement: React.FC = () => {
   };
 
   const renderCategoryItem = (category: Record<string, unknown>) => {
-    const hasImages = category.imagePaths && category.imagePaths.length > 0;
+    const hasImages = category.image_paths && (category.image_paths as string[])?.length > 0;
     
     return (
       <div key={category.id} className="bg-white rounded-lg border p-4">
@@ -237,7 +237,7 @@ const ImageManagement: React.FC = () => {
               {hasImages ? (
                 <div className="flex items-center text-green-600">
                   <FiCheck className="w-4 h-4 mr-1" />
-                  <span className="text-sm">{category.imagePaths.length} images</span>
+                  <span className="text-sm">{(category.image_paths as string[])?.length || 0} images</span>
                 </div>
               ) : (
                 <div className="flex items-center text-gray-400">
@@ -250,7 +250,7 @@ const ImageManagement: React.FC = () => {
           <div className="flex items-center space-x-2">
             {hasImages && (
               <div className="flex space-x-1">
-                {category.imagePaths.slice(0, 3).map((imagePath: string, index: number) => (
+                {(category.image_paths as string[])?.slice(0, 3).map((imagePath: string, index: number) => (
                   <img
                     key={index}
                     src={getImageUrl(imagePath)}
@@ -261,9 +261,9 @@ const ImageManagement: React.FC = () => {
                     }}
                   />
                 ))}
-                {category.imagePaths.length > 3 && (
+                {(category.image_paths as string[])?.length > 3 && (
                   <div className="w-8 h-8 rounded bg-gray-100 flex items-center justify-center text-xs text-gray-500">
-                    +{category.imagePaths.length - 3}
+                    +{((category.image_paths as string[])?.length || 0) - 3}
                   </div>
                 )}
               </div>

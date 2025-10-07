@@ -795,8 +795,8 @@ const ContactSettings: React.FC<ContactSettingsProps> = ({ onContactChange }) =>
                       <span>Last saved: {lastSaved}</span>
                     </>
                   )}
-                  {contactSettings?.updatedAt && !lastSaved && (
-                    <span>Database updated: {new Date(contactSettings.updatedAt).toLocaleString()}</span>
+                  {contactSettings?.updated_at && !lastSaved && (
+                    <span>Database updated: {new Date(contactSettings.updated_at).toLocaleString()}</span>
                   )}
                 </div>
                 {hasUnsavedChanges && (
