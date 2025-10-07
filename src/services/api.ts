@@ -217,7 +217,7 @@ export const ordersAPI = {
           priority: string;
         };
       }>;
-    }>('/orders/workload/engineers');
+    }>('/workload-management/engineers') as any;
   },
 };
 

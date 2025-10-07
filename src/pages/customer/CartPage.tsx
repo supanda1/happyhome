@@ -83,7 +83,7 @@ const CartPage: React.FC<CartPageProps> = ({
           : 'FREE SERVICE'
       }));
       
-      setAvailableCoupons(formattedCoupons);
+      setAvailableCoupons(formattedCoupons as any);
       
     } catch (error) {
       console.error('🛒 CartPage - Failed to load coupons:', error);
@@ -132,13 +132,14 @@ const CartPage: React.FC<CartPageProps> = ({
         userId: 'guest',
         items: [],
         totalItems: 0,
+        totalAmount: 0,
         subtotal: 0,
         discountAmount: 0,
         gstAmount: 0,
         serviceChargeAmount: 0,
         finalAmount: 0,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        createdAt: new Date(),
+        updatedAt: new Date()
       });
     } finally {
       setIsLoading(false);
@@ -217,7 +218,7 @@ const CartPage: React.FC<CartPageProps> = ({
         loadCart(); // Reload cart to show updated totals
         updateCartCount?.(); // Update header cart count
       } else {
-        setCouponError(result.message);
+        setCouponError(result.message || 'Unknown error occurred');
       }
     } catch (error) {
       setCouponError('Failed to apply coupon');
@@ -344,7 +345,7 @@ const CartPage: React.FC<CartPageProps> = ({
               ) : (
                 <div className="divide-y divide-gray-200">
                   {cart.items.map((item) => (
-                    <div key={item.id} className="p-6">
+                    <div key={(item as any).id || item.serviceId} className="p-6">
                       <div className="flex items-start space-x-4">
                         {/* Service Image/Icon */}
                         <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-lg flex items-center justify-center text-3xl flex-shrink-0">
@@ -357,15 +358,15 @@ const CartPage: React.FC<CartPageProps> = ({
                             <div>
                               <h3 className="text-lg font-semibold text-gray-900">{item.serviceName}</h3>
                               <div className="flex items-center space-x-2 mt-2">
-                                {item.variantName && (
+                                {(item as any).variantName && (
                                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                    {item.variantName}
+                                    {(item as any).variantName}
                                   </span>
                                 )}
                               </div>
                             </div>
                             <button
-                              onClick={() => handleRemoveItem(item.id)}
+                              onClick={() => handleRemoveItem((item as any).id || item.serviceId)}
                               className="text-gray-400 hover:text-red-500 p-1"
                               title="Remove item"
                             >
@@ -391,7 +392,7 @@ const CartPage: React.FC<CartPageProps> = ({
 
                             <div className="flex items-center space-x-3">
                               <button
-                                onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                                onClick={() => updateQuantity((item as any).id || item.serviceId, item.quantity - 1)}
                                 className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50"
                               >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -400,7 +401,7 @@ const CartPage: React.FC<CartPageProps> = ({
                               </button>
                               <span className="w-8 text-center font-medium">{item.quantity}</span>
                               <button
-                                onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                                onClick={() => updateQuantity((item as any).id || item.serviceId, item.quantity + 1)}
                                 className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50"
                               >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -581,7 +582,7 @@ const CartPage: React.FC<CartPageProps> = ({
                                 </div>
                                 <div className="text-right ml-2">
                                   <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-800 shadow-sm">
-                                    {coupon.discount}
+                                    {(coupon as any).discount}
                                   </span>
                                 </div>
                               </div>

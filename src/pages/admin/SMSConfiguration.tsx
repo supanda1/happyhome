@@ -544,17 +544,17 @@ const SMSConfiguration: React.FC = () => {
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
                           <span className="text-gray-600">Setup time:</span>
-                          <span>{option.time}</span>
+                          <span>{(option as any).time}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600">Cost:</span>
-                          <span className="font-medium">{option.cost}</span>
+                          <span className="font-medium">{(option as any).cost}</span>
                         </div>
                       </div>
                       <div className="mt-3">
                         <p className="text-sm text-gray-600 mb-2">Steps:</p>
                         <ol className="text-sm space-y-1">
-                          {option.steps.map((step: string, stepIndex: number) => (
+                          {(option.steps || []).map((step: string, stepIndex: number) => (
                             <li key={stepIndex} className="flex">
                               <span className="text-gray-400 mr-2">{stepIndex + 1}.</span>
                               <span>{step}</span>
@@ -575,7 +575,7 @@ const SMSConfiguration: React.FC = () => {
                     <span className="text-sm font-medium">Add to backend/.env file:</span>
                     <button
                       onClick={() => {
-                        const envTemplate = Object.values(setupGuide.env_template).flat().join('\n');
+                        const envTemplate = Object.values(setupGuide.env_template as any).flat().join('\n');
                         copyToClipboard(envTemplate, 'env-template');
                       }}
                       className="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
@@ -583,7 +583,7 @@ const SMSConfiguration: React.FC = () => {
                       {copiedField === 'env-template' ? 'Copied!' : 'Copy All'}
                     </button>
                   </div>
-                  {Object.entries(setupGuide.env_template).map(([provider, vars]: [string, string[]]) => (
+                  {Object.entries(setupGuide.env_template as any).map(([provider, vars]: [string, any]) => (
                     <div key={provider} className="mb-4">
                       <div className="flex items-center justify-between mb-1">
                         <h4 className="text-sm font-medium capitalize"># {provider}</h4>

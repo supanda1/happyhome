@@ -157,16 +157,16 @@ const OfferPage: React.FC<OfferPageProps> = ({
       // Create a dynamic coupon for this offer
       createCoupon({
         code: offerCouponCode,
-        title: `${selectedPlan.title} - ${selectedPlan.discount_percentage}% OFF`,
+        name: `${selectedPlan.title} - ${selectedPlan.discount_percentage}% OFF`,
         description: `Special combo offer: ${selectedPlan.description}`,
-        discount_type: 'percentage',
-        discount_value: selectedPlan.discount_percentage,
+        type: 'percentage',
+        value: selectedPlan.discount_percentage,
         minimum_order_amount: 0,
         maximum_discount_amount: 1000,
         valid_from: new Date().toISOString(),
         valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
         usage_limit: 1000,
-        usage_limit_per_user: 1,
+        used_count: 0,
         is_active: true,
         applicable_categories: [],
         applicable_services: []

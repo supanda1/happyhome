@@ -538,7 +538,7 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                         }
 
                         // Add to cart logic
-                        const cartItem = await addToCart(service.id, 1);
+                        const cartItem = await addToCart(service.id, undefined, 1);
                         if (cartItem) {
                           updateGlobalCartCount();
                           showCartSuccessMessage(service.id, 'Service added to cart!');
@@ -787,7 +787,7 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
 
 
       // Add item to cart
-      const cartItem = await addToCart(adminService.id, quantity);
+      const cartItem = await addToCart(adminService.id, undefined, quantity);
       
       if (cartItem) {
         updateCartDisplay();
@@ -1626,7 +1626,7 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                             e.stopPropagation();
                             if (subcategoryService && subcategoryService.id) {
                               try {
-                                const cartItem = await addToCart(subcategoryService.id, 1);
+                                const cartItem = await addToCart(subcategoryService.id, undefined, 1);
                                 if (cartItem) {
                                   updateGlobalCartCount();
                                   showCartSuccessMessage(subcategoryService.id, `${subcategory.name === 'Toilets' ? 'Toilet Services (Classic)' : subcategory.name} added to cart!`);

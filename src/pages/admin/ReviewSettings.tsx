@@ -90,7 +90,7 @@ const ReviewSettings: React.FC = () => {
   const [newRule, setNewRule] = useState({
     name: '',
     description: '',
-    rule_type: 'keyword_block' as const,
+    rule_type: 'keyword_block' as any,
     keywords: '',
     min_length: 10,
     min_rating: 1,
@@ -588,7 +588,7 @@ const ReviewSettings: React.FC = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-1">Rule Type</label>
                       <select
                         value={newRule.rule_type}
-                        onChange={(e) => setNewRule({ ...newRule, rule_type: e.target.value })}
+                        onChange={(e) => setNewRule({ ...newRule, rule_type: e.target.value as any })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
                         <option value="keyword_block">Keyword Blocking</option>
@@ -707,7 +707,7 @@ const ReviewSettings: React.FC = () => {
                     </label>
                     <select
                       value={settings.review_display_order}
-                      onChange={(e) => setSettings({ ...settings, review_display_order: e.target.value })}
+                      onChange={(e) => setSettings({ ...settings, review_display_order: e.target.value as any })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="newest">Newest First</option>

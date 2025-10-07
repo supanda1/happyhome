@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FiPlus, FiTrash2, FiSend, FiX, FiEdit, FiEye } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiSend, FiX, FiEdit } from 'react-icons/fi';
 
 interface SMSProvider {
   id: string;
@@ -32,7 +32,7 @@ const SMSProviders: React.FC = () => {
   // Form state
   const [formData, setFormData] = useState({
     name: '',
-    provider_type: 'twilio' as const,
+    provider_type: 'twilio' as any,
     description: '',
     is_enabled: false,
     is_primary: false,
@@ -180,7 +180,7 @@ const SMSProviders: React.FC = () => {
   const startEdit = (provider: SMSProvider) => {
     setFormData({
       name: provider.name,
-      provider_type: provider.provider_type,
+      provider_type: provider.provider_type as any,
       description: provider.description || '',
       is_enabled: provider.is_enabled,
       is_primary: provider.is_primary,
@@ -428,14 +428,6 @@ const SMSProviders: React.FC = () => {
                       Edit
                     </button>
                     <button
-                      onClick={() => setSelectedProvider(provider)}
-                      className="text-green-600 hover:text-green-900 bg-green-50 hover:bg-green-100 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 flex items-center gap-1"
-                      title="View Details"
-                    >
-                      <FiEye />
-                      View
-                    </button>
-                    <button
                       onClick={() => handleDelete(provider.id)}
                       className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 flex items-center gap-1"
                       title="Delete Provider"
@@ -528,7 +520,7 @@ const SMSProviders: React.FC = () => {
                     <select
                       value={formData.provider_type}
                       onChange={(e) => {
-                        setFormData({...formData, provider_type: e.target.value as 'twilio' | 'textlocal' | 'teleo' | 'aws_sns' | 'mock'});
+                        setFormData({...formData, provider_type: e.target.value as any});
                         setConfig({}); // Reset config when provider type changes
                       }}
                       className="w-full border border-gray-300 rounded-md px-3 py-2"
@@ -568,13 +560,13 @@ const SMSProviders: React.FC = () => {
                           <input
                             type="checkbox"
                             checked={Boolean(config[field.key])}
-                            onChange={(e) => setConfig({...config, [field.key]: e.target.checked})}
+                            onChange={(e) => setConfig({...config, [field.key]: e.target.checked as any})}
                             className="rounded border-gray-300"
                           />
                         ) : (
                           <input
                             type={field.type}
-                            value={config[field.key] || ''}
+                            value={String(config[field.key] || '')}
                             onChange={(e) => setConfig({...config, [field.key]: e.target.value})}
                             className="w-full border border-gray-300 rounded-md px-3 py-2"
                             required={field.required}

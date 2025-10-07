@@ -94,7 +94,7 @@ const ProfilePage: React.FC = () => {
     try {
       const preferences = await usersService.getPreferences();
       if (preferences) {
-        setNotificationSettings(preferences);
+        setNotificationSettings(preferences as any);
       }
     } catch (error) {
       console.error('Failed to load notification settings:', error);
@@ -150,7 +150,7 @@ const ProfilePage: React.FC = () => {
   const handleNotificationUpdate = async () => {
     try {
       setLoading(true);
-      await usersService.updatePreferences(notificationSettings);
+      await usersService.updatePreferences(notificationSettings as any);
       showMessage('success', 'Notification settings updated successfully');
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to update notification settings';

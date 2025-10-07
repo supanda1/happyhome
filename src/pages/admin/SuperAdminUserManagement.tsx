@@ -279,7 +279,7 @@ const SuperAdminUserManagement: React.FC = () => {
       const users = await apiCall('/super-admin/users');
       setUsers(Array.isArray(users) ? users : []);
       
-      console.log('👥 Users loaded successfully:', users?.length || 0);
+      console.log('👥 Users loaded successfully:', Array.isArray(users) ? users.length : 0);
       
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to load users';
@@ -301,7 +301,7 @@ const SuperAdminUserManagement: React.FC = () => {
       const permissions = await apiCall('/super-admin/permissions');
       setPermissions(Array.isArray(permissions) ? permissions : []);
       
-      console.log('🔐 Permissions loaded successfully:', permissions?.length || 0);
+      console.log('🔐 Permissions loaded successfully:', Array.isArray(permissions) ? permissions.length : 0);
       
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to load permissions';
@@ -328,7 +328,7 @@ const SuperAdminUserManagement: React.FC = () => {
       const userPerms = await apiCall(`/super-admin/users/${userId}/permissions`);
       setUserPermissions(Array.isArray(userPerms) ? userPerms : []);
       
-      console.log(`🔐 User permissions loaded for ${userId}:`, userPerms?.length || 0);
+      console.log(`🔐 User permissions loaded for ${userId}:`, Array.isArray(userPerms) ? userPerms.length : 0);
       
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to load user permissions';
