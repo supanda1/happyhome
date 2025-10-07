@@ -162,10 +162,24 @@ const AssignmentManagement: React.FC = () => {
       // Get all orders and filter for unassigned/pending ones
       const allOrders = await getOrders();
       const unassigned = allOrders.filter(order => 
-        order.status === 'pending' && !order.assignedTechnicianId
+        order.status === 'pending' && !order.items.some(item => item.assigned_engineer_id)
       );
       
-      setUnassignedBookings(unassigned);
+      // Convert Orders to Bookings for UI compatibility
+      const bookings: Booking[] = unassigned.map(order => ({
+        id: order.id,
+        serviceName: order.items[0]?.service_name || 'Multiple Services',
+        serviceCategory: 'General', // We'll need to map this properly
+        customerName: order.customer_name,
+        scheduledDate: order.items[0]?.scheduled_date || new Date().toISOString(),
+        scheduledTimeStart: order.items[0]?.scheduled_time_slot || '09:00',
+        scheduledTimeEnd: order.items[0]?.scheduled_time_slot || '10:00',
+        status: order.status,
+        assignedTechnicianId: order.items[0]?.assigned_engineer_id,
+        location: `${order.service_address.city}, ${order.service_address.state}`,
+        totalAmount: order.total_amount
+      }));
+      setUnassignedBookings(bookings);
       console.log(`✅ Loaded ${unassigned.length} unassigned bookings`);
     } catch (error) {
       console.error('Failed to load unassigned bookings:', error);
@@ -273,10 +287,10 @@ const AssignmentManagement: React.FC = () => {
       last30Days.setDate(last30Days.getDate() - 30);
       
       const recentOrders = allOrders.filter(order => 
-        new Date(order.created_at || order.createdAt) >= last30Days
+        new Date(order.created_at) >= last30Days
       );
       
-      const assignedOrders = recentOrders.filter(order => order.assignedTechnicianId);
+      const assignedOrders = recentOrders.filter(order => order.items.some(item => item.assigned_engineer_id));
       const completedOrders = recentOrders.filter(order => order.status === 'completed');
       
       const mockAnalytics = {

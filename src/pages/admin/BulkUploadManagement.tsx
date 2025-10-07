@@ -175,13 +175,13 @@ const BulkUploadManagement: React.FC<BulkUploadManagementProps> = ({ onServiceCh
           try {
             const serviceData = validatedServices[i];
             const service = await createService({
-              ...serviceData,
+              ...(serviceData as any),
               category_id: selectedCategory,
               subcategory_id: selectedSubcategory || '',
               is_active: true,
-              gst_percentage: serviceData.gst_percentage || 18
+              gst_percentage: (serviceData as any).gst_percentage || 18
             });
-            createdServices.push(service);
+            createdServices.push(service as any);
             processedCount++;
           } catch (error) {
             console.error(`Error creating service ${i + 1}:`, error);
@@ -194,7 +194,7 @@ const BulkUploadManagement: React.FC<BulkUploadManagementProps> = ({ onServiceCh
           upload.fileName === file.name && upload.uploadStatus === 'processing'
             ? {
                 ...upload,
-                services: createdServices,
+                services: createdServices as any,
                 uploadStatus: processedCount > 0 ? 'completed' : 'error',
                 processedCount,
                 errorMessage: errors.length > 0 ? `Partial success. Errors: ${errors.slice(0, 3).join('; ')}${errors.length > 3 ? '...' : ''}` : undefined
@@ -238,60 +238,63 @@ const BulkUploadManagement: React.FC<BulkUploadManagementProps> = ({ onServiceCh
         return false;
       }
       // Check required fields
-      if (!service.name || service.name.trim().length < 3) {
-        console.warn('Service name too short or missing:', service.name);
+      if (!(service as any).name || (service as any).name.trim().length < 3) {
+        console.warn('Service name too short or missing:', (service as any).name);
         return false;
       }
 
-      if (!service.description || service.description.trim().length < 10) {
-        console.warn('Service description too short or missing:', service.description);
+      if (!(service as any).description || (service as any).description.trim().length < 10) {
+        console.warn('Service description too short or missing:', (service as any).description);
         return false;
       }
 
-      if (!service.base_price || service.base_price <= 0) {
-        console.warn('Invalid base price:', service.base_price);
+      if (!(service as any).base_price || (service as any).base_price <= 0) {
+        console.warn('Invalid base price:', (service as any).base_price);
         return false;
       }
 
-      if (!service.duration || service.duration < 15) {
-        console.warn('Invalid duration (minimum 15 minutes):', service.duration);
+      if (!(service as any).duration || (service as any).duration < 15) {
+        console.warn('Invalid duration (minimum 15 minutes):', (service as any).duration);
         return false;
       }
 
       // Validate arrays
-      if (!Array.isArray(service.inclusions) || service.inclusions.length === 0) {
-        service.inclusions = ['Professional service'];
+      if (!Array.isArray((service as any).inclusions) || (service as any).inclusions.length === 0) {
+        (service as any).inclusions = ['Professional service'];
       }
 
-      if (!Array.isArray(service.exclusions)) {
-        service.exclusions = ['Additional materials'];
+      if (!Array.isArray((service as any).exclusions)) {
+        (service as any).exclusions = ['Additional materials'];
       }
 
-      if (!Array.isArray(service.requirements)) {
-        service.requirements = ['Customer to provide access'];
+      if (!Array.isArray((service as any).requirements)) {
+        (service as any).requirements = ['Customer to provide access'];
       }
 
-      if (!Array.isArray(service.tags)) {
-        service.tags = ['bulk-upload'];
+      if (!Array.isArray((service as any).tags)) {
+        (service as any).tags = ['bulk-upload'];
       }
 
       return true;
-    }).map(service => ({
-      ...service,
-      // Sanitize and format data
-      name: service.name.trim().substring(0, 100),
-      description: service.description.trim().substring(0, 1000),
-      short_description: (service.short_description || service.description).trim().substring(0, 200),
-      base_price: Math.max(0, Math.round(service.base_price * 100) / 100),
-      discounted_price: service.discounted_price ? Math.max(0, Math.round(service.discounted_price * 100) / 100) : undefined,
-      duration: Math.max(15, Math.round(service.duration)),
-      gst_percentage: [0, 5, 12, 18, 28].includes(service.gst_percentage) ? service.gst_percentage : 18,
-      inclusions: service.inclusions.filter((item: string) => item && item.trim()).slice(0, 10),
-      exclusions: service.exclusions.filter((item: string) => item && item.trim()).slice(0, 10),
-      requirements: service.requirements.filter((item: string) => item && item.trim()).slice(0, 5),
-      tags: service.tags.filter((item: string) => item && item.trim()).slice(0, 10),
-      notes: (service.notes || '').trim().substring(0, 500)
-    }));
+    }).map(service => {
+      const s = service as any;
+      return {
+        ...service,
+        // Sanitize and format data
+        name: s.name.trim().substring(0, 100),
+        description: s.description.trim().substring(0, 1000),
+        short_description: (s.short_description || s.description).trim().substring(0, 200),
+        base_price: Math.max(0, Math.round(s.base_price * 100) / 100),
+        discounted_price: s.discounted_price ? Math.max(0, Math.round(s.discounted_price * 100) / 100) : undefined,
+        duration: Math.max(15, Math.round(s.duration)),
+        gst_percentage: [0, 5, 12, 18, 28].includes(s.gst_percentage) ? s.gst_percentage : 18,
+        inclusions: s.inclusions.filter((item: string) => item && item.trim()).slice(0, 10),
+        exclusions: s.exclusions.filter((item: string) => item && item.trim()).slice(0, 10),
+        requirements: s.requirements.filter((item: string) => item && item.trim()).slice(0, 5),
+        tags: s.tags.filter((item: string) => item && item.trim()).slice(0, 10),
+        notes: (s.notes || '').trim().substring(0, 500)
+      };
+    });
   };
 
   const getFileType = (file: File): 'excel' | 'pdf' | null => {
@@ -436,12 +439,12 @@ const BulkUploadManagement: React.FC<BulkUploadManagementProps> = ({ onServiceCh
       // Look for inclusions/exclusions
       if (trimmedLine.toLowerCase().includes('include') && currentService) {
         const parts = trimmedLine.split(/[:;,]/).slice(1);
-        currentService.inclusions.push(...parts.map(p => p.trim()).filter(p => p));
+        (currentService.inclusions as any[]).push(...parts.map(p => p.trim()).filter(p => p));
       }
       
       if (trimmedLine.toLowerCase().includes('exclude') && currentService) {
         const parts = trimmedLine.split(/[:;,]/).slice(1);
-        currentService.exclusions.push(...parts.map(p => p.trim()).filter(p => p));
+        (currentService.exclusions as any[]).push(...parts.map(p => p.trim()).filter(p => p));
       }
     }
     
@@ -470,8 +473,8 @@ const BulkUploadManagement: React.FC<BulkUploadManagementProps> = ({ onServiceCh
     return services.map(service => ({
       ...service,
       description: service.description || 'Professional service imported from PDF document',
-      inclusions: service.inclusions.length > 0 ? service.inclusions : ['Professional technician', 'Advanced tools'],
-      exclusions: service.exclusions.length > 0 ? service.exclusions : ['Premium materials']
+      inclusions: (service as any).inclusions.length > 0 ? (service as any).inclusions : ['Professional technician', 'Advanced tools'],
+      exclusions: (service as any).exclusions.length > 0 ? (service as any).exclusions : ['Premium materials']
     }));
   };
 

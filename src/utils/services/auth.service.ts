@@ -212,7 +212,7 @@ export const authService = {
    * Check if user is authenticated
    */
   isAuthenticated(): boolean {
-    return apiClient.isAuthenticated();
+    return apiClient.isAuthenticated() as boolean;
   },
 
   /**

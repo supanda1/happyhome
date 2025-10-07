@@ -47,7 +47,7 @@ export const cartService = {
    */
   async getCart(): Promise<Cart> {
     const response = await apiClient.get<ApiResponse<Cart>>('/cart');
-    return response.data;
+    return response.data!;
   },
 
   /**
@@ -55,7 +55,7 @@ export const cartService = {
    */
   async addToCart(item: AddToCartRequest): Promise<CartItem> {
     const response = await apiClient.post<ApiResponse<CartItem>>('/cart/items', item);
-    return response.data;
+    return response.data!;
   },
 
   /**
@@ -63,7 +63,7 @@ export const cartService = {
    */
   async updateCartItem(itemId: string, updates: UpdateCartItemRequest): Promise<CartItem> {
     const response = await apiClient.put<ApiResponse<CartItem>>(`/cart/items/${itemId}`, updates);
-    return response.data;
+    return response.data!;
   },
 
   /**
@@ -95,7 +95,7 @@ export const cartService = {
     const response = await apiClient.post<ApiResponse<Cart>>('/cart/apply-coupon', { 
       couponCode 
     });
-    return response.data;
+    return response.data!;
   },
 
   /**
@@ -103,7 +103,7 @@ export const cartService = {
    */
   async removeCoupon(): Promise<Cart> {
     const response = await apiClient.delete<ApiResponse<Cart>>('/cart/coupon');
-    return response.data;
+    return response.data!;
   },
 };
 

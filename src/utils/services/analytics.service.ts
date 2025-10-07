@@ -64,20 +64,20 @@ export const analyticsService = {
       total_revenue: adminAnalytics.totalRevenue,
       total_orders: adminAnalytics.totalOrders,
       avg_order_value: adminAnalytics.totalRevenue / (adminAnalytics.totalOrders || 1),
-      growth_percentage: adminAnalytics.revenueGrowth,
-      top_performing_category: adminAnalytics.topCategories[0]?.categoryName || '',
+      growth_percentage: adminAnalytics.monthlyGrowth,
+      top_performing_category: adminAnalytics.topCategories[0]?.category || '',
       revenue_by_category: adminAnalytics.topCategories.map(cat => ({
         category_id: cat.categoryId,
-        category_name: cat.categoryName,
-        total_revenue: cat.revenue,
-        total_orders: cat.orders,
-        avg_order_value: cat.revenue / (cat.orders || 1),
+        category_name: cat.category,
+        total_revenue: cat.totalRevenue,
+        total_orders: cat.totalOrders,
+        avg_order_value: cat.totalRevenue / (cat.totalOrders || 1),
         growth_percentage: 0, // Not available in admin format
         subcategories: [] // Would need separate API call
       })),
-      time_series_data: adminAnalytics.revenueTimeSeries.map(point => ({
+      time_series_data: adminAnalytics.timeSeriesData.map((point: any) => ({
         date: point.date,
-        revenue: point.value,
+        revenue: point.revenue,
         orders: 0, // Not available in current format
         avg_order_value: 0 // Not available in current format
       }))
@@ -93,10 +93,10 @@ export const analyticsService = {
     
     return adminAnalytics.topCategories.map(cat => ({
       category_id: cat.categoryId,
-      category_name: cat.categoryName,
-      total_revenue: cat.revenue,
-      total_orders: cat.orders,
-      avg_order_value: cat.revenue / (cat.orders || 1),
+      category_name: cat.category,
+      total_revenue: cat.totalRevenue,
+      total_orders: cat.totalOrders,
+      avg_order_value: cat.totalRevenue / (cat.totalOrders || 1),
       growth_percentage: 0, // Not available in admin format
       subcategories: [] // Would need separate API call
     }));
@@ -120,9 +120,9 @@ export const analyticsService = {
   async getTimeSeriesData(period: TimePeriod = 'daily', _dateRange?: DateRange): Promise<TimeSeriesPoint[]> {
     const adminAnalytics = await getAdminAnalyticsOverview(period);
     
-    return adminAnalytics.revenueTimeSeries.map(point => ({
+    return adminAnalytics.timeSeriesData.map((point: any) => ({
       date: point.date,
-      revenue: point.value,
+      revenue: point.revenue,
       orders: 0, // Not available in current admin format
       avg_order_value: 0 // Not available in current admin format
     }));
@@ -168,11 +168,11 @@ export const analyticsService = {
     
     // Return basic customer data from admin analytics
     return {
-      total_customers: adminAnalytics.totalCustomers,
-      new_customers: Math.floor(adminAnalytics.totalCustomers * 0.3), // Estimated
-      returning_customers: Math.floor(adminAnalytics.totalCustomers * 0.7), // Estimated
+      total_customers: adminAnalytics.totalOrders, // Using orders as proxy for customers
+      new_customers: Math.floor(adminAnalytics.totalOrders * 0.3), // Estimated
+      returning_customers: Math.floor(adminAnalytics.totalOrders * 0.7), // Estimated
       customer_retention_rate: 0.75, // Default value
-      avg_customer_lifetime_value: adminAnalytics.totalRevenue / (adminAnalytics.totalCustomers || 1),
+      avg_customer_lifetime_value: adminAnalytics.totalRevenue / (adminAnalytics.totalOrders || 1),
       customer_acquisition_cost: 0 // Not available in current admin format
     };
   },

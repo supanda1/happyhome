@@ -71,10 +71,10 @@ export const bookingsService = {
       orders = orders.filter(order => order.status === params.status);
     }
     if (params.serviceId) {
-      orders = orders.filter(order => order.service_id === params.serviceId);
+      orders = orders.filter(order => order.items.some(item => item.service_id === params.serviceId));
     }
     if (params.userId) {
-      orders = orders.filter(order => order.user_id === params.userId);
+      orders = orders.filter(order => order.customer_id === params.userId);
     }
     // TODO: Add date range filtering when available in admin data manager
     
@@ -94,8 +94,8 @@ export const bookingsService = {
             bVal = b.total_amount;
             break;
           case 'scheduledDate':
-            aVal = new Date(a.scheduled_date || a.created_at).getTime();
-            bVal = new Date(b.scheduled_date || b.created_at).getTime();
+            aVal = new Date(a.items[0]?.scheduled_date || a.created_at).getTime();
+            bVal = new Date(b.items[0]?.scheduled_date || b.created_at).getTime();
             break;
         }
         
@@ -333,7 +333,7 @@ export const bookingsService = {
     // Apply filters
     let filteredOrders = orders;
     if (params.serviceId) {
-      filteredOrders = filteredOrders.filter(order => order.service_id === params.serviceId);
+      filteredOrders = filteredOrders.filter(order => order.items.some(item => item.service_id === params.serviceId));
     }
     if (params.status) {
       filteredOrders = filteredOrders.filter(order => order.status === params.status);

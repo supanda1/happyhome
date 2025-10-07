@@ -230,7 +230,13 @@ export const couponsService = {
     if (!response.data) {
       throw new Error(`Failed to get coupon usage statistics for ID: ${couponId}`);
     }
-    return response.data;
+    // Transform API response to match expected interface
+    return {
+      usageCount: response.data.totalUsage,
+      totalDiscountGiven: response.data.totalDiscountGiven,
+      uniqueUsers: 0, // Not available in API response
+      usageHistory: response.data.usageByMonth
+    };
   },
 
   /**
@@ -345,7 +351,12 @@ export const couponsService = {
     if (!response.data) {
       throw new Error('Failed to bulk create coupons');
     }
-    return response.data;
+    // Transform API response to match expected interface
+    const data = response.data;
+    return {
+      created: data.results.filter(r => r.success).map(r => r.coupon as any),
+      failed: data.results.filter(r => !r.success).map(r => ({ coupon: r.coupon, error: r.error }))
+    };
   },
 
   /**
