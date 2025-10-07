@@ -15,7 +15,14 @@
     "prepare": "husky install",
     "start:backend": "cd backend && python3 -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8001",
     "start:backend:debug": "cd backend && python3 -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8001 --log-level debug",
-    "dev:instructions": "echo '1. Run: npm run start:backend (in one terminal)' && echo '2. Run: npm run dev (in another terminal)' && echo 'Frontend: http://localhost:3001' && echo 'Backend: http://localhost:8001'"
+    "dev:instructions": "echo '1. Run: npm run start:backend (in one terminal)' && echo '2. Run: npm run dev (in another terminal)' && echo 'Frontend: http://localhost:3001' && echo 'Backend: http://localhost:8001'",
+    "railway:build": "npm install && npm run build",
+    "railway:start": "npm run preview",
+    "deploy:railway": "railway up",
+    "deploy:backend": "cd backend && railway up",
+    "deploy:frontend": "railway up",
+    "railway:logs": "railway logs",
+    "railway:status": "railway status"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.17.0",
