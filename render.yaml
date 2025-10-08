@@ -9,9 +9,8 @@ services:
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     region: oregon
-    plan: starter  # Free tier
+    plan: starter
     branch: main
-    startCommand: gunicorn app.main:app -w 2 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
     envVars:
       - key: ENVIRONMENT
         value: production
@@ -35,7 +34,6 @@ services:
     env: static
     buildCommand: npm ci && npm run build
     staticPublishPath: ./dist
-    region: oregon
     branch: main
     envVars:
       - key: VITE_API_URL
@@ -44,6 +42,5 @@ services:
 databases:
   - name: household-services-db
     databaseName: household_services
-    user: postgres
-    plan: starter  # Free tier
+    plan: starter
     region: oregon
