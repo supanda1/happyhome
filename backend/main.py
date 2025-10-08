@@ -323,14 +323,14 @@ def test_frontend():
 # Categories API
 @app.get("/categories")
 def get_categories():
-    return {"data": [cat.dict() for cat in SAMPLE_CATEGORIES]}
+    return {"success": True, "data": [cat.dict() for cat in SAMPLE_CATEGORIES]}
 
 @app.get("/categories/{category_id}")
 def get_category_by_id(category_id: str):
     category = next((cat for cat in SAMPLE_CATEGORIES if cat.id == category_id), None)
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
-    return {"data": category.dict()}
+    return {"success": True, "data": category.dict()}
 
 # Services API
 @app.get("/services")
@@ -362,6 +362,7 @@ def get_services(
     services = services[start:end]
     
     return {
+        "success": True,
         "data": [svc.dict() for svc in services],
         "total": total,
         "page": page,
@@ -374,7 +375,7 @@ def get_service_by_id(service_id: str):
     service = next((svc for svc in SAMPLE_SERVICES if svc.id == service_id), None)
     if not service:
         raise HTTPException(status_code=404, detail="Service not found")
-    return {"data": service.dict()}
+    return {"success": True, "data": service.dict()}
 
 # Authentication API
 @app.post("/api/auth/login")
