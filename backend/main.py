@@ -729,7 +729,85 @@ def get_reviews(serviceId: Optional[str] = None):
     
     return {"data": reviews}
 
-# Legacy endpoints for compatibility
+# Additional endpoints without /api prefix for frontend compatibility
+@app.get("/cart")
+def get_cart_no_prefix():
+    return {
+        "success": True,
+        "data": {
+            "items": [],
+            "subtotal": 0,
+            "finalAmount": 0
+        }
+    }
+
+@app.get("/coupons")
+def get_coupons_no_prefix():
+    return {
+        "success": True,
+        "data": [
+            {
+                "id": "coupon1",
+                "code": "WELCOME10", 
+                "discount": 10,
+                "type": "percentage",
+                "isActive": True,
+                "minAmount": 50
+            },
+            {
+                "id": "coupon2",
+                "code": "FLAT20",
+                "discount": 20,
+                "type": "fixed", 
+                "isActive": True,
+                "minAmount": 100
+            }
+        ]
+    }
+
+@app.get("/subcategories")
+def get_subcategories():
+    return {
+        "success": True,
+        "data": [
+            {
+                "id": "sub1",
+                "name": "Pipe Repair",
+                "categoryId": "b181c7f3-03cd-43ea-9fcd-85368fbfa628",
+                "categoryName": "Plumbing",
+                "isActive": True
+            },
+            {
+                "id": "sub2", 
+                "name": "Wiring Installation",
+                "categoryId": "5750b6f5-0a36-4839-8b5d-783aa5f4a40a",
+                "categoryName": "Electrical",
+                "isActive": True
+            },
+            {
+                "id": "sub3",
+                "name": "Deep Cleaning",
+                "categoryId": "48857699-7785-4875-a787-d1f0b7d2f28c", 
+                "categoryName": "Cleaning",
+                "isActive": True
+            }
+        ]
+    }
+
+@app.get("/contact-settings")
+def get_contact_settings():
+    return {
+        "success": True,
+        "data": {
+            "phone": "+1-800-HAPPYHOME",
+            "email": "support@happyhomes.com",
+            "address": "123 Service Street, Happy City, HC 12345",
+            "businessHours": "Mon-Sun 8AM-8PM",
+            "supportAvailable": True
+        }
+    }
+
+# Legacy endpoints for compatibility  
 @app.get("/api/services")
 def api_services():
     return {
