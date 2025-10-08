@@ -529,20 +529,18 @@ class HealthMonitorService {
 // Export singleton instance
 export const healthMonitor = new HealthMonitorService();
 
-// Auto-start monitoring for admin users - DISABLED IN PRODUCTION
+// Auto-start monitoring for admin users
 if (typeof window !== 'undefined') {
-  // Only start monitoring in development or if explicitly enabled
-  const interval = parseInt(import.meta.env.VITE_HEALTH_CHECK_INTERVAL || '30000');
-  const isProduction = import.meta.env.PROD || window.location.hostname.includes('vercel.app');
-  
-  if (interval > 0 && !isProduction) {
-    setTimeout(() => {
-      console.log('🔧 Starting health monitoring (development mode)');
+  // Start monitoring when module loads, but respect environment settings
+  setTimeout(() => {
+    const interval = parseInt(import.meta.env.VITE_HEALTH_CHECK_INTERVAL || '30000');
+    if (interval > 0) {
+      console.log('🔧 Starting health monitoring');
       healthMonitor.startMonitoring(interval);
-    }, 2000);
-  } else {
-    console.log('ℹ️ Health monitoring disabled in production mode');
-  }
+    } else {
+      console.log('ℹ️ Health monitoring disabled (VITE_HEALTH_CHECK_INTERVAL=0)');
+    }
+  }, 2000);
 }
 
 export default healthMonitor;
