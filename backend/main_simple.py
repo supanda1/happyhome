@@ -5,8 +5,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import os
 
-print("=== Starting Happy Homes API ===")
+print("=== SIMPLE HAPPY HOMES API STARTING ===")
 print(f"PORT environment variable: {os.getenv('PORT', 'NOT SET')}")
+print("Using SIMPLE app (main_simple.py) - NO COMPLEX DEPENDENCIES")
 
 app = FastAPI(title="Happy Homes API")
 
