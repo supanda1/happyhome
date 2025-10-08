@@ -1,0 +1,43 @@
+name: Deploy to Render.com
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Render CLI
+      run: |
+        curl -fsSL https://cli-assets.render.com/install.sh | bash
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+    - name: Deploy to Render
+      env:
+        RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+      run: |
+        # Set Render API key for authentication
+        echo "Setting up Render authentication..."
+        
+        # Deploy using Blueprint (render.yaml)
+        render blueprint deploy --path ./render.yaml
+        
+        echo "✅ Deployment triggered! Check Render dashboard for progress."
+
+    - name: Notify deployment status
+      if: success()
+      run: |
+        echo "🎉 Deployment successful!"
+        echo "📱 Backend: https://household-services-api.onrender.com"
+        echo "🌐 Frontend: https://household-services-frontend.onrender.com"
+
+    - name: Notify deployment failure
+      if: failure()
+      run: |
+        echo "❌ Deployment failed! Check logs above."
