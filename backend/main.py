@@ -143,6 +143,16 @@ SAMPLE_USERS = [
         role="admin",
         createdAt=datetime.now().isoformat(),
         updatedAt=datetime.now().isoformat()
+    ),
+    User(
+        id="superadmin1",
+        email="superadmin@happyhomes.com",
+        firstName="Super",
+        lastName="Admin",
+        phone="+1234567888",
+        role="superadmin",
+        createdAt=datetime.now().isoformat(),
+        updatedAt=datetime.now().isoformat()
     )
 ]
 
@@ -234,6 +244,38 @@ SAMPLE_SERVICES = [
         tags=["deep-clean", "eco-friendly", "insured"],
         inclusions=["All rooms", "Kitchen deep clean", "Bathroom sanitization"],
         exclusions=["Window cleaning", "Carpet shampooing"]
+    ),
+    Service(
+        id="svc4",
+        name="AC Installation & Repair",
+        category_id="f9c8e7d6-5a4b-3c2d-1e0f-9g8h7i6j5k4l",
+        category_name="HVAC",
+        description="Professional air conditioning installation and repair services",
+        short_description="AC installation & repair",
+        base_price=200.0,
+        discounted_price=180.0,
+        rating=4.8,
+        review_count=156,
+        booking_count=234,
+        tags=["hvac", "cooling", "energy-efficient"],
+        inclusions=["Installation", "Basic repair", "System testing"],
+        exclusions=["AC unit cost", "Electrical work"],
+        warranty="2 years on labor"
+    ),
+    Service(
+        id="svc5",
+        name="Bathroom Deep Clean",
+        category_id="48857699-7785-4875-a787-d1f0b7d2f28c",
+        category_name="Cleaning",
+        description="Specialized bathroom deep cleaning and sanitization",
+        short_description="Bathroom deep clean",
+        base_price=80.0,
+        rating=4.6,
+        review_count=134,
+        booking_count=267,
+        tags=["bathroom", "sanitization", "deep-clean"],
+        inclusions=["Tile cleaning", "Grout cleaning", "Fixture polishing"],
+        exclusions=["Drain unclogging", "Plumbing repairs"]
     )
 ]
 
@@ -268,6 +310,28 @@ SAMPLE_EMPLOYEES = [
         expertise_areas=["Cleaning", "Deep Cleaning", "Sanitization"],
         phone="+1234567803",
         email="carlos.rodriguez@happyhomes.com",
+        created_at=datetime.now().isoformat(),
+        updated_at=datetime.now().isoformat()
+    ),
+    Employee(
+        id="emp4",
+        employee_id="EMP004",
+        name="David Chen",
+        expert="HVAC",
+        expertise_areas=["HVAC", "AC Installation", "Heating Systems"],
+        phone="+1234567804",
+        email="david.chen@happyhomes.com",
+        created_at=datetime.now().isoformat(),
+        updated_at=datetime.now().isoformat()
+    ),
+    Employee(
+        id="emp5",
+        employee_id="EMP005",
+        name="Jennifer Brown",
+        expert="Plumbing",
+        expertise_areas=["Plumbing", "Bathroom Renovation", "Water Heaters"],
+        phone="+1234567805",
+        email="jennifer.brown@happyhomes.com",
         created_at=datetime.now().isoformat(),
         updated_at=datetime.now().isoformat()
     )
@@ -426,6 +490,18 @@ def get_current_user():
 @app.post("/api/auth/logout")
 def logout():
     return {"message": "Logged out successfully"}
+
+# Users Management API
+@app.get("/users")
+def get_all_users():
+    return {"success": True, "data": [user.dict() for user in SAMPLE_USERS]}
+
+@app.get("/users/{user_id}")
+def get_user_by_id(user_id: str):
+    user = next((u for u in SAMPLE_USERS if u.id == user_id), None)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"success": True, "data": user.dict()}
 
 # Employees API  
 @app.get("/employees")
