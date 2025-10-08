@@ -1,7 +1,7 @@
 [build]
 builder = "nixpacks"
-buildCommand = "pip install fastapi uvicorn[standard]"
-startCommand = "python main_simple.py"
+buildCommand = "pip install fastapi uvicorn"
+startCommand = "python3 main_simple.py"
 
 [deploy]
 # Disable health check temporarily to debug Railway deployment

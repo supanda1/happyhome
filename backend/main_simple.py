@@ -5,6 +5,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import os
 
+print("=== Starting Happy Homes API ===")
+print(f"PORT environment variable: {os.getenv('PORT', 'NOT SET')}")
+
 app = FastAPI(title="Happy Homes API")
 
 # Add CORS for your Vercel frontend
@@ -41,5 +44,7 @@ def get_services():
 
 if __name__ == "__main__":
     import uvicorn
+    # Railway requires reading PORT from environment
     port = int(os.getenv("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    print(f"Starting server on port {port}")
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
