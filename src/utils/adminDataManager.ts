@@ -96,6 +96,7 @@ import type { Order, OrderHistory } from '../types/api';
 // API Helper Functions - Session-based authentication
 const apiCall = async (endpoint: string, options: RequestInit = {}) => {
   const url = `${API_BASE_URL}${endpoint}`;
+  console.log('🚀 API Debug:', { API_BASE_URL, endpoint, url });
   const defaultOptions: RequestInit = {
     credentials: 'include', // SECURITY: Include HTTP-only cookies for authentication
     headers: {
@@ -353,8 +354,9 @@ interface AnalyticsOverview {
 export const getCategoriesFromAPI = async (): Promise<Category[]> => {
   try {
     // Use public categories endpoint that doesn't require authentication
+    console.log('🔍 Loading categories from API...');
     const categories = await apiCall('/categories');
-    console.log('✅ Categories loaded from PostgreSQL database:', categories.length);
+    console.log('✅ Categories loaded from PostgreSQL database:', categories?.length || 0, categories);
     return categories;
   } catch (error) {
     console.error('❌ Failed to load categories from database:', error);
