@@ -61,6 +61,8 @@ class Category(BaseModel):
     icon: str
     isActive: bool = True
     sortOrder: int
+    createdAt: str
+    updatedAt: str
 
 class Service(BaseModel):
     id: str
@@ -150,28 +152,36 @@ SAMPLE_CATEGORIES = [
         name="Plumbing",
         description="Professional plumbing repair and installation services",
         icon="🔧",
-        sortOrder=1
+        sortOrder=1,
+        createdAt=datetime.now().isoformat(),
+        updatedAt=datetime.now().isoformat()
     ),
     Category(
         id="5750b6f5-0a36-4839-8b5d-783aa5f4a40a",
         name="Electrical",
         description="Expert electrical installation and repair services",
         icon="⚡",
-        sortOrder=2
+        sortOrder=2,
+        createdAt=datetime.now().isoformat(),
+        updatedAt=datetime.now().isoformat()
     ),
     Category(
         id="48857699-7785-4875-a787-d1f0b7d2f28c",
         name="Cleaning",
         description="Professional home and office cleaning services",
         icon="🧽",
-        sortOrder=3
+        sortOrder=3,
+        createdAt=datetime.now().isoformat(),
+        updatedAt=datetime.now().isoformat()
     ),
     Category(
         id="f9c8e7d6-5a4b-3c2d-1e0f-9g8h7i6j5k4l",
         name="HVAC",
         description="Heating, ventilation, and air conditioning services",
         icon="❄️",
-        sortOrder=4
+        sortOrder=4,
+        createdAt=datetime.now().isoformat(),
+        updatedAt=datetime.now().isoformat()
     )
 ]
 
