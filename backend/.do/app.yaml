@@ -1,0 +1,40 @@
+# DigitalOcean App Platform configuration
+name: household-services
+services:
+- name: api
+  source_dir: /
+  github:
+    repo: your-username/your-repo-name  # Update this
+    branch: main
+  run_command: gunicorn app.main:app -w 2 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
+  dockerfile_path: Dockerfile
+  build_command: docker build -t api --target production .
+  environment_slug: ubuntu-22-04-x64
+  instance_count: 1
+  instance_size_slug: basic-xxs  # $5/month
+  http_port: 8000
+  health_check:
+    http_path: /ping
+    initial_delay_seconds: 30
+    period_seconds: 30
+    timeout_seconds: 10
+    failure_threshold: 3
+    success_threshold: 1
+  envs:
+  - key: ENVIRONMENT
+    value: production
+  - key: DEBUG
+    value: "false"
+  - key: LOG_LEVEL
+    value: INFO
+  - key: SECRET_KEY
+    value: REPLACE_WITH_SECURE_SECRET
+  - key: DATABASE_URL
+    value: ${db.DATABASE_URL}
+
+databases:
+- engine: PG
+  name: db
+  num_nodes: 1
+  size: db-s-dev-database  # $7/month
+  version: "15"

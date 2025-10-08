@@ -175,15 +175,25 @@ app = create_app()
 @app.get("/")
 async def root():
     """Root endpoint with API information."""
-    import os
     return {
         "message": f"Welcome to {settings.APP_NAME}",
         "version": settings.APP_VERSION,
         "environment": settings.ENVIRONMENT,
         "docs_url": "/docs" if settings.SHOW_DOCS else None,
         "api_base": "/api/v1",
+    }
+
+
+@app.get("/debug")
+async def debug_info():
+    """Debug endpoint with deployment diagnostics."""
+    import os
+    return {
         "port": os.getenv('PORT', 'not set'),
-        "database_available": 'DATABASE_URL' in os.environ
+        "database_available": 'DATABASE_URL' in os.environ,
+        "host": settings.HOST,
+        "environment": settings.ENVIRONMENT,
+        "app_name": settings.APP_NAME
     }
 
 
