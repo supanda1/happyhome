@@ -16,14 +16,13 @@ print("This is the COMPREHENSIVE app with ALL dummy APIs")
 
 app = FastAPI(title="Happy Homes Comprehensive API", version="2.0.0")
 
-# CORS for Vercel frontend
+# CORS for Vercel frontend - NO wildcard when using credentials
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://happyhome-zeta.vercel.app",
         "http://localhost:3000", 
-        "http://localhost:3001",
-        "*"
+        "http://localhost:3001"
     ],
     allow_credentials=True,
     allow_methods=["*"],
