@@ -21,7 +21,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://happyhome-zeta.vercel.app",
-        "http://localhost:3000",
+        "http://localhost:3000", 
+        "http://localhost:3001",
         "*"
     ],
     allow_credentials=True,
@@ -293,6 +294,21 @@ def health_readiness():
 @app.get("/ping")
 def ping():
     return {"message": "pong", "timestamp": datetime.now().isoformat()}
+
+@app.get("/test-frontend")
+def test_frontend():
+    return {
+        "message": "Frontend connection test successful",
+        "backend_version": "2.0.0", 
+        "cors_enabled": True,
+        "timestamp": datetime.now().isoformat(),
+        "available_endpoints": {
+            "categories": "/categories",
+            "services": "/services", 
+            "auth": "/api/auth/login",
+            "health": "/health"
+        }
+    }
 
 # Categories API
 @app.get("/categories")
