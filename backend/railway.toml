@@ -1,20 +1,20 @@
 [build]
 builder = "nixpacks"
 buildCommand = "pip install -r requirements.txt"
-startCommand = "python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+startCommand = "uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1"
 
 [deploy]
 healthcheckPath = "/ping"
-healthcheckTimeout = 300
+healthcheckTimeout = 600
 restartPolicyType = "ON_FAILURE"
-restartPolicyMaxRetries = 10
+restartPolicyMaxRetries = 3
 
 [build.env]
 PYTHON_VERSION = "3.11"
 
 [env]
 # FastAPI Configuration
-HOST = "0.0.0.0"
+HOST = "0.0.0.0" 
 PORT = "$PORT"
 ENVIRONMENT = "production"
 DEBUG = "false"
@@ -23,8 +23,7 @@ LOG_LEVEL = "INFO"
 
 # Database will be provided by Railway PostgreSQL service
 # DATABASE_URL will be automatically set by Railway
-# Fallback database URL for initial startup (will be overridden by Railway PostgreSQL)
-DATABASE_URL = "sqlite:///./fallback.db"
+# If no DATABASE_URL is provided, the application will fail with a clear error
 
 # Security - Generate a secure key for Railway
 SECRET_KEY = "railway-secret-key-abcdefghijklmnopqrstuvwxyz1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ"

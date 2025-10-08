@@ -58,7 +58,7 @@ class Settings(BaseSettings):
     PASSWORD_MIN_LENGTH: int = 8
     BCRYPT_ROUNDS: int = 12
     
-    # CORS Configuration
+    # CORS Configuration  
     ALLOWED_ORIGINS: List[str] = [
         "http://localhost:3000",
         "http://localhost:3001", 
@@ -107,6 +107,22 @@ class Settings(BaseSettings):
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> Union[List[str], str]:
         """Parse CORS origins from environment variable."""
         if isinstance(v, str) and not v.startswith("["):
+            # Handle Railway $FRONTEND_URL environment variable
+            if v.startswith("$"):
+                frontend_url = os.getenv(v[1:])  # Remove $ and get env var
+                if frontend_url:
+                    origins = [frontend_url]
+                    # Add common local development origins
+                    origins.extend([
+                        "http://localhost:3000",
+                        "http://localhost:3001", 
+                        "http://localhost:3002",
+                        "http://127.0.0.1:3000",
+                        "http://127.0.0.1:3001",
+                        "http://127.0.0.1:3002"
+                    ])
+                    return origins
+                return ["*"]  # Fallback for Railway deployment
             return [i.strip() for i in v.split(",")]
         elif isinstance(v, (list, str)):
             return v
@@ -169,8 +185,21 @@ class Settings(BaseSettings):
     @property
     def postgres_url(self) -> str:
         """Get PostgreSQL connection URL."""
-        if self.DATABASE_URL:
+        # First check for Railway-provided DATABASE_URL
+        railway_db_url = os.getenv("DATABASE_URL")
+        if railway_db_url:
+            # Convert postgres:// to postgresql+asyncpg:// if needed
+            if railway_db_url.startswith("postgres://"):
+                railway_db_url = railway_db_url.replace("postgres://", "postgresql+asyncpg://", 1)
+            elif railway_db_url.startswith("postgresql://"):
+                railway_db_url = railway_db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+            return railway_db_url
+        
+        # Fallback to configured DATABASE_URL
+        if self.DATABASE_URL and not self.DATABASE_URL.startswith("sqlite"):
             return self.DATABASE_URL
+        
+        # Build from individual components
         return f"postgresql+asyncpg://{self.DATABASE_USER}:{self.DATABASE_PASSWORD}@{self.DATABASE_HOST}:{self.DATABASE_PORT}/{self.DATABASE_NAME}"
     
     @property

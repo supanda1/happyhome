@@ -32,6 +32,31 @@ class Database:
     """Database connection and session management."""
     
     @classmethod
+    @property
+    def client(cls):
+        """Get database engine client."""
+        return engine
+    
+    @classmethod
+    async def ping(cls) -> bool:
+        """
+        Test database connectivity.
+        
+        Returns:
+            True if database is accessible, False otherwise
+        """
+        try:
+            if not engine or not async_session:
+                return False
+                
+            async with async_session() as session:
+                await session.execute(text("SELECT 1"))
+                return True
+        except Exception as e:
+            logger.error(f"Database ping failed: {e}")
+            return False
+    
+    @classmethod
     async def connect_db(cls) -> None:
         """
         Initialize database connection and Redis client.
