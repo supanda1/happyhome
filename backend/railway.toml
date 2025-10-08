@@ -1,7 +1,7 @@
 [build]
 builder = "nixpacks"
-buildCommand = "pip install -r requirements-minimal.txt"
-startCommand = "uvicorn app.simple_main:app --host 0.0.0.0 --port $PORT --workers 1"
+buildCommand = "pip install -r requirements.txt"
+startCommand = "uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1"
 
 [deploy]
 # Disable health check temporarily to debug Railway deployment
