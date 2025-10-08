@@ -35,7 +35,6 @@ services:
     env: static
     buildCommand: npm ci && npm run build
     staticPublishPath: ./dist
-    rootDir: ./frontend
     region: oregon
     branch: main
     envVars:
