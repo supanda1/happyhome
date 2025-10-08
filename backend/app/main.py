@@ -50,26 +50,44 @@ async def lifespan(app: FastAPI):
     # Startup
     setup_logging()
     
-    # Connect to database
-    await Database.connect_db()
-    
-    # Log startup completion
+    # Get logger early
     from .core.logging import get_logger
     logger = get_logger("startup")
+    
+    # Log environment diagnostics
+    import os
+    logger.info(f"Starting application with PORT={os.getenv('PORT', 'not set')}")
+    logger.info(f"DATABASE_URL available: {'DATABASE_URL' in os.environ}")
+    logger.info(f"Environment: {settings.ENVIRONMENT}")
+    logger.info(f"Configured host:port = {settings.HOST}:{settings.PORT}")
+    
+    try:
+        # Connect to database (allow startup to continue even if DB fails)
+        logger.info("Attempting database connection...")
+        await Database.connect_db()
+        logger.info("Database connection successful")
+    except Exception as e:
+        logger.error(f"Database connection failed during startup: {e}")
+        logger.warning("Application will start without database - some endpoints may not work")
+    
+    # Log startup completion
     logger.info(
         "Application startup completed",
         app_name=settings.APP_NAME,
         version=settings.APP_VERSION,
         environment=settings.ENVIRONMENT,
-        database_url=settings.postgres_url.split("@")[-1],  # Hide credentials
-        redis_url=settings.redis_connection_url.split("@")[-1] if "@" in settings.redis_connection_url else settings.redis_connection_url,
+        port=settings.PORT,
+        host=settings.HOST
     )
     
     yield
     
     # Shutdown
-    await Database.close_db()
-    logger.info("Application shutdown completed")
+    try:
+        await Database.close_db()
+        logger.info("Application shutdown completed")
+    except Exception as e:
+        logger.error(f"Error during shutdown: {e}")
 
 
 def create_app() -> FastAPI:
@@ -157,20 +175,23 @@ app = create_app()
 @app.get("/")
 async def root():
     """Root endpoint with API information."""
+    import os
     return {
         "message": f"Welcome to {settings.APP_NAME}",
         "version": settings.APP_VERSION,
         "environment": settings.ENVIRONMENT,
         "docs_url": "/docs" if settings.SHOW_DOCS else None,
         "api_base": "/api/v1",
+        "port": os.getenv('PORT', 'not set'),
+        "database_available": 'DATABASE_URL' in os.environ
     }
 
 
-# Health check endpoint (simple)
-@app.get("/ping")
+# Health check endpoint (simple) - Must not depend on database
+@app.get("/ping")  
 async def ping():
-    """Simple ping endpoint for basic health checks."""
-    return {"message": "pong"}
+    """Simple ping endpoint for basic health checks - Railway health check."""
+    return {"status": "ok", "message": "pong", "timestamp": "2024-01-01T00:00:00Z"}
 
 
 if __name__ == "__main__":

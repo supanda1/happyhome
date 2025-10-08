@@ -14,9 +14,8 @@ PYTHON_VERSION = "3.11"
 
 [env]
 # FastAPI Configuration
-HOST = "0.0.0.0" 
-PORT = "$PORT"
-ENVIRONMENT = "production"
+HOST = "0.0.0.0"
+ENVIRONMENT = "production" 
 DEBUG = "false"
 RELOAD = "false"
 LOG_LEVEL = "INFO"

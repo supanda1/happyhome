@@ -30,6 +30,19 @@ class Settings(BaseSettings):
     PORT: int = 8000
     RELOAD: bool = True
     
+    @field_validator("PORT", mode="before")
+    @classmethod
+    def validate_port(cls, v):
+        """Handle Railway's $PORT environment variable."""
+        if isinstance(v, str):
+            if v.startswith("$"):
+                port_val = os.getenv(v[1:])  # Remove $ and get env var
+                if port_val:
+                    return int(port_val)
+                return 8000  # Default fallback
+            return int(v)
+        return v
+    
     # Database Configuration - PostgreSQL
     DATABASE_URL: str = "postgresql+asyncpg://postgres:password@localhost:5432/household_services"
     DATABASE_HOST: str = "localhost"
