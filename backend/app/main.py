@@ -61,14 +61,20 @@ async def lifespan(app: FastAPI):
     logger.info(f"Environment: {settings.ENVIRONMENT}")
     logger.info(f"Configured host:port = {settings.HOST}:{settings.PORT}")
     
-    try:
-        # Connect to database (allow startup to continue even if DB fails)
-        logger.info("Attempting database connection...")
-        await Database.connect_db()
-        logger.info("Database connection successful")
-    except Exception as e:
-        logger.error(f"Database connection failed during startup: {e}")
-        logger.warning("Application will start without database - some endpoints may not work")
+    # Check if database connection should be skipped (for Railway deployment testing)
+    skip_db = os.getenv("SKIP_DB_CONNECTION", "false").lower() == "true"
+    
+    if skip_db:
+        logger.warning("Database connection skipped due to SKIP_DB_CONNECTION=true")
+    else:
+        try:
+            # Connect to database (allow startup to continue even if DB fails)
+            logger.info("Attempting database connection...")
+            await Database.connect_db()
+            logger.info("Database connection successful")
+        except Exception as e:
+            logger.error(f"Database connection failed during startup: {e}")
+            logger.warning("Application will start without database - some endpoints may not work")
     
     # Log startup completion
     logger.info(
@@ -201,7 +207,21 @@ async def debug_info():
 @app.get("/ping")  
 async def ping():
     """Simple ping endpoint for basic health checks - Railway health check."""
-    return {"status": "ok", "message": "pong", "timestamp": "2024-01-01T00:00:00Z"}
+    from datetime import datetime
+    return {
+        "status": "ok", 
+        "message": "pong", 
+        "timestamp": datetime.utcnow().isoformat(),
+        "service": "household-services-api",
+        "version": settings.APP_VERSION
+    }
+
+
+# Ultra simple health check for Railway
+@app.get("/health")
+async def simple_health():
+    """Ultra simple health check."""
+    return {"alive": True}
 
 
 if __name__ == "__main__":
