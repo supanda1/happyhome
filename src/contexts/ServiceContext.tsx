@@ -240,12 +240,15 @@ export const ServiceProvider: React.FC<ServiceProviderProps> = ({ children }) =>
 
   // Load categories
   const loadCategories = async (): Promise<void> => {
+    console.log('🔧 loadCategories called - starting category loading...');
     dispatch({ type: 'SET_LOADING', payload: true });
     try {
+      console.log('🔧 About to call servicesService.getCategories()...');
       const categories = await servicesService.getCategories();
+      console.log('🔧 Categories received:', categories?.length || 0, categories);
       dispatch({ type: 'SET_CATEGORIES', payload: categories });
     } catch (error) {
-      console.error('Failed to load categories:', error);
+      console.error('❌ Failed to load categories:', error);
       dispatch({ type: 'SET_ERROR', payload: 'Failed to load categories' });
     }
   };
