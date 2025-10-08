@@ -11,7 +11,6 @@ export interface AppConfig {
   defaultStaleTime: number;
   defaultCacheTime: number;
   maxRetries: number;
-  jwtSecret: string;
   tokenRefreshThreshold: number;
 }
 
@@ -48,15 +47,12 @@ export const config: AppConfig = {
   defaultStaleTime: getEnvNumber('VITE_DEFAULT_STALE_TIME', 300000), // 5 minutes
   defaultCacheTime: getEnvNumber('VITE_DEFAULT_CACHE_TIME', 600000), // 10 minutes
   maxRetries: getEnvNumber('VITE_MAX_RETRIES', 3),
-  jwtSecret: getEnvVar('VITE_JWT_SECRET', 'dev-jwt-secret'),
   tokenRefreshThreshold: getEnvNumber('VITE_TOKEN_REFRESH_THRESHOLD', 300000), // 5 minutes
 };
 
 // Validate required configuration
 if (config.environment === 'production') {
-  if (config.jwtSecret === 'dev-jwt-secret') {
-    throw new Error('JWT secret must be set in production');
-  }
+  // JWT secret check removed - using session-based authentication instead
   if (config.apiBaseUrl.includes('localhost')) {
     console.warn('Warning: Using localhost API URL in production');
   }
