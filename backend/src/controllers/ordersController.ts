@@ -352,9 +352,9 @@ export class OrdersController {
       const orderData: CreateOrderRequest = req.body;
       const orderId = uuidv4();
       
-      // Generate order number
+      // Generate order number - HH + 8 digits (10 total)
       const countResult = await client.query('SELECT COUNT(*) FROM orders');
-      const orderNumber = `HH${String(parseInt(countResult.rows[0].count) + 1).padStart(3, '0')}`;
+      const orderNumber = `HH${String(parseInt(countResult.rows[0].count) + 1).padStart(8, '0')}`;
       
       // Insert order
       const orderInsertQuery = `
@@ -1172,7 +1172,12 @@ export class OrdersController {
       const unassignedItems = await client.query(`
         SELECT oi.*, sc.name as category_name
         FROM order_items oi
-        LEFT JOIN service_categories sc ON oi.category_id = sc.id
+        LEFT JOIN service_categories sc ON (
+          CASE 
+            WHEN pg_typeof(oi.category_id) = pg_typeof(sc.id) THEN oi.category_id = sc.id
+            ELSE oi.category_id::text = sc.id::text
+          END
+        )
         WHERE oi.order_id = $1 AND oi.assigned_engineer_id IS NULL
       `, [orderId]);
       
@@ -1190,49 +1195,41 @@ export class OrdersController {
           // Enhanced flexible matching for engineer expertise
           // This handles variations like "Wiring & Installation" vs "Electric Wiring and installation"
           const engineerResult = await client.query(`
-            SELECT e.id, e.name, e.expert, e.expertise_areas,
+            SELECT e.id, e.name, e.expert,
                    COUNT(oi.id) as current_load,
-                   CASE 
-                     -- Exact category match in expertise_areas (highest priority)
-                     WHEN e.expertise_areas @> $1 THEN 10
+                   CASE
                      
                      -- DOMAIN-SPECIFIC matching (highest priority for expertise matching)
                      -- Plumbing domain keywords (MUST have plumbing expertise)
                      WHEN (
-                       (LOWER($2) LIKE '%plumb%' OR LOWER($2) LIKE '%pipe%' OR LOWER($2) LIKE '%drain%' OR LOWER($2) LIKE '%water%' OR
-                        LOWER($2) LIKE '%bath%' OR LOWER($2) LIKE '%basin%' OR LOWER($2) LIKE '%toilet%' OR LOWER($2) LIKE '%faucet%' OR
-                        LOWER($2) LIKE '%fitting%' OR LOWER($2) LIKE '%tap%' OR LOWER($2) LIKE '%sink%' OR LOWER($2) LIKE '%shower%') AND
+                       (LOWER($1) LIKE '%plumb%' OR LOWER($1) LIKE '%pipe%' OR LOWER($1) LIKE '%drain%' OR LOWER($1) LIKE '%water%' OR
+                        LOWER($1) LIKE '%bath%' OR LOWER($1) LIKE '%basin%' OR LOWER($1) LIKE '%toilet%' OR LOWER($1) LIKE '%faucet%' OR
+                        LOWER($1) LIKE '%fitting%' OR LOWER($1) LIKE '%tap%' OR LOWER($1) LIKE '%sink%' OR LOWER($1) LIKE '%shower%') AND
                        (LOWER(e.expert) LIKE '%plumb%' OR LOWER(e.expert) LIKE '%pipe%' OR LOWER(e.expert) LIKE '%drain%' OR
-                        LOWER(e.expert) LIKE '%bath%' OR LOWER(e.expert) LIKE '%fitting%' OR
-                        e.expertise_areas::text ILIKE '%plumb%' OR e.expertise_areas::text ILIKE '%pipe%' OR
-                        e.expertise_areas::text ILIKE '%bath%' OR e.expertise_areas::text ILIKE '%fitting%')
+                        LOWER(e.expert) LIKE '%bath%' OR LOWER(e.expert) LIKE '%fitting%')
                      ) THEN 9
                      
                      -- Electrical domain keywords (MUST have electrical expertise)
                      WHEN (
-                       (LOWER($2) LIKE '%electric%' OR LOWER($2) LIKE '%wiring%' OR LOWER($2) LIKE '%electrical%' OR
-                        LOWER($2) LIKE '%switch%' OR LOWER($2) LIKE '%socket%' OR LOWER($2) LIKE '%lighting%' OR LOWER($2) LIKE '%fan%') AND
-                       (LOWER(e.expert) LIKE '%electric%' OR LOWER(e.expert) LIKE '%wiring%' OR LOWER(e.expert) LIKE '%electrical%' OR
-                        e.expertise_areas::text ILIKE '%electric%' OR e.expertise_areas::text ILIKE '%wiring%')
+                       (LOWER($1) LIKE '%electric%' OR LOWER($1) LIKE '%wiring%' OR LOWER($1) LIKE '%electrical%' OR
+                        LOWER($1) LIKE '%switch%' OR LOWER($1) LIKE '%socket%' OR LOWER($1) LIKE '%lighting%' OR LOWER($1) LIKE '%fan%') AND
+                       (LOWER(e.expert) LIKE '%electric%' OR LOWER(e.expert) LIKE '%wiring%' OR LOWER(e.expert) LIKE '%electrical%')
                      ) THEN 9
                      
                      -- Cleaning domain keywords (MUST have cleaning expertise)
                      WHEN (
-                       (LOWER($2) LIKE '%clean%' OR LOWER($2) LIKE '%wash%' OR LOWER($2) LIKE '%septic%' OR LOWER($2) LIKE '%ac clean%') AND
-                       (LOWER(e.expert) LIKE '%clean%' OR LOWER(e.expert) LIKE '%wash%' OR
-                        e.expertise_areas::text ILIKE '%clean%')
+                       (LOWER($1) LIKE '%clean%' OR LOWER($1) LIKE '%wash%' OR LOWER($1) LIKE '%septic%' OR LOWER($1) LIKE '%ac clean%') AND
+                       (LOWER(e.expert) LIKE '%clean%' OR LOWER(e.expert) LIKE '%wash%')
                      ) THEN 9
                      
                      -- Generic installation/repair matching (LOWER PRIORITY - only when no domain expert available)
                      WHEN (
-                       (LOWER($2) LIKE '%install%' OR LOWER($2) LIKE '%repair%' OR LOWER($2) LIKE '%fix%') AND
-                       (LOWER(e.expert) LIKE '%install%' OR LOWER(e.expert) LIKE '%repair%' OR LOWER(e.expert) LIKE '%fix%' OR
-                        e.expertise_areas::text ILIKE '%install%')
+                       (LOWER($1) LIKE '%install%' OR LOWER($1) LIKE '%repair%' OR LOWER($1) LIKE '%fix%') AND
+                       (LOWER(e.expert) LIKE '%install%' OR LOWER(e.expert) LIKE '%repair%' OR LOWER(e.expert) LIKE '%fix%')
                      ) THEN 6
                      
                      -- Category name partial match (broader)
-                     WHEN LOWER(e.expert) LIKE '%' || LOWER($3) || '%' THEN 5
-                     WHEN e.expertise_areas::text ILIKE '%' || $3 || '%' THEN 4
+                     WHEN LOWER(e.expert) LIKE '%' || LOWER($2) || '%' THEN 5
                      
                      -- Fallback: any active engineer gets minimal score (ONLY if no domain expert available)
                      ELSE 1
@@ -1241,13 +1238,12 @@ export class OrdersController {
             LEFT JOIN order_items oi ON e.id = oi.assigned_engineer_id 
                                       AND oi.item_status IN ('scheduled', 'in_progress')
             WHERE e.is_active = true
-            GROUP BY e.id, e.name, e.expert, e.expertise_areas
+            GROUP BY e.id, e.name, e.expert
             ORDER BY expertise_score DESC, current_load ASC, e.name ASC
             LIMIT 1
           `, [
-            JSON.stringify([item.category_name]), // $1 - exact category match
-            item.service_name,                    // $2 - service name for all domain matching
-            item.category_name || ''              // $3 - category name for partial match
+            item.service_name,                    // $1 - service name for all domain matching  
+            item.category_name || ''              // $2 - category name for partial match
           ]);
           
           

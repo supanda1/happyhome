@@ -41,7 +41,7 @@ export const useServices = (params: Parameters<typeof servicesService.getService
   return useQuery({
     queryKey: queryKeys.services.list(params),
     queryFn: () => servicesService.getServices(params),
-    keepPreviousData: true, // For pagination
+    placeholderData: previousData => previousData, // For pagination
   });
 };
 
@@ -87,7 +87,7 @@ export const useServicesByCategory = (categoryId: string, params: Parameters<typ
     queryKey: [...queryKeys.services.lists(), 'category', categoryId, params],
     queryFn: () => servicesService.getServicesByCategory(categoryId, params),
     enabled: !!categoryId,
-    keepPreviousData: true,
+    placeholderData: previousData => previousData,
   });
 };
 

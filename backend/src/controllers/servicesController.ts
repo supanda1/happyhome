@@ -1,44 +1,17 @@
 import { Request, Response } from 'express';
 import pool from '../config/database';
+import dbAdapter from '../config/databaseAdapter';
 
 // Get all services with category and subcategory info
 export const getServices = async (req: Request, res: Response) => {
   try {
-    
-    const result = await pool.query(`
-      SELECT 
-        s.id,
-        s.name,
-        s.description,
-        s.short_description,
-        s.base_price,
-        s.discounted_price,
-        s.duration,
-        s.is_active,
-        s.is_featured,
-        s.rating,
-        s.review_count,
-        s.booking_count,
-        s.category_id,
-        s.subcategory_id,
-        s.inclusions,
-        s.exclusions,
-        s.requirements,
-        s.tags,
-        s.gst_percentage,
-        s.service_charge,
-        s.image_paths,
-        s.created_at,
-        s.updated_at,
-        sc.name as category_name,
-        sc.icon as category_icon,
-        ss.name as subcategory_name,
-        ss.icon as subcategory_icon
-      FROM services s
-      LEFT JOIN service_categories sc ON s.category_id = sc.id
-      LEFT JOIN service_subcategories ss ON s.subcategory_id = ss.id
+    // Use database adapter for environment-agnostic queries
+    await dbAdapter.initialize();
+    const query = dbAdapter.buildServicesQuery() + `
       ORDER BY sc.sort_order ASC, ss.sort_order ASC, s.name ASC
-    `);
+    `;
+    
+    const result = await dbAdapter.safeQuery(query, [], ['services']);
     
     res.json({
       success: true,
@@ -91,17 +64,16 @@ export const getServicesByCategory = async (req: Request, res: Response) => {
       FROM services s
       LEFT JOIN service_categories sc ON (
         CASE 
-          WHEN $1 = 'cat-1' THEN sc.name = 'Plumbing'
-          WHEN $1 = 'cat-2' THEN sc.name = 'Electrical'  
-          WHEN $1 = 'cat-3' THEN sc.name = 'Cleaning'
-          WHEN $1 = 'cat-4' THEN sc.name = 'Call A Service'
-          WHEN $1 = 'cat-5' THEN sc.name = 'Finance & Insurance'
-          WHEN $1 = 'cat-6' THEN sc.name = 'Personal Care'
-          WHEN $1 = 'cat-7' THEN sc.name = 'Civil Work'
-          ELSE s.category_id::text = $1
+          WHEN pg_typeof(s.category_id) = pg_typeof(sc.id) THEN s.category_id = sc.id
+          ELSE s.category_id::text = sc.id::text
         END
       )
-      LEFT JOIN service_subcategories ss ON s.subcategory_id = ss.id
+      LEFT JOIN service_subcategories ss ON (
+        CASE 
+          WHEN pg_typeof(s.subcategory_id) = pg_typeof(ss.id) THEN s.subcategory_id = ss.id
+          ELSE s.subcategory_id::text = ss.id::text
+        END
+      )
       WHERE (
         CASE 
           WHEN $1 = 'cat-1' THEN sc.name = 'Plumbing'
@@ -111,7 +83,7 @@ export const getServicesByCategory = async (req: Request, res: Response) => {
           WHEN $1 = 'cat-5' THEN sc.name = 'Finance & Insurance'
           WHEN $1 = 'cat-6' THEN sc.name = 'Personal Care'
           WHEN $1 = 'cat-7' THEN sc.name = 'Civil Work'
-          ELSE s.category_id::text = $1
+          ELSE s.category_id = $1::uuid
         END
       ) AND s.is_active = true
       ORDER BY s.name ASC
@@ -324,8 +296,18 @@ export const getServiceById = async (req: Request, res: Response) => {
         ss.name as subcategory_name,
         ss.icon as subcategory_icon
       FROM services s
-      LEFT JOIN service_categories sc ON s.category_id = sc.id
-      LEFT JOIN service_subcategories ss ON s.subcategory_id = ss.id
+      LEFT JOIN service_categories sc ON (
+        CASE 
+          WHEN pg_typeof(s.category_id) = pg_typeof(sc.id) THEN s.category_id = sc.id
+          ELSE s.category_id::text = sc.id::text
+        END
+      )
+      LEFT JOIN service_subcategories ss ON (
+        CASE 
+          WHEN pg_typeof(s.subcategory_id) = pg_typeof(ss.id) THEN s.subcategory_id = ss.id
+          ELSE s.subcategory_id::text = ss.id::text
+        END
+      )
       WHERE s.id = $1::uuid
     `, [id]);
     
