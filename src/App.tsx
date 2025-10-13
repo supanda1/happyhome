@@ -10,6 +10,9 @@ import MyBookingsPage from './pages/customer/MyBookingsPage';
 import ProfilePage from './pages/customer/ProfilePage';
 import OfferPage from './pages/customer/OfferPage';
 import AdminPanel from './pages/admin/AdminPanel';
+import PaymentHistory from './components/payment/PaymentHistory';
+import UpiTestPage from './pages/UpiTestPage';
+import { pushNotificationService } from './services/notifications/pushNotificationService';
 // Import Dynamic Image component for backend-driven images
 import DynamicImage from './components/ui/DynamicImage';
 // Import ServiceImage component for subcategory images
@@ -156,6 +159,14 @@ const App: React.FC = () => {
         console.error('Backend health check error:', error);
       }
       
+      // Initialize push notification service for order communications
+      try {
+        await pushNotificationService.initialize();
+        console.log('✅ Push notification service initialized');
+      } catch (error) {
+        console.warn('⚠️ Push notification service initialization failed (non-critical):', error);
+      }
+      
       await initializeAllAdminData();
       await loadCategoriesData();
       await loadContactSettings();
@@ -299,6 +310,11 @@ const App: React.FC = () => {
 
   const navigateToAddAddress = () => {
     setCurrentPage('add-address');
+    setShowServicesDropdown(false);
+  };
+
+  const navigateToPaymentHistory = () => {
+    setCurrentPage('payment-history');
     setShowServicesDropdown(false);
   };
 
@@ -1294,73 +1310,277 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
     // Get all active categories (show all, even if no services yet)
     const activeCategories = categories.filter(cat => cat.is_active);
     
+    // Banner state
+    const [banners, setBanners] = useState<{
+      hero: any[];
+      secondary: any[];
+      promotional: any[];
+    }>({ hero: [], secondary: [], promotional: [] });
+    const [bannersLoading, setBannersLoading] = useState(true);
+    
+    // Fetch banners from database
+    useEffect(() => {
+      const fetchBanners = async () => {
+        try {
+          setBannersLoading(true);
+          const [heroRes, secondaryRes, promotionalRes] = await Promise.all([
+            fetch(`${import.meta.env.VITE_API_BASE_URL}/banners/position/hero`),
+            fetch(`${import.meta.env.VITE_API_BASE_URL}/banners/position/secondary`),
+            fetch(`${import.meta.env.VITE_API_BASE_URL}/banners/position/promotional`)
+          ]);
+          
+          const heroData = heroRes.ok ? (await heroRes.json()).data || [] : [];
+          const secondaryData = secondaryRes.ok ? (await secondaryRes.json()).data || [] : [];
+          const promotionalData = promotionalRes.ok ? (await promotionalRes.json()).data || [] : [];
+          
+          setBanners({
+            hero: heroData,
+            secondary: secondaryData, 
+            promotional: promotionalData
+          });
+        } catch (error) {
+          console.error('Failed to fetch banners:', error);
+          setBanners({ hero: [], secondary: [], promotional: [] });
+        } finally {
+          setBannersLoading(false);
+        }
+      };
+      
+      fetchBanners();
+    }, []);
+    
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-purple-50 to-blue-50 relative" style={{backgroundImage: 'radial-gradient(circle at 15% 85%, rgba(139, 69, 199, 0.08) 0%, transparent 70%), radial-gradient(circle at 85% 15%, rgba(59, 130, 246, 0.06) 0%, transparent 70%), radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.04) 0%, transparent 60%), linear-gradient(45deg, rgba(236, 72, 153, 0.03) 0%, transparent 50%)'}}>
         
-        {/* Enhanced Promotional Banner Section */}
-        <div className="relative overflow-hidden">
-          <div className="bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 relative">
-            <div className="absolute inset-0 bg-gradient-to-r from-purple-800/20 to-blue-800/20"></div>
-            <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-                
-                {/* Left Side - Main Offer */}
-                <div className="text-white">
-                  <div className="inline-flex items-center bg-yellow-400 text-purple-900 px-4 py-2 rounded-full text-sm font-bold mb-4">
-                    <span className="mr-2">🎉</span>
-                    Limited Time Offer
-                  </div>
-                  <h2 className="text-4xl md:text-5xl font-black mb-4 leading-tight">
-                    Get <span className="text-yellow-400">50% OFF</span><br />
-                    Your First Service
-                  </h2>
-                  <p className="text-xl text-purple-100 mb-6 leading-relaxed">
-                    Professional home services at unbeatable prices. Book now and save big on plumbing, electrical, cleaning & more!
-                  </p>
-                  <div className="flex flex-col sm:flex-row gap-4">
-                    <button className="bg-yellow-400 hover:bg-yellow-300 text-purple-900 font-bold py-4 px-8 rounded-2xl text-lg transition-all duration-300 transform hover:scale-105 shadow-2xl">
-                      Book Now & Save 50%
-                    </button>
-                    <button className="border-2 border-white text-white hover:bg-white hover:text-purple-700 font-bold py-4 px-8 rounded-2xl text-lg transition-all duration-300 transform hover:scale-105">
-                      View All Offers
-                    </button>
-                  </div>
-                </div>
-
-                {/* Right Side - Additional Offers */}
-                <div className="space-y-4">
-                  <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-white font-bold text-lg">New Customer Special</h3>
-                      <span className="bg-green-400 text-green-900 px-3 py-1 rounded-full text-sm font-bold">NEW</span>
-                    </div>
-                    <p className="text-purple-100 text-sm mb-3">First 3 services at flat ₹99 each</p>
-                    <div className="text-right">
-                      <span className="text-yellow-400 font-black text-2xl">₹99</span>
-                      <span className="text-purple-200 line-through ml-2">₹299</span>
-                    </div>
-                  </div>
-
-                  <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-white font-bold text-lg">Bulk Service Package</h3>
-                      <span className="bg-orange-400 text-orange-900 px-3 py-1 rounded-full text-sm font-bold">SAVE</span>
-                    </div>
-                    <p className="text-purple-100 text-sm mb-3">Book 5+ services and get 30% off</p>
-                    <div className="text-right">
-                      <span className="text-yellow-400 font-black text-xl">30% OFF</span>
-                    </div>
-                  </div>
-
-                </div>
-              </div>
+        {/* Dynamic Database Banners */}
+        {bannersLoading ? (
+          <div className="bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 py-20 text-center text-white">
+            <div className="animate-pulse">
+              <div className="text-2xl mb-4">🔄</div>
+              <div>Loading banners...</div>
             </div>
-            
-            {/* Decorative Elements */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-yellow-400/10 rounded-full -translate-y-32 translate-x-32"></div>
-            <div className="absolute bottom-0 left-0 w-48 h-48 bg-purple-400/10 rounded-full translate-y-24 -translate-x-24"></div>
           </div>
-        </div>
+        ) : (
+          <div className="space-y-8">
+            {/* Hero Banner */}
+            {banners.hero.length > 0 && (
+              <section className="relative overflow-hidden">
+                {banners.hero.map((banner, index) => (
+                  <div key={banner.id || index} className="relative" style={{ backgroundColor: banner.background_color || '#1e40af' }}>
+                    <div className="absolute inset-0 bg-gradient-to-r from-purple-800/20 to-blue-800/20"></div>
+                    <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+                      <div className="text-center text-white">
+                        <h1 className="text-4xl md:text-6xl font-bold mb-6" style={{ color: banner.text_color || '#ffffff' }}>
+                          {banner.title}
+                          {banner.subtitle && (
+                            <span className="block text-orange-200 text-3xl md:text-4xl mt-2">
+                              {banner.subtitle}
+                            </span>
+                          )}
+                        </h1>
+                        {banner.description && (
+                          <p className="text-xl md:text-2xl mb-8 text-orange-100 max-w-3xl mx-auto">
+                            {banner.description}
+                          </p>
+                        )}
+                        {banner.button_text && (
+                          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                            <button 
+                              onClick={() => {
+                                if (banner.button_link === '/services') {
+                                  // Navigate to first available category with services
+                                  const categoryWithServices = categories.find(cat => {
+                                    const hasServices = convertToBackendServices(services)?.some((service) => 
+                                      service.category_name === cat.name && service.is_active
+                                    );
+                                    return cat.is_active && hasServices;
+                                  });
+                                  if (categoryWithServices) {
+                                    navigateToCategory(categoryWithServices.name);
+                                  } else {
+                                    navigateToHome(); // Fallback to home if no services available
+                                  }
+                                } else if (banner.button_link === '/offer' || banner.button_link === '/offers') {
+                                  setCurrentPage('offers');
+                                } else {
+                                  navigateToHome(); // Default fallback
+                                }
+                              }}
+                              className="bg-yellow-400 hover:bg-yellow-300 text-purple-900 font-bold py-4 px-8 rounded-2xl text-lg transition-all duration-300 transform hover:scale-105 shadow-2xl"
+                            >
+                              {banner.button_text}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-yellow-400/10 rounded-full -translate-y-32 translate-x-32"></div>
+                    <div className="absolute bottom-0 left-0 w-48 h-48 bg-purple-400/10 rounded-full translate-y-24 -translate-x-24"></div>
+                  </div>
+                ))}
+              </section>
+            )}
+            
+            {/* Promotional Banner */}
+            {banners.promotional.length > 0 && (
+              <section className="relative overflow-hidden">
+                {banners.promotional.map((banner, index) => (
+                  <div key={banner.id || index} className="bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 relative" style={{ backgroundColor: banner.background_color || '#dc2626' }}>
+                    <div className="absolute inset-0 bg-gradient-to-r from-purple-800/20 to-blue-800/20"></div>
+                    <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+                        <div className="text-white">
+                          <div className="inline-flex items-center bg-yellow-400 text-purple-900 px-4 py-2 rounded-full text-sm font-bold mb-4">
+                            <span className="mr-2">🎉</span>
+                            {banner.subtitle || 'Limited Time Offer'}
+                          </div>
+                          <h2 className="text-4xl md:text-5xl font-black mb-4 leading-tight" style={{ color: banner.text_color || '#ffffff' }}>
+                            {banner.title}
+                          </h2>
+                          <p className="text-xl text-purple-100 mb-6 leading-relaxed">
+                            {banner.description}
+                          </p>
+                          {banner.button_text && (
+                            <div className="flex flex-col sm:flex-row gap-4">
+                              <button 
+                                onClick={() => {
+                                  if (banner.button_link === '/services') {
+                                    // Navigate to first available category with services
+                                    const categoryWithServices = categories.find(cat => {
+                                      const hasServices = convertToBackendServices(services)?.some((service) => 
+                                        service.category_name === cat.name && service.is_active
+                                      );
+                                      return cat.is_active && hasServices;
+                                    });
+                                    if (categoryWithServices) {
+                                      navigateToCategory(categoryWithServices.name);
+                                    } else {
+                                      navigateToHome(); // Fallback to home if no services available
+                                    }
+                                  } else if (banner.button_link === '/offer' || banner.button_link === '/offers') {
+                                    setCurrentPage('offers');
+                                  } else {
+                                    navigateToHome(); // Default fallback
+                                  }
+                                }}
+                                className="bg-yellow-400 hover:bg-yellow-300 text-purple-900 font-bold py-4 px-8 rounded-2xl text-lg transition-all duration-300 transform hover:scale-105 shadow-2xl"
+                              >
+                                {banner.button_text}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                        <div className="space-y-4">
+                          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
+                            <div className="flex items-center justify-between mb-3">
+                              <h3 className="text-white font-bold text-lg">New Customer Special</h3>
+                              <span className="bg-green-400 text-green-900 px-3 py-1 rounded-full text-sm font-bold">NEW</span>
+                            </div>
+                            <p className="text-purple-100 text-sm mb-3">First 3 services at flat ₹99 each</p>
+                            <div className="text-right">
+                              <span className="text-yellow-400 font-black text-2xl">₹99</span>
+                              <span className="text-purple-200 line-through ml-2">₹299</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-yellow-400/10 rounded-full -translate-y-32 translate-x-32"></div>
+                    <div className="absolute bottom-0 left-0 w-48 h-48 bg-purple-400/10 rounded-full translate-y-24 -translate-x-24"></div>
+                  </div>
+                ))}
+              </section>
+            )}
+            
+            {/* Secondary Banner */}
+            {banners.secondary.length > 0 && (
+              <section className="py-16">
+                {banners.secondary.map((banner, index) => (
+                  <div key={banner.id || index} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-3xl p-12 text-center text-white" style={{ backgroundColor: banner.background_color || '#059669' }}>
+                      <h2 className="text-3xl md:text-4xl font-bold mb-4" style={{ color: banner.text_color || '#ffffff' }}>
+                        {banner.title}
+                      </h2>
+                      {banner.subtitle && (
+                        <h3 className="text-xl md:text-2xl mb-4 text-green-100">
+                          {banner.subtitle}
+                        </h3>
+                      )}
+                      {banner.description && (
+                        <p className="text-lg mb-8 max-w-2xl mx-auto text-green-100">
+                          {banner.description}
+                        </p>
+                      )}
+                      {banner.button_text && (
+                        <button 
+                          onClick={() => {
+                            if (banner.button_link === '/services') {
+                              // Navigate to first available category with services
+                              const categoryWithServices = categories.find(cat => {
+                                const hasServices = convertToBackendServices(services)?.some((service) => 
+                                  service.category_name === cat.name && service.is_active
+                                );
+                                return cat.is_active && hasServices;
+                              });
+                              if (categoryWithServices) {
+                                navigateToCategory(categoryWithServices.name);
+                              } else {
+                                navigateToHome(); // Fallback to home if no services available
+                              }
+                            } else if (banner.button_link === '/offer' || banner.button_link === '/offers') {
+                              setCurrentPage('offers');
+                            } else {
+                              navigateToHome(); // Default fallback
+                            }
+                          }}
+                          className="bg-white text-green-600 font-bold py-3 px-8 rounded-2xl text-lg transition-all duration-300 transform hover:scale-105 shadow-xl hover:bg-green-50"
+                        >
+                          {banner.button_text}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </section>
+            )}
+            
+            {/* Fallback if no banners */}
+            {banners.hero.length === 0 && banners.promotional.length === 0 && (
+              <section className="bg-gradient-to-br from-orange-500 via-purple-600 to-blue-600 text-white py-20">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                  <h1 className="text-4xl md:text-6xl font-bold mb-6">
+                    Professional Home Services
+                    <span className="block text-orange-200">At Your Doorstep</span>
+                  </h1>
+                  <p className="text-xl md:text-2xl mb-8 text-orange-100 max-w-3xl mx-auto">
+                    Get reliable, professional services for your home. From plumbing to cleaning, we connect you with trusted professionals in your area.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                    <button 
+                      onClick={() => {
+                        // Navigate to first available category with services
+                        const categoryWithServices = categories.find(cat => {
+                          const hasServices = convertToBackendServices(services)?.some((service) => 
+                            service.category_name === cat.name && service.is_active
+                          );
+                          return cat.is_active && hasServices;
+                        });
+                        if (categoryWithServices) {
+                          navigateToCategory(categoryWithServices.name);
+                        } else {
+                          navigateToHome(); // Fallback to home if no services available
+                        }
+                      }}
+                      className="bg-yellow-400 hover:bg-yellow-300 text-purple-900 font-bold py-4 px-8 rounded-2xl text-lg transition-all duration-300 transform hover:scale-105 shadow-2xl"
+                    >
+                      Browse Services
+                    </button>
+                  </div>
+                </div>
+              </section>
+            )}
+          </div>
+        )}
 
         {/* Enhanced Main Content Section */}
         <div className="py-20">
@@ -1932,6 +2152,12 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                         >
                           Your Favorites
                         </button>
+                        <button 
+                          onClick={navigateToPaymentHistory}
+                          className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-green-600"
+                        >
+                          💳 Payment History
+                        </button>
                         <hr className="my-2 border-gray-100" />
                         
                         {/* Other Actions */}
@@ -2032,6 +2258,28 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
               >
                 <span>🎁 Offers</span>
               </button>
+              
+              {/* Development/Testing Buttons */}
+              {import.meta.env.DEV && (
+                <>
+                  <button 
+                    onClick={() => setCurrentPage('upi-test')} 
+                    className={`px-4 py-3 rounded-xl text-sm font-bold transition-all duration-300 whitespace-nowrap transform hover:scale-105 active:scale-95 ${
+                      currentPage === 'upi-test'
+                        ? 'bg-gradient-to-br from-orange-500 via-purple-600 to-blue-600 text-white shadow-2xl shadow-orange-300/50 ring-2 ring-orange-200 scale-105'
+                        : 'bg-gradient-to-br from-green-50 to-blue-50 text-green-700 shadow-lg hover:shadow-xl border border-green-200 hover:border-blue-300'
+                    } hover:rotate-1`}
+                    style={{
+                      boxShadow: currentPage === 'upi-test'
+                        ? '0 20px 25px -5px rgba(139, 69, 199, 0.3), inset 0 2px 4px 0 rgba(255, 255, 255, 0.1)' 
+                        : '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05), inset 0 2px 4px 0 rgba(255, 255, 255, 0.3)'
+                    }}
+                  >
+                    <span>🧪 UPI Test</span>
+                  </button>
+                </>
+              )}
+              
               
             </nav>
           </div>
@@ -2226,6 +2474,7 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
               {currentPage === 'add-address' && <AddAddressPage navigateHome={navigateToHome} navigateToCheckout={navigateToCheckout} />}
               {currentPage === 'my-bookings' && <MyBookingsPage />}
               {currentPage === 'profile' && <ProfilePage />}
+              {currentPage === 'payment-history' && <PaymentHistory />}
               {currentPage === 'offers' && <OfferPage navigateHome={navigateToHome} navigateToLogin={navigateToLogin} navigateToCheckout={navigateToCheckout} navigateToCart={navigateToCart} />}
               {currentPage === 'admin' && (
                 <AdminPanel 
@@ -2233,6 +2482,7 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                   onContactChange={refreshContactSettings}
                 />
               )}
+              {currentPage === 'upi-test' && <UpiTestPage />}
             </main>
           );
         }

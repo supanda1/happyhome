@@ -5,7 +5,7 @@ interface Notification {
   customer_name: string;
   customer_phone?: string;
   customer_email?: string;
-  notification_type: 'SMS' | 'EMAIL' | 'PUSH';
+  notification_type: 'SMS' | 'EMAIL' | 'WHATSAPP' | 'PUSH';
   event_type: string;
   priority: string;
   subject?: string;
@@ -23,7 +23,7 @@ interface NotificationTemplate {
   id: string;
   name: string;
   event_type: string;
-  notification_type: 'SMS' | 'EMAIL' | 'PUSH';
+  notification_type: 'SMS' | 'EMAIL' | 'WHATSAPP' | 'PUSH';
   subject_template?: string;
   message_template: string;
   description?: string;
@@ -111,6 +111,48 @@ const NotificationsManagement: React.FC<NotificationsManagementProps> = ({ onNav
           error_message: 'Network timeout',
           retry_count: 2,
           created_at: '2025-09-13T12:00:00Z'
+        },
+        {
+          id: '4',
+          customer_name: 'Sunita Rao',
+          customer_phone: '+91 7654321098',
+          notification_type: 'WHATSAPP',
+          event_type: 'ORDER_PLACED',
+          priority: 'HIGH',
+          message: '🏠 Hi Sunita Rao! Your Happy Homes order #HH-20250913143003-D1E2F3G4 has been confirmed! Total: ₹499. Our technician will arrive as scheduled. Thank you for choosing us! 👍',
+          order_number: 'HH-20250913143003-D1E2F3G4',
+          status: 'DELIVERED',
+          sent_at: '2025-09-13T13:30:00Z',
+          delivered_at: '2025-09-13T13:30:08Z',
+          retry_count: 0,
+          created_at: '2025-09-13T13:30:00Z'
+        },
+        {
+          id: '5',
+          customer_name: 'Vikram Singh',
+          customer_phone: '+91 6543210987',
+          notification_type: 'WHATSAPP',
+          event_type: 'ENGINEER_ASSIGNED',
+          priority: 'NORMAL',
+          message: '👷‍♂️ Hello Vikram Singh! Your expert technician "Ravi Kumar" has been assigned for order #HH-20250913143004-E1F2G3H4. He will contact you shortly. Phone: +91 9988776655 📞',
+          order_number: 'HH-20250913143004-E1F2G3H4',
+          status: 'SENT',
+          sent_at: '2025-09-13T14:15:00Z',
+          retry_count: 0,
+          created_at: '2025-09-13T14:15:00Z'
+        },
+        {
+          id: '6',
+          customer_name: 'Anita Desai',
+          customer_phone: '+91 5432109876',
+          notification_type: 'WHATSAPP',
+          event_type: 'SERVICE_COMPLETED',
+          priority: 'NORMAL',
+          message: '✅ Fantastic news Anita Desai! Your service for order #HH-20250913143005-F1G2H3I4 has been completed successfully! Please rate your experience: https://happyhomes.com/rate?order=HH-20250913143005-F1G2H3I4 🌟',
+          order_number: 'HH-20250913143005-F1G2H3I4',
+          status: 'PENDING',
+          retry_count: 1,
+          created_at: '2025-09-13T15:45:00Z'
         }
       ];
 
@@ -136,23 +178,54 @@ const NotificationsManagement: React.FC<NotificationsManagementProps> = ({ onNav
           description: 'Email sent when engineer is assigned to order',
           is_active: true,
           created_at: '2025-09-10T00:00:00Z'
+        },
+        {
+          id: '3',
+          name: 'order_placed_whatsapp',
+          event_type: 'ORDER_PLACED',
+          notification_type: 'WHATSAPP',
+          message_template: '🏠 Hi {customer_name}! Your Happy Homes order #{order_number} has been confirmed! Total: ₹{final_amount}. Our technician will arrive as scheduled. Thank you for choosing us! 👍',
+          description: 'WhatsApp message sent when customer places an order',
+          is_active: true,
+          created_at: '2025-09-10T00:00:00Z'
+        },
+        {
+          id: '4',
+          name: 'engineer_assigned_whatsapp',
+          event_type: 'ENGINEER_ASSIGNED',
+          notification_type: 'WHATSAPP',
+          message_template: '👷‍♂️ Hello {customer_name}! Your expert technician "{technician_name}" has been assigned for order #{order_number}. He will contact you shortly. Phone: {technician_phone} 📞',
+          description: 'WhatsApp message sent when engineer is assigned to order',
+          is_active: true,
+          created_at: '2025-09-10T00:00:00Z'
+        },
+        {
+          id: '5',
+          name: 'service_completed_whatsapp',
+          event_type: 'SERVICE_COMPLETED',
+          notification_type: 'WHATSAPP',
+          message_template: '✅ Fantastic news {customer_name}! Your service for order #{order_number} has been completed successfully! Please rate your experience: https://happyhomes.com/rate?order={order_number} 🌟',
+          description: 'WhatsApp message sent when service is completed',
+          is_active: true,
+          created_at: '2025-09-10T00:00:00Z'
         }
       ];
 
       // Mock analytics data
       const mockAnalytics: NotificationAnalytics = {
         period_days: 7,
-        total_notifications: 145,
-        success_rate_percentage: 92.4,
+        total_notifications: 187,
+        success_rate_percentage: 94.1,
         status_breakdown: {
-          'SENT': 89,
-          'DELIVERED': 45,
+          'SENT': 92,
+          'DELIVERED': 68,
           'FAILED': 8,
-          'PENDING': 3
+          'PENDING': 19
         },
         type_breakdown: {
-          'SMS': 98,
-          'EMAIL': 47
+          'SMS': 78,
+          'EMAIL': 47,
+          'WHATSAPP': 62
         },
         event_breakdown: {
           'ORDER_PLACED': 52,
@@ -222,6 +295,8 @@ const NotificationsManagement: React.FC<NotificationsManagementProps> = ({ onNav
         return { text: 'SMS', color: 'text-blue-600' };
       case 'EMAIL':
         return { text: 'EMAIL', color: 'text-green-600' };
+      case 'WHATSAPP':
+        return { text: 'WhatsApp', color: 'text-emerald-600' };
       case 'PUSH':
         return { text: 'PUSH', color: 'text-purple-600' };
       default:
@@ -241,13 +316,13 @@ const NotificationsManagement: React.FC<NotificationsManagementProps> = ({ onNav
     <div className="space-y-6">
       {/* Welcome Section */}
       <div className="bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 rounded-xl p-6 text-white">
-        <h1 className="text-2xl font-bold mb-2">📱 Notifications Management Dashboard</h1>
-        <p className="text-orange-100">Monitor and manage customer notifications across SMS and Email channels</p>
+        <h1 className="text-2xl font-bold mb-2">📱 Multi-Channel Notifications Dashboard</h1>
+        <p className="text-orange-100">Monitor and manage customer communications across SMS, Email, and WhatsApp channels</p>
       </div>
 
       {/* Stats Grid */}
       {analytics && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           
           {/* Total Notifications */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -282,6 +357,15 @@ const NotificationsManagement: React.FC<NotificationsManagementProps> = ({ onNav
               <p className="text-sm font-medium text-orange-100 mb-2">Emails Sent</p>
               <p className="text-4xl font-bold text-white">{analytics.type_breakdown.EMAIL || 0}</p>
               <p className="text-xs text-orange-200 mt-2">Email Messages</p>
+            </div>
+          </div>
+
+          {/* WhatsApp Notifications */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="bg-gradient-to-r from-emerald-500 to-green-600 rounded-lg p-4 text-center">
+              <p className="text-sm font-medium text-green-100 mb-2">WhatsApp Sent</p>
+              <p className="text-4xl font-bold text-white">{analytics.type_breakdown.WHATSAPP || 0}</p>
+              <p className="text-xs text-green-200 mt-2">WhatsApp Messages</p>
             </div>
           </div>
 
@@ -374,6 +458,7 @@ const NotificationsManagement: React.FC<NotificationsManagementProps> = ({ onNav
                       <option value="all">All Types</option>
                       <option value="sms">SMS Only</option>
                       <option value="email">Email Only</option>
+                      <option value="whatsapp">WhatsApp Only</option>
                     </select>
                   </div>
 
@@ -544,7 +629,11 @@ const NotificationsManagement: React.FC<NotificationsManagementProps> = ({ onNav
                         <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
                           template.notification_type === 'SMS' 
                             ? 'bg-blue-100 text-blue-800' 
-                            : 'bg-green-100 text-green-800'
+                            : template.notification_type === 'EMAIL'
+                            ? 'bg-green-100 text-green-800'
+                            : template.notification_type === 'WHATSAPP'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-gray-100 text-gray-800'
                         }`}>
                           {template.notification_type}
                         </span>
@@ -645,10 +734,10 @@ const NotificationsManagement: React.FC<NotificationsManagementProps> = ({ onNav
                   <div>
                     <p className="text-yellow-800 mb-2">
                       <strong>Mock Mode Active:</strong> Notifications are being simulated. 
-                      Configure SMS (Twilio, TextLocal, Teleo) and Email (SendGrid) providers to enable real sending.
+                      Configure SMS (Twilio, TextLocal), Email (SendGrid), and WhatsApp (Twilio, WhatsApp Business API) providers to enable real sending.
                     </p>
                     <p className="text-yellow-700 text-sm">
-                      Real SMS providers can reduce costs by up to 83% (₹0.25 vs ₹1.20 per SMS for Indian numbers).
+                      Real providers offer significant cost savings and improved delivery rates. WhatsApp has 98% open rates vs 20% for SMS.
                     </p>
                   </div>
                   <button 
@@ -660,7 +749,7 @@ const NotificationsManagement: React.FC<NotificationsManagementProps> = ({ onNav
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-white border border-gray-200 rounded-lg p-6">
                   <h4 className="font-medium text-gray-900 mb-4">SMS Provider (Twilio)</h4>
                   <div className="space-y-3">
@@ -689,6 +778,26 @@ const NotificationsManagement: React.FC<NotificationsManagementProps> = ({ onNav
                     <div className="flex items-center justify-between">
                       <span>Provider:</span>
                       <span>SendGrid</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white border border-gray-200 rounded-lg p-6">
+                  <h4 className="font-medium text-gray-900 mb-4">WhatsApp Provider (Twilio)</h4>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span>Status:</span>
+                      <span className="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                        Mock Mode
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Provider:</span>
+                      <span>Twilio WhatsApp</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Open Rate:</span>
+                      <span className="text-emerald-600 font-semibold">98%</span>
                     </div>
                   </div>
                 </div>
