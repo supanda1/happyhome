@@ -72,9 +72,15 @@ test-*
 debug-*
 verify-*
 
-# Shell scripts
+# Shell scripts (but keep essential setup scripts)
 *.sh
 *.bat
+
+# Allow essential setup scripts (override the *.sh rule above)
+!quick-start.sh
+!setup-docker.sh
+!docker-dev.sh
+!validate-setup.sh
 
 # Backup files
 *.backup
