@@ -12,7 +12,8 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/01-init-db.sql
+      - ./migrations/001_comprehensive_setup.sql:/docker-entrypoint-initdb.d/02-comprehensive-setup.sql
     networks:
       - household_services_network
     healthcheck:
@@ -22,58 +23,42 @@ services:
       retries: 3
       start_period: 60s
 
-  # Redis Cache
-  redis:
-    image: redis:7-alpine
-    container_name: household_services_redis
-    command: redis-server --appendonly yes --requirepass redis_password
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    networks:
-      - household_services_network
-    healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-
-  # FastAPI Application
+  # Node.js TypeScript Backend API
   api:
     build:
       context: .
-      dockerfile: Dockerfile
-      target: development
+      dockerfile: Dockerfile.node
     container_name: household_services_api
     environment:
-      - ENVIRONMENT=development
-      - DATABASE_URL=postgresql+asyncpg://postgres:password@postgres:5432/household_services
-      - REDIS_URL=redis://:redis_password@redis:6379/0
-      - SECRET_KEY=your-super-secret-key-change-in-production
-      - DEBUG=true
-      - RELOAD=true
+      - NODE_ENV=development
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=household_services
+      - DB_USER=postgres
+      - DB_PASSWORD=password
+      - PORT=8001
+      - JWT_SECRET=your-super-secret-jwt-key-change-in-production
+      - ALLOWED_ORIGINS=http://localhost:3001,http://localhost:3000,http://localhost:3002
     ports:
-      - "8000:8000"
+      - "8001:8001"
     volumes:
-      - .:/app
-      - /app/venv  # Anonymous volume for venv
+      - ./src:/app/src
+      - ./migrations:/app/migrations
+      - ./scripts:/app/scripts
+      - /app/node_modules  # Anonymous volume for node_modules
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
     networks:
       - household_services_network
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    restart: unless-stopped
     develop:
       watch:
         - action: sync
-          path: ./app
-          target: /app/app
+          path: ./src
+          target: /app/src
         - action: rebuild
-          path: requirements.txt
+          path: package*.json
 
   # pgAdmin for database management (development only)
   pgadmin:
@@ -94,25 +79,9 @@ services:
     profiles:
       - development
 
-  # Redis Commander for Redis management (development only)
-  redis-commander:
-    image: rediscommander/redis-commander:latest
-    container_name: household_services_redis_commander
-    environment:
-      - REDIS_HOSTS=local:redis:6379:0:redis_password
-    ports:
-      - "8081:8081"
-    depends_on:
-      - redis
-    networks:
-      - household_services_network
-    profiles:
-      - development
 
 volumes:
   postgres_data:
-    driver: local
-  redis_data:
     driver: local
   pgadmin_data:
     driver: local

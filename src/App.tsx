@@ -9,10 +9,8 @@ import AddAddressPage from './pages/customer/AddAddressPage';
 import MyBookingsPage from './pages/customer/MyBookingsPage';
 import ProfilePage from './pages/customer/ProfilePage';
 import OfferPage from './pages/customer/OfferPage';
+import ServiceDetailPageRoute from './pages/customer/ServiceDetailPage';
 import AdminPanel from './pages/admin/AdminPanel';
-import PaymentHistory from './components/payment/PaymentHistory';
-import UpiTestPage from './pages/UpiTestPage';
-import { pushNotificationService } from './services/notifications/pushNotificationService';
 // Import Dynamic Image component for backend-driven images
 import DynamicImage from './components/ui/DynamicImage';
 // Import ServiceImage component for subcategory images
@@ -79,6 +77,7 @@ const App: React.FC = () => {
   const [showServicesDropdown, setShowServicesDropdown] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('All Services');
   const [currentPage, setCurrentPage] = useState('home');
+  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   const [serviceCategories, setServiceCategories] = useState<Record<string, string[]>>({});
@@ -159,13 +158,6 @@ const App: React.FC = () => {
         console.error('Backend health check error:', error);
       }
       
-      // Initialize push notification service for order communications
-      try {
-        await pushNotificationService.initialize();
-        console.log('✅ Push notification service initialized');
-      } catch (error) {
-        console.warn('⚠️ Push notification service initialization failed (non-critical):', error);
-      }
       
       await initializeAllAdminData();
       await loadCategoriesData();
@@ -313,10 +305,16 @@ const App: React.FC = () => {
     setShowServicesDropdown(false);
   };
 
-  const navigateToPaymentHistory = () => {
-    setCurrentPage('payment-history');
+  const navigateToServiceDetail = (serviceId: string) => {
+    console.log('🚀 Navigation triggered to service detail:', serviceId);
+    console.log('🚀 Current page before change:', currentPage);
+    setSelectedServiceId(serviceId);
+    setCurrentPage('service-detail');
     setShowServicesDropdown(false);
+    console.log('📄 Page changed to: service-detail');
+    console.log('📄 Selected service ID set to:', serviceId);
   };
+
 
   const navigateToMyBookings = () => {
     setCurrentPage('my-bookings');
@@ -565,7 +563,13 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                     >
                       Add to Cart
                     </button>
-                    <button className="bg-gray-100 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-200 transition-colors text-sm">
+                    <button 
+                      className="bg-gray-100 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-200 transition-colors text-sm"
+                      onClick={() => {
+                        console.log('🔍 View Details clicked in search results for:', service.name, 'ID:', service.id);
+                        navigateToServiceDetail(service.id);
+                      }}
+                    >
                       View Details
                     </button>
                   </div>
@@ -700,7 +704,15 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
         // Match by service name and category
         const nameMatch = service.name?.toLowerCase().includes(serviceName.toLowerCase());
         const subcategoryMatch = service.subcategory_name?.toLowerCase().includes(serviceName.toLowerCase());
+        const exactSubcategoryMatch = service.subcategory_name?.toLowerCase() === serviceName.toLowerCase();
         const categoryMatch = service.category_name?.toLowerCase() === categoryName.toLowerCase();
+        
+        // If serviceName matches a subcategory name exactly, get the first service from that subcategory
+        if (exactSubcategoryMatch && categoryMatch && service.is_active) {
+          return true;
+        }
+        
+        // Otherwise, match by service name or subcategory name containing the service name
         return (nameMatch || subcategoryMatch) && categoryMatch && service.is_active;
       }) || getServiceForCustomer(categoryName, serviceName) // Try to find from backend
     ) : null;
@@ -1306,9 +1318,12 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
   };
 
   // Home Page Component
-  const HomePage = () => {
+  const HomePage = ({ navigateToServiceDetail }: { navigateToServiceDetail: (serviceId: string) => void }) => {
     // Get all active categories (show all, even if no services yet)
     const activeCategories = categories.filter(cat => cat.is_active);
+    
+    // Test the navigation function
+    console.log('🔧 HomePage rendered with navigateToServiceDetail:', typeof navigateToServiceDetail);
     
     // Banner state
     const [banners, setBanners] = useState<{
@@ -1351,6 +1366,20 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
     
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-purple-50 to-blue-50 relative" style={{backgroundImage: 'radial-gradient(circle at 15% 85%, rgba(139, 69, 199, 0.08) 0%, transparent 70%), radial-gradient(circle at 85% 15%, rgba(59, 130, 246, 0.06) 0%, transparent 70%), radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.04) 0%, transparent 60%), linear-gradient(45deg, rgba(236, 72, 153, 0.03) 0%, transparent 50%)'}}>
+        
+        {/* DEBUG: Test Navigation Button */}
+        <div className="p-4 bg-red-100 text-center border-b-2 border-red-300">
+          <button 
+            onClick={() => {
+              console.log('🧪 TEST: About to call navigateToServiceDetail with Testing Service ID');
+              navigateToServiceDetail('5a2bbcd1-2b17-4a72-b9c6-8f3d4e5a6b7c');
+            }}
+            className="bg-red-500 text-white px-6 py-3 rounded-lg font-bold hover:bg-red-600"
+          >
+            🧪 TEST: Navigate to Testing Service Details (Click Me!)
+          </button>
+          <p className="text-red-700 mt-2 text-sm">This is a debug button to test service details navigation</p>
+        </div>
         
         {/* Dynamic Database Banners */}
         {bannersLoading ? (
@@ -2152,12 +2181,6 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                         >
                           Your Favorites
                         </button>
-                        <button 
-                          onClick={navigateToPaymentHistory}
-                          className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-green-600"
-                        >
-                          💳 Payment History
-                        </button>
                         <hr className="my-2 border-gray-100" />
                         
                         {/* Other Actions */}
@@ -2259,26 +2282,6 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                 <span>🎁 Offers</span>
               </button>
               
-              {/* Development/Testing Buttons */}
-              {import.meta.env.DEV && (
-                <>
-                  <button 
-                    onClick={() => setCurrentPage('upi-test')} 
-                    className={`px-4 py-3 rounded-xl text-sm font-bold transition-all duration-300 whitespace-nowrap transform hover:scale-105 active:scale-95 ${
-                      currentPage === 'upi-test'
-                        ? 'bg-gradient-to-br from-orange-500 via-purple-600 to-blue-600 text-white shadow-2xl shadow-orange-300/50 ring-2 ring-orange-200 scale-105'
-                        : 'bg-gradient-to-br from-green-50 to-blue-50 text-green-700 shadow-lg hover:shadow-xl border border-green-200 hover:border-blue-300'
-                    } hover:rotate-1`}
-                    style={{
-                      boxShadow: currentPage === 'upi-test'
-                        ? '0 20px 25px -5px rgba(139, 69, 199, 0.3), inset 0 2px 4px 0 rgba(255, 255, 255, 0.1)' 
-                        : '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05), inset 0 2px 4px 0 rgba(255, 255, 255, 0.3)'
-                    }}
-                  >
-                    <span>🧪 UPI Test</span>
-                  </button>
-                </>
-              )}
               
               
             </nav>
@@ -2321,6 +2324,9 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                 {currentPage === 'plumbing-basin,-sink-&-drainage' && (
                   <ServiceDetailPage categoryName="Plumbing" serviceName="Basin & Sink Installation" />
                 )}
+                {currentPage === 'plumbing-basin-&-sink' && (
+                  <ServiceDetailPage categoryName="Plumbing" serviceName="Basin & Sink" />
+                )}
                 {currentPage === 'plumbing-grouting' && (
                   <ServiceDetailPage categoryName="Plumbing" serviceName="Professional Grouting Service" />
                 )}
@@ -2333,6 +2339,9 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                 {currentPage === 'plumbing-pipe-&-connector' && (
                   <ServiceDetailPage categoryName="Plumbing" serviceName="Pipe & Connector Installation" />
                 )}
+                {currentPage === 'plumbing-pipes' && (
+                  <ServiceDetailPage categoryName="Plumbing" serviceName="Pipes" />
+                )}
                 {currentPage === 'plumbing-water-tank' && (
                   <ServiceDetailPage categoryName="Plumbing" serviceName="Water Tank Installation" />
                 )}
@@ -2343,6 +2352,9 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                 {/* Electrical Service Detail Pages */}
                 {currentPage === 'electrical-wiring-&-installation' && (
                   <ServiceDetailPage categoryName="Electrical" serviceName="House Wiring" />
+                )}
+                {currentPage === 'electrical-wiring-installation' && (
+                  <ServiceDetailPage categoryName="Electrical" serviceName="Wiring Installation" />
                 )}
                 {currentPage === 'electrical-appliance-repair' && (
                   <ServiceDetailPage categoryName="Electrical" serviceName="Home Appliance Repair" />
@@ -2355,6 +2367,9 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                 )}
                 {currentPage === 'electrical-lighting-solutions' && (
                   <ServiceDetailPage categoryName="Electrical" serviceName="Lighting Solutions" />
+                )}
+                {currentPage === 'electrical-lighting-solution' && (
+                  <ServiceDetailPage categoryName="Electrical" serviceName="Lighting Solution" />
                 )}
                 {currentPage === 'electrical-electrical-safety-check' && (
                   <ServiceDetailPage categoryName="Electrical" serviceName="Electrical Safety Check" />
@@ -2384,28 +2399,61 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                 {currentPage === 'call-a-service-interintra-city-courier' && (
                   <ServiceDetailPage categoryName="Call A Service" serviceName="Courier Pickup & Delivery" />
                 )}
+                {currentPage === 'call-a-service-courier-services' && (
+                  <ServiceDetailPage categoryName="Call A Service" serviceName="Courier Services" />
+                )}
+                {currentPage === 'call-a-service-courier-service' && (
+                  <ServiceDetailPage categoryName="Call A Service" serviceName="Courier Service" />
+                )}
                 {currentPage === 'call-a-service-cab-booking' && (
                   <ServiceDetailPage categoryName="Call A Service" serviceName="CAB Booking" />
                 )}
                 {currentPage === 'call-a-service-vehicle-breakdown-service' && (
                   <ServiceDetailPage categoryName="Call A Service" serviceName="Vehicle Breakdown Service" />
                 )}
+                {currentPage === 'call-a-service-vehicle-breakdown' && (
+                  <ServiceDetailPage categoryName="Call A Service" serviceName="Vehicle Breakdown" />
+                )}
                 {currentPage === 'call-a-service-photographer' && (
                   <ServiceDetailPage categoryName="Call A Service" serviceName="Photographer" />
+                )}
+                {currentPage === 'call-a-service-photography' && (
+                  <ServiceDetailPage categoryName="Call A Service" serviceName="Photography" />
+                )}
+                {currentPage === 'call-a-service-logistics' && (
+                  <ServiceDetailPage categoryName="Call A Service" serviceName="Logistics" />
                 )}
 
                 {/* Finance & Insurance Service Detail Pages */}
                 {currentPage === 'finance-&-insurance-gst-registration-and-filing' && (
                   <ServiceDetailPage categoryName="Finance & Insurance" serviceName="GST Registration Service" />
                 )}
+                {currentPage === 'finance-&-insurance-gst-registration' && (
+                  <ServiceDetailPage categoryName="Finance & Insurance" serviceName="GST Registration" />
+                )}
+                {currentPage === 'finance-&-insurance-gst-services' && (
+                  <ServiceDetailPage categoryName="Finance & Insurance" serviceName="GST Services" />
+                )}
                 {currentPage === 'finance-&-insurance-pan-card-application' && (
                   <ServiceDetailPage categoryName="Finance & Insurance" serviceName="PAN Card Application" />
+                )}
+                {currentPage === 'finance-&-insurance-pan-card-services' && (
+                  <ServiceDetailPage categoryName="Finance & Insurance" serviceName="PAN Card Services" />
                 )}
                 {currentPage === 'finance-&-insurance-itr-filing' && (
                   <ServiceDetailPage categoryName="Finance & Insurance" serviceName="ITR Filing" />
                 )}
                 {currentPage === 'finance-&-insurance-stamp-paper-agreement' && (
                   <ServiceDetailPage categoryName="Finance & Insurance" serviceName="Stamp Paper Agreement" />
+                )}
+                {currentPage === 'finance-&-insurance-stamp-paper-&-agreement' && (
+                  <ServiceDetailPage categoryName="Finance & Insurance" serviceName="Stamp Paper & Agreement" />
+                )}
+                {currentPage === 'finance-&-insurance-legal-documentation' && (
+                  <ServiceDetailPage categoryName="Finance & Insurance" serviceName="Legal Documentation" />
+                )}
+                {currentPage === 'finance-&-insurance-financial-services' && (
+                  <ServiceDetailPage categoryName="Finance & Insurance" serviceName="Financial Services" />
                 )}
 
                 {/* Personal Care Service Detail Pages */}
@@ -2415,6 +2463,18 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                 {currentPage === 'personal-care-salon-at-door' && (
                   <ServiceDetailPage categoryName="Personal Care" serviceName="Salon at Door" />
                 )}
+                {currentPage === 'personal-care-salon-at-home' && (
+                  <ServiceDetailPage categoryName="Personal Care" serviceName="Salon at Home" />
+                )}
+                {currentPage === 'personal-care-beauty-&-salon' && (
+                  <ServiceDetailPage categoryName="Personal Care" serviceName="Beauty & Salon" />
+                )}
+                {currentPage === 'personal-care-health-services' && (
+                  <ServiceDetailPage categoryName="Personal Care" serviceName="Health Services" />
+                )}
+                {currentPage === 'personal-care-health-checkup' && (
+                  <ServiceDetailPage categoryName="Personal Care" serviceName="Health Checkup" />
+                )}
 
                 {/* Civil Work Service Detail Pages */}
                 {currentPage === 'civil-work-house-painting' && (
@@ -2423,8 +2483,23 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                 {currentPage === 'civil-work-tilegraniemarble-works' && (
                   <ServiceDetailPage categoryName="Civil Work" serviceName="Tile/Granite/Marble Works" />
                 )}
+                {currentPage === 'civil-work-tile-&-marble-work' && (
+                  <ServiceDetailPage categoryName="Civil Work" serviceName="Tile & Marble Work" />
+                )}
+                {currentPage === 'civil-work-tile-work' && (
+                  <ServiceDetailPage categoryName="Civil Work" serviceName="Tile Work" />
+                )}
                 {currentPage === 'civil-work-house-repair' && (
                   <ServiceDetailPage categoryName="Civil Work" serviceName="House Repair" />
+                )}
+                {currentPage === 'civil-work-home-repairs' && (
+                  <ServiceDetailPage categoryName="Civil Work" serviceName="Home Repairs" />
+                )}
+                {currentPage === 'civil-work-construction' && (
+                  <ServiceDetailPage categoryName="Civil Work" serviceName="Construction" />
+                )}
+                {currentPage === 'civil-work-civil-engineering' && (
+                  <ServiceDetailPage categoryName="Civil Work" serviceName="Civil Engineering" />
                 )}
 
                 {/* Others Service Detail Pages */}
@@ -2465,7 +2540,7 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
           // Normal layout for non-category pages (Home, Login, Cart, etc.)
           return (
             <main className="transition-all duration-300">
-              {currentPage === 'home' && <HomePage />}
+              {currentPage === 'home' && <HomePage navigateToServiceDetail={navigateToServiceDetail} />}
               {currentPage === 'search-results' && <SearchResultsPage />}
               {currentPage === 'login' && <LoginPage navigateHome={navigateToHome} navigateToSignup={navigateToSignup} />}
               {currentPage === 'signup' && <RegisterPage navigateHome={navigateToHome} navigateToLogin={navigateToLogin} />}
@@ -2474,15 +2549,16 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
               {currentPage === 'add-address' && <AddAddressPage navigateHome={navigateToHome} navigateToCheckout={navigateToCheckout} />}
               {currentPage === 'my-bookings' && <MyBookingsPage />}
               {currentPage === 'profile' && <ProfilePage />}
-              {currentPage === 'payment-history' && <PaymentHistory />}
               {currentPage === 'offers' && <OfferPage navigateHome={navigateToHome} navigateToLogin={navigateToLogin} navigateToCheckout={navigateToCheckout} navigateToCart={navigateToCart} />}
+              {currentPage === 'service-detail' && selectedServiceId && (
+                <ServiceDetailPageRoute serviceId={selectedServiceId} />
+              )}
               {currentPage === 'admin' && (
                 <AdminPanel 
                   onCategoryChange={refreshCategoriesData} 
                   onContactChange={refreshContactSettings}
                 />
               )}
-              {currentPage === 'upi-test' && <UpiTestPage />}
             </main>
           );
         }
