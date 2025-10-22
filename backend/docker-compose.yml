@@ -13,7 +13,9 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/01-init-db.sql
-      - ./migrations/001_comprehensive_setup.sql:/docker-entrypoint-initdb.d/02-comprehensive-setup.sql
+      - ./migrations/001_comprehensive_setup.sql:/docker-entrypoint-initdb.d/02-complete-setup.sql
+      - ./migrations:/docker-entrypoint-initdb.d/migrations
+      - ./scripts:/docker-entrypoint-initdb.d/scripts
     networks:
       - household_services_network
     healthcheck:

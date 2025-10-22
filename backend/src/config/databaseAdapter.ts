@@ -205,13 +205,13 @@ class DatabaseAdapter {
       SELECT 
         s.id, s.name, s.description, s.short_description,
         s.base_price, s.discounted_price, s.duration,
-        s.is_active, s.is_featured, s.rating, s.review_count,
+        s.is_active, s.is_featured, s.is_combo_eligible, s.rating, s.review_count,
         s.booking_count, s.category_id, s.subcategory_id,
         s.inclusions, s.exclusions, s.requirements, s.tags,
         s.gst_percentage, s.service_charge, s.image_paths,
         s.created_at, s.updated_at,
-        sc.name as category_name, sc.icon as category_icon,
-        ss.name as subcategory_name, ss.icon as subcategory_icon
+        sc.name as category_name, sc.icon as category_icon, sc.description as category_description,
+        ss.name as subcategory_name, ss.icon as subcategory_icon, ss.description as subcategory_description
       FROM services s
       LEFT JOIN ${categoriesTable} sc ON ${categoryJoin}
       LEFT JOIN ${subcategoriesTable} ss ON ${subcategoryJoin}

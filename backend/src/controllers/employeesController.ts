@@ -18,9 +18,8 @@ export class EmployeesController {
       }
       
       if (expert) {
-        // Support both legacy expert field and new expertise_areas
-        conditions.push(`(expert = $${values.length + 1} OR expertise_areas @> $${values.length + 2})`);
-        values.push(expert as string);
+        // Search in the expertise JSON array
+        conditions.push(`expertise @> $${values.length + 1}`);
         values.push(JSON.stringify([expert])); // Check if expertise is in the array
       }
       
@@ -86,7 +85,7 @@ export class EmployeesController {
   // Create new employee
   static async createEmployee(req: Request, res: Response) {
     try {
-      const { employee_id, name, expert, expertise_areas, manager, phone, email } = req.body;
+      const { employee_id, name, expertise, phone, email, address } = req.body;
       
       // Check if employee_id already exists
       const existingEmployee = await pool.query(
@@ -102,59 +101,41 @@ export class EmployeesController {
         return res.status(400).json(response);
       }
       
+      // Check if email already exists
+      const existingEmail = await pool.query(
+        'SELECT id FROM employees WHERE email = $1',
+        [email]
+      );
+      
+      if (existingEmail.rows.length > 0) {
+        const response: ApiResponse<null> = {
+          success: false,
+          error: 'Email already exists'
+        };
+        return res.status(400).json(response);
+      }
+      
       const id = uuidv4();
       
-      // Ensure expertise_areas is an array, fallback to expert if not provided
-      const expertiseArray = Array.isArray(expertise_areas) 
-        ? expertise_areas 
-        : (expert ? [expert] : []);
+      // Ensure expertise is an array
+      const expertiseArray = Array.isArray(expertise) ? expertise : [];
       
-      let query: string;
-      let values: (string | boolean)[];
+      const query = `
+        INSERT INTO employees (id, employee_id, name, expertise, phone, email, address, is_active)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, true)
+        RETURNING *
+      `;
       
-      try {
-        // Try to insert with expertise_areas column
-        await pool.query('SELECT expertise_areas FROM employees LIMIT 1');
-        
-        query = `
-          INSERT INTO employees (id, employee_id, name, expert, expertise_areas, manager, phone, email, is_active)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
-          RETURNING *
-        `;
-        
-        values = [
-          id, 
-          employee_id, 
-          name, 
-          expert || (expertiseArray[0] || ''), // Legacy field
-          JSON.stringify(expertiseArray), // New multi-expertise field
-          manager, 
-          phone, 
-          email
-        ];
-      } catch (columnError: unknown) {
-        const error = columnError as { code?: string };
-        if (error.code === '42703') { // Column does not exist
-          
-          query = `
-            INSERT INTO employees (id, employee_id, name, expert, manager, phone, email, is_active)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, true)
-            RETURNING *
-          `;
-          
-          values = [
-            id, 
-            employee_id, 
-            name, 
-            expert || (expertiseArray[0] || ''), // Use first expertise or provided expert
-            manager, 
-            phone, 
-            email
-          ];
-        } else {
-          throw columnError;
-        }
-      }
+      const values = [
+        id, 
+        employee_id, 
+        name, 
+        JSON.stringify(expertiseArray),
+        phone, 
+        email,
+        address || null
+      ];
+
       const result = await pool.query(query, values);
       
       const response: ApiResponse<Employee> = {
@@ -179,7 +160,7 @@ export class EmployeesController {
   static async updateEmployee(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const { employee_id, name, expert, expertise_areas, manager, phone, email, is_active } = req.body;
+      const { employee_id, name, expertise, phone, email, address, is_active } = req.body;
       
       // Check if employee_id already exists for other employees
       if (employee_id) {
@@ -213,47 +194,16 @@ export class EmployeesController {
         valueIndex++;
       }
       
-      if (expert !== undefined) {
-        updateFields.push(`expert = $${valueIndex}`);
-        values.push(expert);
+      if (expertise !== undefined) {
+        const expertiseArray = Array.isArray(expertise) ? expertise : [];
+        updateFields.push(`expertise = $${valueIndex}`);
+        values.push(JSON.stringify(expertiseArray));
         valueIndex++;
       }
       
-      if (expertise_areas !== undefined) {
-        try {
-          const expertiseArray = Array.isArray(expertise_areas) ? expertise_areas : [];
-          
-          // Check if expertise_areas column exists by trying a small query first
-          await pool.query('SELECT expertise_areas FROM employees LIMIT 1');
-          
-          updateFields.push(`expertise_areas = $${valueIndex}`);
-          values.push(JSON.stringify(expertiseArray));
-          valueIndex++;
-          
-          // Auto-update legacy expert field if not explicitly set
-          if (expert === undefined && expertiseArray.length > 0) {
-            updateFields.push(`expert = $${valueIndex}`);
-            values.push(expertiseArray[0]);
-            valueIndex++;
-          }
-        } catch (columnError: unknown) {
-          const error = columnError as { code?: string };
-          if (error.code === '42703') { // Column does not exist
-            // Update only the legacy expert field
-            if (expertise_areas && Array.isArray(expertise_areas) && expertise_areas.length > 0) {
-              updateFields.push(`expert = $${valueIndex}`);
-              values.push(expertise_areas[0]);
-              valueIndex++;
-            }
-          } else {
-            throw columnError; // Re-throw other errors
-          }
-        }
-      }
-      
-      if (manager !== undefined) {
-        updateFields.push(`manager = $${valueIndex}`);
-        values.push(manager);
+      if (address !== undefined) {
+        updateFields.push(`address = $${valueIndex}`);
+        values.push(address);
         valueIndex++;
       }
       
@@ -384,9 +334,9 @@ export class EmployeesController {
       
       let query = `
         SELECT * FROM employees 
-        WHERE (expert = $1 OR expertise_areas @> $2)
+        WHERE expertise @> $1
       `;
-      const values = [expertise, JSON.stringify([expertise])];
+      const values = [JSON.stringify([expertise])];
       
       if (active_only === 'true') {
         query += ' AND is_active = true';
@@ -419,15 +369,10 @@ export class EmployeesController {
     try {
       // Get unique expertise areas from database
       const result = await pool.query(`
-        SELECT DISTINCT jsonb_array_elements_text(expertise_areas) as expertise
+        SELECT DISTINCT jsonb_array_elements_text(expertise) as expertise
         FROM employees 
-        WHERE expertise_areas IS NOT NULL 
-        AND jsonb_array_length(expertise_areas) > 0
-        UNION
-        SELECT DISTINCT expert as expertise
-        FROM employees 
-        WHERE expert IS NOT NULL 
-        AND expert != ''
+        WHERE expertise IS NOT NULL 
+        AND jsonb_array_length(expertise) > 0
         ORDER BY expertise
       `);
       

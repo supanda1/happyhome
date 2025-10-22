@@ -16,7 +16,7 @@ export const getBanners = async (req: Request, res: Response) => {
         image_url,
         background_color,
         text_color,
-        position_type,
+        position,
         is_active,
         sort_order,
         created_at,
@@ -55,10 +55,10 @@ export const getActiveBannersByPosition = async (req: Request, res: Response) =>
         image_url,
         background_color,
         text_color,
-        position_type,
+        position,
         sort_order
       FROM banners 
-      WHERE is_active = true AND position_type = $1
+      WHERE is_active = true AND position = $1
       ORDER BY sort_order ASC
     `, [position]);
     
@@ -88,7 +88,7 @@ export const createBanner = async (req: Request, res: Response) => {
       image_url,
       background_color = '#ffffff',
       text_color = '#000000',
-      position_type = 'hero',
+      position = 'hero',
       is_active = true,
       sort_order = 0
     } = req.body;
@@ -103,14 +103,14 @@ export const createBanner = async (req: Request, res: Response) => {
     const result = await pool.query(`
       INSERT INTO banners (
         title, subtitle, description, button_text, button_link,
-        image_url, background_color, text_color, position_type,
+        image_url, background_color, text_color, position,
         is_active, sort_order, created_at, updated_at
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
       RETURNING *
     `, [
       title, subtitle, description, button_text, button_link,
-      image_url, background_color, text_color, position_type,
+      image_url, background_color, text_color, position,
       is_active, sort_order
     ]);
     
@@ -141,7 +141,7 @@ export const updateBanner = async (req: Request, res: Response) => {
       image_url,
       background_color,
       text_color,
-      position_type,
+      position,
       is_active,
       sort_order
     } = req.body;
@@ -157,7 +157,7 @@ export const updateBanner = async (req: Request, res: Response) => {
         image_url = $6,
         background_color = $7,
         text_color = $8,
-        position_type = $9,
+        position = $9,
         is_active = $10,
         sort_order = $11,
         updated_at = NOW()
@@ -165,7 +165,7 @@ export const updateBanner = async (req: Request, res: Response) => {
       RETURNING *
     `, [
       title, subtitle, description, button_text, button_link,
-      image_url, background_color, text_color, position_type,
+      image_url, background_color, text_color, position,
       is_active, sort_order, id
     ]);
     

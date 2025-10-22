@@ -53,15 +53,25 @@ export const getDashboardStats = async (req: Request, res: Response) => {
       WHERE is_active = true AND valid_until >= NOW()
     `);
 
-    // Calculate monthly revenue (current month) - including all orders as most are pending
+    // Calculate revenue consistently with order management system
     const revenueResult = await pool.query(`
       SELECT 
-        COALESCE(SUM(CASE WHEN status = 'completed' THEN final_amount ELSE 0 END), 0) as completed_revenue,
-        COALESCE(SUM(final_amount), 0) as total_order_value,
-        COALESCE(SUM(CASE WHEN status IN ('pending', 'scheduled', 'in_progress') THEN final_amount ELSE 0 END), 0) as pending_revenue
-      FROM orders 
-      WHERE EXTRACT(MONTH FROM created_at) = EXTRACT(MONTH FROM CURRENT_DATE)
-        AND EXTRACT(YEAR FROM created_at) = EXTRACT(YEAR FROM CURRENT_DATE)
+        -- All-time completed revenue (matches Order Management)
+        COALESCE(SUM(CASE WHEN status = 'completed' THEN total_amount ELSE 0 END), 0) as total_completed_revenue,
+        -- Current month completed revenue
+        COALESCE(SUM(CASE 
+          WHEN status = 'completed' 
+          AND EXTRACT(MONTH FROM created_at) = EXTRACT(MONTH FROM CURRENT_DATE)
+          AND EXTRACT(YEAR FROM created_at) = EXTRACT(YEAR FROM CURRENT_DATE)
+          THEN total_amount ELSE 0 END), 0) as monthly_completed_revenue,
+        -- Current month total order value (all statuses)
+        COALESCE(SUM(CASE 
+          WHEN EXTRACT(MONTH FROM created_at) = EXTRACT(MONTH FROM CURRENT_DATE)
+          AND EXTRACT(YEAR FROM created_at) = EXTRACT(YEAR FROM CURRENT_DATE)
+          THEN total_amount ELSE 0 END), 0) as monthly_total_value,
+        -- Pending revenue (all-time)
+        COALESCE(SUM(CASE WHEN status IN ('pending', 'scheduled', 'in_progress') THEN total_amount ELSE 0 END), 0) as pending_revenue
+      FROM orders
     `);
 
     // Get top services by booking count (simplified for now)
@@ -90,7 +100,7 @@ export const getDashboardStats = async (req: Request, res: Response) => {
       LIMIT 5
     `);
 
-    // Format the data
+    // Format the data with consistent revenue calculations
     const dashboardData = {
       totalServices: parseInt(servicesResult.rows[0].total_services) || 0,
       totalCategories: parseInt(categoriesResult.rows[0].total_categories) || 0,
@@ -100,9 +110,11 @@ export const getDashboardStats = async (req: Request, res: Response) => {
       pendingReviews: parseInt(reviewsResult.rows[0].pending_reviews) || 0,
       activeCoupons: parseInt(couponsResult.rows[0].active_coupons) || 0,
       todayBookings: parseInt(ordersResult.rows[0].today_bookings) || 0,
-      monthlyRevenue: parseFloat(revenueResult.rows[0].total_order_value) || 0,
-      completedRevenue: parseFloat(revenueResult.rows[0].completed_revenue) || 0,
-      pendingRevenue: parseFloat(revenueResult.rows[0].pending_revenue) || 0,
+      // Revenue fields - now consistent with Order Management
+      monthlyRevenue: parseFloat(revenueResult.rows[0].monthly_completed_revenue) || 0, // Current month completed orders only
+      totalRevenue: parseFloat(revenueResult.rows[0].total_completed_revenue) || 0, // All-time completed orders (matches Order Management)
+      monthlyTotalValue: parseFloat(revenueResult.rows[0].monthly_total_value) || 0, // Current month all orders
+      pendingRevenue: parseFloat(revenueResult.rows[0].pending_revenue) || 0, // All-time pending orders
       topServices: topServicesResult.rows.map((row: any) => ({
         name: row.name,
         bookings: parseInt(row.bookings) || 0,

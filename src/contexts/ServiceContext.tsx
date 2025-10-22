@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, type ReactNode } from 'react';
+import React, { createContext, useContext, useReducer, useCallback, type ReactNode } from 'react';
 import type { Service, ServiceCategory, ServiceFilters, Review } from '../types/index.ts';
 import { servicesService, reviewsService } from '../utils/services';
 
@@ -227,28 +227,98 @@ export const ServiceProvider: React.FC<ServiceProviderProps> = ({ children }) =>
   const [state, dispatch] = useReducer(serviceReducer, initialState);
 
   // Load services
-  const loadServices = async (): Promise<void> => {
+  const loadServices = useCallback(async (): Promise<void> => {
     dispatch({ type: 'SET_LOADING', payload: true });
     try {
-      const response = await servicesService.getServices();
-      dispatch({ type: 'SET_SERVICES', payload: response.data });
+      // Use adminDataManager to get services from backend
+      const { getServices } = await import('../utils/adminDataManager');
+      const backendServices = await getServices();
+      
+      // Convert backend Service[] to match ServiceContext Service[] format
+      const services: Service[] = backendServices.map(service => ({
+        id: service.id,
+        name: service.name,
+        description: service.description,
+        shortDescription: service.short_description || '',
+        categoryId: service.category_id,
+        category: {
+          id: service.category_id,
+          name: (service as any).category_name || '',
+          description: (service as any).category_description || '',
+          icon: (service as any).category_icon || '',
+          isActive: true,
+          sortOrder: 0,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        basePrice: service.base_price,
+        discountedPrice: service.discounted_price,
+        duration: service.duration || 60,
+        inclusions: service.inclusions || [],
+        exclusions: service.exclusions || [],
+        requirements: service.requirements || [],
+        tags: service.tags || [],
+        photos: (service.image_paths || []).map((url: string, index: number) => ({
+          id: `${service.id}-photo-${index}`,
+          serviceId: service.id,
+          url: url,
+          altText: `${service.name} photo ${index + 1}`,
+          isPrimary: index === 0,
+          sortOrder: index
+        })),
+        availability: {
+          isAvailable: service.is_active,
+          timeSlots: [],
+          blackoutDates: []
+        },
+        isActive: service.is_active,
+        isFeatured: service.is_featured,
+        rating: service.rating || 0,
+        reviewCount: service.review_count || 0,
+        createdAt: new Date(service.created_at || Date.now()),
+        updatedAt: new Date(service.updated_at || Date.now()),
+        reviews: []
+      }));
+      
+      dispatch({ type: 'SET_SERVICES', payload: services });
+      dispatch({ type: 'SET_ERROR', payload: null });
     } catch (error) {
       console.error('Failed to load services:', error);
       dispatch({ type: 'SET_ERROR', payload: 'Failed to load services' });
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
     }
-  };
+  }, []);
 
   // Load categories
-  const loadCategories = async (): Promise<void> => {
+  const loadCategories = useCallback(async (): Promise<void> => {
     dispatch({ type: 'SET_LOADING', payload: true });
     try {
-      const categories = await servicesService.getCategories();
+      // Use adminDataManager to get categories from backend
+      const { getCategories } = await import('../utils/adminDataManager');
+      const backendCategories = await getCategories();
+      
+      // Convert backend Category[] to ServiceCategory[] format
+      const categories: ServiceCategory[] = backendCategories.map(cat => ({
+        id: cat.id,
+        name: cat.name,
+        description: cat.description || '',
+        icon: cat.icon || '',
+        isActive: cat.is_active || true,
+        sortOrder: cat.sort_order || 0,
+        createdAt: new Date(cat.created_at || Date.now()),
+        updatedAt: new Date(cat.updated_at || Date.now())
+      }));
+      
       dispatch({ type: 'SET_CATEGORIES', payload: categories });
+      dispatch({ type: 'SET_ERROR', payload: null });
     } catch (error) {
       console.error('Failed to load categories:', error);
       dispatch({ type: 'SET_ERROR', payload: 'Failed to load categories' });
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
     }
-  };
+  }, []);
 
   // Create service
   const createService = async (serviceData: Omit<Service, 'id' | 'createdAt' | 'updatedAt'>): Promise<boolean> => {

@@ -21,7 +21,7 @@ export interface Order {
   gst_amount: number;
   service_charge: number;
   final_amount: number;
-  status: 'pending' | 'scheduled' | 'in_progress' | 'completed' | 'cancelled' | 'postponed';
+  status: 'pending' | 'confirmed' | 'scheduled' | 'in_progress' | 'completed' | 'postponed' | 'cancelled';
   priority: 'low' | 'medium' | 'high' | 'urgent';
   notes?: string;
   admin_notes?: string;
@@ -45,7 +45,7 @@ export interface OrderItem {
   subcategory_id: string;
   assigned_engineer_id?: string;
   assigned_engineer_name?: string;
-  item_status: 'pending' | 'scheduled' | 'in_progress' | 'completed' | 'cancelled' | 'postponed';
+  item_status: 'pending' | 'confirmed' | 'scheduled' | 'in_progress' | 'completed' | 'postponed' | 'cancelled';
   scheduled_date?: string;
   scheduled_time_slot?: string;
   completion_date?: string;
@@ -255,6 +255,7 @@ export interface CreateOrderRequest {
   final_amount: number;
   priority?: Order['priority'];
   notes?: string;
+  coupon_code?: string;
 }
 
 export interface UpdateOrderRequest {

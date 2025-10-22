@@ -6,6 +6,11 @@ export const handleValidationErrors = (req: Request, res: Response, next: NextFu
   const errors = validationResult(req);
   
   if (!errors.isEmpty()) {
+    console.log(`🔍 VALIDATION DEBUG: ${req.method} ${req.path} - Validation failed`);
+    console.log('🔍 VALIDATION DEBUG: Request body:', JSON.stringify(req.body, null, 2));
+    console.log('🔍 VALIDATION DEBUG: Request params:', JSON.stringify(req.params, null, 2));
+    console.log('🔍 VALIDATION DEBUG: Validation errors:', JSON.stringify(errors.array(), null, 2));
+    
     return res.status(400).json({
       success: false,
       error: 'Validation failed',
@@ -17,6 +22,7 @@ export const handleValidationErrors = (req: Request, res: Response, next: NextFu
     });
   }
   
+  console.log(`✅ VALIDATION DEBUG: ${req.method} ${req.path} - Validation passed`);
   next();
 };
 
@@ -24,8 +30,8 @@ export const handleValidationErrors = (req: Request, res: Response, next: NextFu
 export const validateUUID = (fieldName: string = 'id') => {
   return [
     param(fieldName)
-      .isUUID(4)
-      .withMessage(`${fieldName} must be a valid UUID`),
+      .matches(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+      .withMessage(`${fieldName} must be a valid UUID format`),
     handleValidationErrors
   ];
 };
@@ -138,15 +144,15 @@ export const commonValidations = {
     body(fieldName)
       .notEmpty()
       .withMessage(`${fieldName} is required`)
-      .isUUID(4)
-      .withMessage(`${fieldName} must be a valid UUID`),
+      .matches(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+      .withMessage(`${fieldName} must be a valid UUID format`),
 
   // Optional UUID validation
   optionalUUID: (fieldName: string) =>
     body(fieldName)
       .optional()
-      .isUUID(4)
-      .withMessage(`${fieldName} must be a valid UUID`),
+      .matches(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+      .withMessage(`${fieldName} must be a valid UUID format`),
 
   // Enum validation
   enum: (fieldName: string, validValues: string[]) =>
@@ -287,18 +293,17 @@ export const validationChains = {
       commonValidations.requiredString('name', 2, 100),
       commonValidations.requiredString('description', 5, 500),
       commonValidations.optionalString('icon', 10),
-      commonValidations.boolean('is_active'),
-      commonValidations.positiveInteger('sort_order'),
+      body('is_active').optional().isBoolean().withMessage('is_active must be a boolean'),
+      body('sort_order').optional().isInt({ min: 0 }).withMessage('sort_order must be a positive integer'),
       handleValidationErrors
     ],
     
     update: [
-      validateUUID('id'),
       commonValidations.optionalString('name', 100),
       commonValidations.optionalString('description', 500),
       commonValidations.optionalString('icon', 10),
-      commonValidations.boolean('is_active'),
-      body('sort_order').optional().isInt({ min: 0 }),
+      body('is_active').optional().isBoolean().withMessage('is_active must be a boolean'),
+      body('sort_order').optional().isInt({ min: 0 }).withMessage('sort_order must be a positive integer'),
       handleValidationErrors
     ]
   },
@@ -355,12 +360,10 @@ export const validationChains = {
     create: [
       commonValidations.requiredString('employee_id', 3, 50),
       commonValidations.requiredString('name', 2, 100),
-      commonValidations.requiredString('expert', 2, 100),
-      commonValidations.optionalArray('expertise_areas'),
-      commonValidations.requiredString('manager', 2, 100),
+      commonValidations.optionalArray('expertise'),
       commonValidations.phone(),
       commonValidations.email(),
-      commonValidations.boolean('is_active'),
+      commonValidations.optionalString('address', 500),
       handleValidationErrors
     ]
   },

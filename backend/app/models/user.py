@@ -18,6 +18,7 @@ class UserRole(str, Enum):
     """User role enumeration."""
     CUSTOMER = "customer"
     ADMIN = "admin"
+    SUPER_ADMIN = "super_admin"
     SERVICE_PROVIDER = "service_provider"
 
 
@@ -150,8 +151,8 @@ class User(Base):
     
     @property
     def is_admin(self) -> bool:
-        """Check if user is an admin."""
-        return self.role == UserRole.ADMIN
+        """Check if user is an admin or super admin."""
+        return self.role in (UserRole.ADMIN, UserRole.SUPER_ADMIN)
     
     @property
     def is_customer(self) -> bool:

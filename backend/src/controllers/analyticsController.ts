@@ -82,12 +82,13 @@ export class AnalyticsController {
       // const currentStart = new Date(now.getFullYear(), now.getMonth(), 1);
       // const currentEnd = new Date(now);
       
-      // Get basic totals from orders table
+      // Get basic totals from orders table - consistent with dashboard and order management
       const totalsQuery = `
         SELECT 
-          COALESCE(SUM(final_amount), 0) as total_revenue,
+          COALESCE(SUM(CASE WHEN status = 'completed' THEN final_amount ELSE 0 END), 0) as total_revenue,
           COUNT(*) as total_orders,
-          COALESCE(AVG(final_amount), 0) as avg_order_value
+          COUNT(*) FILTER (WHERE status = 'completed') as completed_orders,
+          COALESCE(AVG(CASE WHEN status = 'completed' THEN final_amount ELSE NULL END), 0) as avg_order_value
         FROM orders 
         WHERE status NOT IN ('cancelled', 'refunded')
       `;
@@ -110,13 +111,26 @@ export class AnalyticsController {
       const topCategories: RevenueByCategory[] = [];
       
       for (const category of categoryResult.rows) {
-        // Get revenue for this specific category (simple query)
+        // Get revenue for this specific category - use order final_amount proportionally
         const categoryRevenueQuery = `
           SELECT 
-            COALESCE(SUM(oi.total_price), 0) as revenue,
-            COUNT(oi.id) as orders
+            COALESCE(SUM(
+              CASE 
+                WHEN o.status = 'completed' THEN 
+                  -- Calculate proportional revenue from order's final_amount
+                  (oi.total_price / NULLIF(category_total.total_item_price, 0)) * o.final_amount
+                ELSE 0 
+              END
+            ), 0) as revenue,
+            COUNT(DISTINCT CASE WHEN o.status = 'completed' THEN o.id ELSE NULL END) as orders
           FROM order_items oi
           JOIN orders o ON oi.order_id = o.id
+          JOIN (
+            -- Get total item prices per order for proportional calculation
+            SELECT order_id, SUM(total_price) as total_item_price
+            FROM order_items 
+            GROUP BY order_id
+          ) category_total ON o.id = category_total.order_id
           WHERE oi.category_id = $1
             AND o.status NOT IN ('cancelled', 'refunded')
         `;
@@ -140,13 +154,24 @@ export class AnalyticsController {
           const subcategories: RevenueBySubcategory[] = [];
           
           for (const sub of subcategoryResult.rows) {
-            // Get revenue for this subcategory
+            // Get revenue for this subcategory - consistent with category calculation
             const subRevenueQuery = `
               SELECT 
-                COALESCE(SUM(oi.total_price), 0) as revenue,
-                COUNT(oi.id) as orders
+                COALESCE(SUM(
+                  CASE 
+                    WHEN o.status = 'completed' THEN 
+                      (oi.total_price / NULLIF(category_total.total_item_price, 0)) * o.final_amount
+                    ELSE 0 
+                  END
+                ), 0) as revenue,
+                COUNT(DISTINCT CASE WHEN o.status = 'completed' THEN o.id ELSE NULL END) as orders
               FROM order_items oi
               JOIN orders o ON oi.order_id = o.id
+              JOIN (
+                SELECT order_id, SUM(total_price) as total_item_price
+                FROM order_items 
+                GROUP BY order_id
+              ) category_total ON o.id = category_total.order_id
               WHERE oi.subcategory_id = $1
                 AND o.status NOT IN ('cancelled', 'refunded')
             `;
@@ -220,8 +245,8 @@ export class AnalyticsController {
         
         const monthlyQuery = `
           SELECT 
-            COALESCE(SUM(final_amount), 0) as revenue,
-            COUNT(*) as orders
+            COALESCE(SUM(CASE WHEN status = 'completed' THEN final_amount ELSE 0 END), 0) as revenue,
+            COUNT(*) FILTER (WHERE status = 'completed') as orders
           FROM orders 
           WHERE DATE_TRUNC('month', created_at) = DATE_TRUNC('month', $1::timestamp)
             AND status NOT IN ('cancelled', 'refunded')
@@ -280,17 +305,28 @@ export class AnalyticsController {
         return;
       }
 
-      // Simple export query without complex date filtering
+      // Export query consistent with other analytics calculations
       const exportQuery = `
         SELECT 
           c.name as category,
           COALESCE(sc.name, 'General') as subcategory,
-          COALESCE(SUM(oi.total_price), 0) as revenue,
-          COUNT(oi.id) as orders
+          COALESCE(SUM(
+            CASE 
+              WHEN o.status = 'completed' THEN 
+                (oi.total_price / NULLIF(category_total.total_item_price, 0)) * o.final_amount
+              ELSE 0 
+            END
+          ), 0) as revenue,
+          COUNT(DISTINCT CASE WHEN o.status = 'completed' THEN o.id ELSE NULL END) as orders
         FROM order_items oi
         JOIN orders o ON oi.order_id = o.id
         JOIN service_categories c ON oi.category_id = c.id
         LEFT JOIN service_subcategories sc ON oi.subcategory_id = sc.id
+        JOIN (
+          SELECT order_id, SUM(total_price) as total_item_price
+          FROM order_items 
+          GROUP BY order_id
+        ) category_total ON o.id = category_total.order_id
         WHERE o.status NOT IN ('cancelled', 'refunded')
         GROUP BY c.name, sc.name
         ORDER BY revenue DESC, c.name ASC, sc.name ASC

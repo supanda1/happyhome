@@ -46,12 +46,11 @@ export const register = async (req: Request, res: Response) => {
     // Create user
     const result = await pool.query(`
       INSERT INTO users (
-        id, email, password_hash, first_name, last_name, phone, role, 
-        is_active, is_verified, failed_login_attempts, profile_completed, 
-        created_at, updated_at
+        id, email, password, first_name, last_name, phone, role, 
+        is_active, email_verified, created_at, updated_at
       )
-      VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, true, false, 0, false, NOW(), NOW())
-      RETURNING id, email, first_name, last_name, phone, role, is_active, is_verified, created_at
+      VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, true, false, NOW(), NOW())
+      RETURNING id, email, first_name, last_name, phone, role, is_active, email_verified, created_at
     `, [email, hashedPassword, first_name, last_name, phone, role]);
 
     const user = result.rows[0];
@@ -84,7 +83,7 @@ export const register = async (req: Request, res: Response) => {
       phone: user.phone,
       role: user.role,
       isActive: user.is_active,
-      isVerified: user.is_verified,
+      isVerified: user.email_verified,
       createdAt: user.created_at
     };
 
@@ -112,6 +111,8 @@ export const login = async (req: Request, res: Response) => {
     
     const { email, password } = req.body;
     
+    console.log('Login attempt:', { email, passwordLength: password?.length });
+    
     if (!email || !password) {
       return res.status(400).json({
         success: false,
@@ -125,7 +126,10 @@ export const login = async (req: Request, res: Response) => {
       [email]
     );
 
+    console.log('User found:', result.rows.length > 0 ? 'Yes' : 'No');
+
     if (result.rows.length === 0) {
+      console.log('No user found with email:', email);
       return res.status(401).json({
         success: false,
         error: 'Invalid email or password'
@@ -133,10 +137,14 @@ export const login = async (req: Request, res: Response) => {
     }
 
     const user = result.rows[0];
+    console.log('User data:', { id: user.id, email: user.email, hasPassword: !!user.password });
 
     // Check password
-    const isValidPassword = await bcrypt.compare(password, user.password_hash);
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    console.log('Password valid:', isValidPassword);
+    
     if (!isValidPassword) {
+      console.log('Password mismatch for user:', email);
       return res.status(401).json({
         success: false,
         error: 'Invalid email or password'
@@ -171,7 +179,7 @@ export const login = async (req: Request, res: Response) => {
       phone: user.phone,
       role: user.role,
       isActive: user.is_active,
-      isVerified: user.is_verified,
+      isVerified: user.email_verified,
       createdAt: user.created_at
     };
 
@@ -344,7 +352,7 @@ export const updateProfile = async (req: Request, res: Response) => {
       UPDATE users 
       SET ${updateFields.join(', ')}
       WHERE id = $${paramIndex}
-      RETURNING id, email, first_name, last_name, phone, role, is_active, is_verified, created_at, updated_at
+      RETURNING id, email, first_name, last_name, phone, role, is_active, email_verified, created_at, updated_at
     `;
 
 
@@ -366,7 +374,7 @@ export const updateProfile = async (req: Request, res: Response) => {
       phone: user.phone,
       role: user.role,
       isActive: user.is_active,
-      isVerified: user.is_verified,
+      isVerified: user.email_verified,
       createdAt: user.created_at,
       updatedAt: user.updated_at
     };
@@ -409,7 +417,7 @@ export const getProfile = async (req: Request, res: Response) => {
 
     // Get user profile
     const result = await pool.query(
-      'SELECT id, email, first_name, last_name, phone, role, is_active, is_verified, created_at FROM users WHERE id = $1',
+      'SELECT id, email, first_name, last_name, phone, role, is_active, email_verified, created_at FROM users WHERE id = $1',
       [decoded.userId]
     );
 
@@ -429,7 +437,7 @@ export const getProfile = async (req: Request, res: Response) => {
       phone: user.phone,
       role: user.role,
       isActive: user.is_active,
-      isVerified: user.is_verified,
+      isVerified: user.email_verified,
       createdAt: user.created_at
     };
 
@@ -516,7 +524,7 @@ export const getCurrentUser = async (req: Request, res: Response) => {
     
     // Get user profile from database
     const result = await pool.query(
-      'SELECT id, email, first_name, last_name, phone, role, is_active, is_verified, created_at FROM users WHERE id = $1 AND is_active = true',
+      'SELECT id, email, first_name, last_name, phone, role, is_active, email_verified, created_at FROM users WHERE id = $1 AND is_active = true',
       [userId]
     );
 
@@ -536,7 +544,7 @@ export const getCurrentUser = async (req: Request, res: Response) => {
       phone: user.phone,
       role: user.role,
       isActive: user.is_active,
-      isVerified: user.is_verified,
+      isVerified: user.email_verified,
       createdAt: user.created_at
     };
 
@@ -710,7 +718,7 @@ export const changePassword = async (req: Request, res: Response) => {
 
     // Get user from database
     const userResult = await pool.query(
-      'SELECT id, password_hash FROM users WHERE id = $1 AND is_active = true',
+      'SELECT id, password FROM users WHERE id = $1 AND is_active = true',
       [userId]
     );
 
@@ -724,7 +732,7 @@ export const changePassword = async (req: Request, res: Response) => {
     const user = userResult.rows[0];
 
     // Verify current password
-    const isCurrentPasswordValid = await bcrypt.compare(current_password, user.password_hash);
+    const isCurrentPasswordValid = await bcrypt.compare(current_password, user.password);
     if (!isCurrentPasswordValid) {
       return res.status(400).json({
         success: false,
@@ -738,7 +746,7 @@ export const changePassword = async (req: Request, res: Response) => {
 
     // Update password in database
     await pool.query(
-      'UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2',
+      'UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2',
       [hashedNewPassword, userId]
     );
 

@@ -7,8 +7,12 @@ import { formatPriceWithDiscount } from '../../utils/priceFormatter';
 import WhatsAppButton from '../../components/ui/WhatsAppButton';
 import FacebookButton from '../../components/ui/FacebookButton';
 
-const ServiceDetailPage: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+interface ServiceDetailPageProps {
+  serviceId?: string;
+}
+
+const ServiceDetailPage: React.FC<ServiceDetailPageProps> = ({ serviceId }) => {
+  const { id: routeId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { getServiceById, loadServices } = useServices();
   const { isAuthenticated } = useAuth();
@@ -16,18 +20,33 @@ const ServiceDetailPage: React.FC = () => {
   const [showAllInclusions, setShowAllInclusions] = useState(false);
   const [showAllExclusions, setShowAllExclusions] = useState(false);
 
-  const service = id ? getServiceById(id) : null;
+  // Use serviceId prop if provided, otherwise try route params
+  const actualServiceId = serviceId || routeId;
+  const service = actualServiceId ? getServiceById(actualServiceId) : null;
 
   useEffect(() => {
     loadServices();
   }, [loadServices]);
 
+  // Debug logging
+  useEffect(() => {
+    if (actualServiceId) {
+      console.log('🔍 ServiceDetailPage Debug:');
+      console.log('   Service ID:', actualServiceId);
+      console.log('   Service found:', !!service);
+      if (service) {
+        console.log('   Service name:', service.name);
+        console.log('   Service description:', service.description);
+      }
+    }
+  }, [actualServiceId, service]);
+
   const handleBookService = () => {
     if (!isAuthenticated) {
-      navigate('/login', { state: { from: `/services/${id}` } });
+      navigate('/login', { state: { from: `/services/${actualServiceId}` } });
       return;
     }
-    navigate(`/booking/${id}`);
+    navigate(`/booking/${actualServiceId}`);
   };
 
   if (!service) {

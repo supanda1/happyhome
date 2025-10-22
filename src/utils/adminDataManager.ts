@@ -113,7 +113,14 @@ const apiCall = async (endpoint: string, options: RequestInit = {}) => {
       let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
       try {
         const errorData = await response.json();
-        if (errorData.error) {
+        
+        // Handle validation errors with detailed messages
+        if (errorData.error === 'Validation failed' && errorData.details && Array.isArray(errorData.details)) {
+          const validationMessages = errorData.details.map((detail: any) => {
+            return `${detail.field}: ${detail.message}`;
+          }).join(', ');
+          errorMessage = `Validation Error: ${validationMessages}`;
+        } else if (errorData.error) {
           errorMessage = errorData.error;
         } else if (errorData.message) {
           errorMessage = errorData.message;
@@ -280,11 +287,17 @@ interface OfferPlan {
   description: string;
   duration_months: number;
   discount_percentage: number;
+  original_price?: number;
+  discounted_price?: number;
   combo_coupon_code: string;
   is_active: boolean;
   sort_order: number;
   benefits: string[];
   terms_conditions: string[];
+  min_services_required?: number;
+  max_services_allowed?: number;
+  is_featured?: boolean;
+  applicable_services?: string[];
   created_at: string;
   updated_at: string;
 }
@@ -1100,13 +1113,45 @@ export const getEffectiveOrderStatus = (order: any): string => {
   
   // Analyze item statuses to determine effective order status
   const items = order.items.filter((item: any) => item.id !== null);
-  const itemStatuses = items.map((item: any) => item.item_status || item.status || 'pending');
+  const itemStatuses = items.map((item: any) => {
+    const baseStatus = item.item_status || item.status || 'pending';
+    
+    // If item has an assigned engineer but status is still pending/confirmed, treat as assigned
+    if ((baseStatus === 'pending' || baseStatus === 'confirmed') && 
+        (item.assigned_engineer_id || item.assigned_engineer_name)) {
+      return 'assigned';
+    }
+    
+    return baseStatus;
+  });
   
   // Count status distribution
   const statusCounts = itemStatuses.reduce((acc: any, status: string) => {
     acc[status] = (acc[status] || 0) + 1;
     return acc;
   }, {});
+  
+  // Debug: Log detailed status calculation for specific orders (with throttling)
+  if ((order.id?.includes('d36cb991') || order.id?.includes('612d43d0') || order.order_number?.includes('HH00000004') || order.order_number?.includes('HH00000005') || order.order_number === 'HH00000005')) {
+    const debugData = {
+      orderId: order.id?.slice(0, 8),
+      orderNumber: order.order_number,
+      orderStatus: order.status,
+      itemCount: items.length,
+      itemStatuses: itemStatuses,
+      statusCounts: statusCounts,
+      itemsWithEngineers: items.map((item: any) => ({
+        id: item.id?.slice(0, 8),
+        serviceName: item.service_name,
+        itemStatus: item.item_status,
+        status: item.status,
+        assignedEngineerId: item.assigned_engineer_id,
+        assignedEngineerName: item.assigned_engineer_name,
+        hasAssignment: !!(item.assigned_engineer_id || item.assigned_engineer_name)
+      }))
+    };
+    console.log('🔍 DEBUG Order Status Calculation:', JSON.stringify(debugData, null, 2));
+  }
   
   // Status priority logic (most significant first)
   if (statusCounts.completed && statusCounts.completed === items.length) {
@@ -1122,7 +1167,7 @@ export const getEffectiveOrderStatus = (order: any): string => {
   }
   
   if (statusCounts.assigned > 0) {
-    return 'confirmed'; // Any item assigned (confirmed for processing)
+    return 'pending'; // Items with assigned engineers remain pending until admin approves scheduling
   }
   
   // Fall back to order-level status or pending

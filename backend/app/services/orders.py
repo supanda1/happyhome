@@ -311,9 +311,8 @@ class OrderService:
             item.assigned_engineer_id = engineer_id
             item.assigned_engineer_name = f"{engineer.first_name} {engineer.last_name}"
             
-            # Update status to scheduled if still pending
-            if item.item_status == ItemStatus.PENDING:
-                item.item_status = ItemStatus.SCHEDULED
+            # Note: Item status remains unchanged - admin must manually approve status changes
+            # Keeping item in current status for admin review and approval
             
             # Add assignment notes
             if notes:

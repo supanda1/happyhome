@@ -6,7 +6,7 @@ import {
   deleteCategory,
   getCategoryById
 } from '../controllers/categoriesController';
-import { requireAdminAuth } from '../middleware/auth';
+import { requireAdminAuth, authenticateToken, requireSuperAdminOrPermission } from '../middleware/auth';
 import { validationChains, validateUUID } from '../middleware/validation';
 
 const router = express.Router();
@@ -18,14 +18,25 @@ router.get('/', getCategories);
 // GET /api/categories/:id - Get category by ID
 router.get('/:id', ...validateUUID('id'), getCategoryById);
 
-// Admin-only endpoints (authentication required)
-// POST /api/categories - Create new category
-router.post('/', requireAdminAuth, ...validationChains.category.create, createCategory);
+// Superadmin or permission-based endpoints
+// POST /api/categories - Create new category (superadmin OR admin with categories_create permission)
+router.post('/', 
+  authenticateToken, 
+  requireSuperAdminOrPermission('categories', true, false), 
+  ...validationChains.category.create, 
+  createCategory
+);
 
-// PUT /api/categories/:id - Update category
-router.put('/:id', requireAdminAuth, ...validationChains.category.update, updateCategory);
+// PUT /api/categories/:id - Update category (superadmin OR admin with categories_edit permission)
+router.put('/:id', 
+  authenticateToken, 
+  requireSuperAdminOrPermission('categories', false, true), 
+  ...validateUUID('id'),
+  ...validationChains.category.update, 
+  updateCategory
+);
 
-// DELETE /api/categories/:id - Delete category
+// DELETE /api/categories/:id - Delete category (superadmin only for now)
 router.delete('/:id', requireAdminAuth, ...validateUUID('id'), deleteCategory);
 
 export default router;

@@ -76,7 +76,8 @@ const CategoriesManagement: React.FC<CategoriesManagementProps> = ({ onCategoryC
       }
     } catch (error) {
       console.error('Error saving category:', error);
-      alert('Error saving category');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      alert(`Error saving category: ${errorMessage}`);
     }
   };
 

@@ -1,10 +1,13 @@
 import React, { useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { useServices } from '../../contexts/ServiceContext';
 import { Card, CardContent, Button } from '../../components/ui';
 import { formatPriceWithDiscount } from '../../utils/priceFormatter';
 
-const HomePage: React.FC = () => {
+interface HomePageProps {
+  navigateToServiceDetail: (serviceId: string) => void;
+}
+
+const HomePage: React.FC<HomePageProps> = ({ navigateToServiceDetail }) => {
   const { categories, services, loadCategories, loadServices, loading } = useServices();
   const featuredServices = services.filter(service => service.isFeatured).slice(0, 6);
 
@@ -28,11 +31,9 @@ const HomePage: React.FC = () => {
               we connect you with trusted professionals in your area.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link to="/services">
-                <Button size="lg" variant="secondary" className="w-full sm:w-auto">
-                  Browse Services
-                </Button>
-              </Link>
+              <Button size="lg" variant="secondary" className="w-full sm:w-auto">
+                Browse Services
+              </Button>
               <Button size="lg" variant="outline" className="w-full sm:w-auto text-white border-white hover:bg-white hover:text-orange-600">
                 How It Works
               </Button>
@@ -60,10 +61,9 @@ const HomePage: React.FC = () => {
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
               {categories.slice(0, 8).map((category) => (
-                <Link
+                <div
                   key={category.id}
-                  to={`/services?category=${category.id}`}
-                  className="group"
+                  className="group cursor-pointer"
                 >
                   <Card hover className="text-center h-full transition-transform group-hover:scale-105">
                     <CardContent>
@@ -75,7 +75,7 @@ const HomePage: React.FC = () => {
                       </p>
                     </CardContent>
                   </Card>
-                </Link>
+                </div>
               ))}
             </div>
           )}
@@ -149,11 +149,15 @@ const HomePage: React.FC = () => {
                         </span>
                       )}
                     </div>
-                    <Link to={`/services/${service.id}`}>
-                      <Button size="sm">
-                        View Details
-                      </Button>
-                    </Link>
+                    <Button 
+                      size="sm" 
+                      onClick={() => {
+                        console.log('🔍 View Details clicked for service:', service.name, 'ID:', service.id);
+                        navigateToServiceDetail(service.id);
+                      }}
+                    >
+                      View Details
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -161,11 +165,9 @@ const HomePage: React.FC = () => {
           </div>
 
           <div className="text-center mt-12">
-            <Link to="/services">
-              <Button size="lg" variant="outline">
-                View All Services
-              </Button>
-            </Link>
+            <Button size="lg" variant="outline">
+              View All Services
+            </Button>
           </div>
         </div>
       </section>
@@ -225,11 +227,9 @@ const HomePage: React.FC = () => {
           <p className="text-xl text-orange-100 mb-8 max-w-2xl mx-auto">
             Join thousands of satisfied customers who trust us with their home services.
           </p>
-          <Link to="/services">
-            <Button size="lg" variant="secondary">
-              Book a Service Now
-            </Button>
-          </Link>
+          <Button size="lg" variant="secondary">
+            Book a Service Now
+          </Button>
         </div>
       </section>
     </div>

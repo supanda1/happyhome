@@ -156,8 +156,8 @@ export const ordersAPI = {
   },
 
   // Auto-assign engineers based on expertise and workload
-  autoAssignEngineers: async (orderId: string): Promise<ApiResponse<{ success: boolean; message: string }>> => {
-    return apiRequest<{ success: boolean; message: string }>(`/orders/${orderId}/auto-assign`, {
+  autoAssignEngineers: async (orderId: string): Promise<ApiResponse<{ successful_assignments: number; failed_assignments: number; total_processed: number }>> => {
+    return apiRequest<{ successful_assignments: number; failed_assignments: number; total_processed: number }>(`/orders/${orderId}/auto-assign`, {
       method: 'POST',
     });
   },

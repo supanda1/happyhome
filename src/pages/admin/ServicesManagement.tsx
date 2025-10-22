@@ -21,7 +21,7 @@ interface ServiceFormData {
   description: string;
   short_description: string;
   base_price: number;
-  discounted_price?: number;
+  discount_percentage?: number;
   duration: number;
   inclusions: string[];
   exclusions: string[];
@@ -34,6 +34,17 @@ interface ServiceFormData {
   service_charge: number;
   notes: string;
   images: string[]; // Array of image URLs for the service
+}
+
+interface FormErrors {
+  name?: string;
+  category_id?: string;
+  subcategory_id?: string;
+  description?: string;
+  short_description?: string;
+  base_price?: string;
+  duration?: string;
+  general?: string;
 }
 
 interface ServicesManagementProps {
@@ -49,6 +60,8 @@ const ServicesManagement: React.FC<ServicesManagementProps> = ({ onServiceChange
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [activeTab, setActiveTab] = useState<'basic' | 'pricing' | 'services' | 'included' | 'notes' | 'images'>('basic');
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [formData, setFormData] = useState<ServiceFormData>({
     name: '',
@@ -57,7 +70,7 @@ const ServicesManagement: React.FC<ServicesManagementProps> = ({ onServiceChange
     description: '',
     short_description: '',
     base_price: 0,
-    discounted_price: 0,
+    discount_percentage: 0,
     duration: 60,
     inclusions: [''],
     exclusions: [''],
@@ -111,19 +124,114 @@ const ServicesManagement: React.FC<ServicesManagementProps> = ({ onServiceChange
     sub => sub.category_id === formData.category_id
   );
 
+  // Parse validation errors from API response
+  const parseValidationErrors = (errorMessage: string): FormErrors => {
+    const errors: FormErrors = {};
+    
+    if (errorMessage.includes('Validation Error:')) {
+      const errorPart = errorMessage.split('Validation Error:')[1];
+      
+      // Handle multiple errors for the same field by collecting all description errors
+      const descriptionErrors: string[] = [];
+      const shortDescriptionErrors: string[] = [];
+      const nameErrors: string[] = [];
+      const categoryErrors: string[] = [];
+      const basePriceErrors: string[] = [];
+      const durationErrors: string[] = [];
+      
+      // Split by comma but be careful about field names
+      const fieldErrors = errorPart.split(',').map(err => err.trim());
+      
+      fieldErrors.forEach(fieldError => {
+        if (fieldError.includes('description:') && !fieldError.includes('short_description:')) {
+          const errorMsg = fieldError.split('description:')[1].trim();
+          if (errorMsg) {
+            descriptionErrors.push(errorMsg);
+          }
+        } else if (fieldError.includes('short_description:')) {
+          const errorMsg = fieldError.split('short_description:')[1].trim();
+          if (errorMsg) {
+            shortDescriptionErrors.push(errorMsg);
+          }
+        } else if (fieldError.includes('name:')) {
+          const errorMsg = fieldError.split('name:')[1].trim();
+          if (errorMsg) {
+            nameErrors.push(errorMsg);
+          }
+        } else if (fieldError.includes('category_id:')) {
+          const errorMsg = fieldError.split('category_id:')[1].trim();
+          if (errorMsg) {
+            categoryErrors.push(errorMsg);
+          }
+        } else if (fieldError.includes('base_price:')) {
+          const errorMsg = fieldError.split('base_price:')[1].trim();
+          if (errorMsg) {
+            basePriceErrors.push(errorMsg);
+          }
+        } else if (fieldError.includes('duration:')) {
+          const errorMsg = fieldError.split('duration:')[1].trim();
+          if (errorMsg) {
+            durationErrors.push(errorMsg);
+          }
+        }
+      });
+      
+      // Combine errors for each field
+      if (descriptionErrors.length > 0) {
+        errors.description = descriptionErrors.join('. ');
+      }
+      if (shortDescriptionErrors.length > 0) {
+        errors.short_description = shortDescriptionErrors.join('. ');
+      }
+      if (nameErrors.length > 0) {
+        errors.name = nameErrors.join('. ');
+      }
+      if (categoryErrors.length > 0) {
+        errors.category_id = categoryErrors.join('. ');
+      }
+      if (basePriceErrors.length > 0) {
+        errors.base_price = basePriceErrors.join('. ');
+      }
+      if (durationErrors.length > 0) {
+        errors.duration = durationErrors.join('. ');
+      }
+    } else {
+      errors.general = errorMessage;
+    }
+    
+    return errors;
+  };
+
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrors({});
+    setIsSubmitting(true);
     
     try {
-      // Clean up form data
+      // Calculate discounted_price from discount_percentage
+      let discountedPrice = undefined;
+      if (formData.discount_percentage && formData.discount_percentage > 0 && formData.discount_percentage < 100) {
+        discountedPrice = formData.base_price * (1 - formData.discount_percentage / 100);
+      }
+      
+      // Clean up form data and convert discount_percentage to discounted_price for API
       const cleanFormData = {
         ...formData,
+        discounted_price: discountedPrice,
         inclusions: formData.inclusions.filter(item => item.trim()),
         exclusions: formData.exclusions.filter(item => item.trim()),
         requirements: formData.requirements.filter(item => item.trim()),
         tags: formData.tags.filter(item => item.trim()),
+        image_paths: formData.images, // Map images to image_paths for backend
+        rating: 0,
+        review_count: 0,
+        booking_count: 0,
       };
+      
+      // Remove frontend-only fields that are not expected by the API
+      delete (cleanFormData as any).discount_percentage;
+      delete (cleanFormData as any).images;
 
       if (editingService) {
         // Update existing service
@@ -132,9 +240,8 @@ const ServicesManagement: React.FC<ServicesManagementProps> = ({ onServiceChange
           await fetchData();
           onServiceChange?.();
           resetForm();
-          alert('Service updated successfully!');
         } else {
-          alert('Error: Service not found');
+          setErrors({ general: 'Service not found' });
         }
       } else {
         // Create new service
@@ -142,11 +249,14 @@ const ServicesManagement: React.FC<ServicesManagementProps> = ({ onServiceChange
         await fetchData();
         onServiceChange?.();
         resetForm();
-        alert('Service created successfully!');
       }
     } catch (error) {
       console.error('Error saving service:', error);
-      alert('Error saving service');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      const validationErrors = parseValidationErrors(errorMessage);
+      setErrors(validationErrors);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -199,7 +309,7 @@ const ServicesManagement: React.FC<ServicesManagementProps> = ({ onServiceChange
       description: '',
       short_description: '',
       base_price: 0,
-      discounted_price: 0,
+      discount_percentage: 0,
       duration: 60,
       inclusions: [''],
       exclusions: [''],
@@ -216,9 +326,17 @@ const ServicesManagement: React.FC<ServicesManagementProps> = ({ onServiceChange
     setEditingService(null);
     setShowForm(false);
     setActiveTab('basic');
+    setErrors({});
+    setIsSubmitting(false);
   };
 
   const startEdit = (service: Service) => {
+    // Calculate discount percentage from existing discounted_price
+    let discountPercentage = 0;
+    if (service.discounted_price && service.base_price && service.discounted_price < service.base_price) {
+      discountPercentage = Math.round(((service.base_price - service.discounted_price) / service.base_price) * 100);
+    }
+    
     setFormData({
       name: service.name,
       category_id: service.category_id,
@@ -226,7 +344,7 @@ const ServicesManagement: React.FC<ServicesManagementProps> = ({ onServiceChange
       description: service.description,
       short_description: service.short_description,
       base_price: service.base_price,
-      discounted_price: service.discounted_price,
+      discount_percentage: discountPercentage,
       duration: service.duration,
       inclusions: service.inclusions.length ? service.inclusions : [''],
       exclusions: service.exclusions.length ? service.exclusions : [''],
@@ -238,7 +356,7 @@ const ServicesManagement: React.FC<ServicesManagementProps> = ({ onServiceChange
       gst_percentage: service.gst_percentage || 18,
       service_charge: service.service_charge || 79,
       notes: service.notes || '',
-      images: service.images || []
+      images: service.image_paths || []
     });
     setEditingService(service);
     setShowForm(true);
@@ -491,8 +609,8 @@ const ServicesManagement: React.FC<ServicesManagementProps> = ({ onServiceChange
 
       {/* Add/Edit Form Modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50 p-4 pt-8 overflow-y-auto">
+          <div className="bg-white rounded-xl w-full max-w-4xl min-h-[80vh] max-h-[95vh] overflow-hidden flex flex-col shadow-2xl my-4">
             {/* Modal Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <div>
@@ -541,102 +659,272 @@ const ServicesManagement: React.FC<ServicesManagementProps> = ({ onServiceChange
             <form onSubmit={handleSubmit} className="flex-1 overflow-hidden">
               <div className="p-6 overflow-y-auto h-full">
                 
+                {/* Required Fields Notice */}
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <h4 className="text-sm font-medium text-amber-800">Required Fields</h4>
+                      <p className="text-sm text-amber-700 mt-1">
+                        Please fill all required fields marked with <span className="text-red-500 font-bold">*</span>. 
+                        The <strong>Short Description</strong> and <strong>Detailed Description</strong> are both required and must be at least 10 characters long.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
                 {/* Basic Info Tab */}
                 {activeTab === 'basic' && (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Service Name *
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={formData.name}
-                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="e.g., Bath Fittings Installation & Repair"
-                        />
+                  <div className="space-y-6">
+                    {/* Service Hierarchy Guide */}
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+                      <h4 className="text-sm font-semibold text-blue-800 mb-3 flex items-center">
+                        <span className="mr-2">📋</span> Service Creation Guide
+                      </h4>
+                      <div className="text-sm text-blue-700 space-y-2">
+                        <div className="flex items-start space-x-2">
+                          <span className="text-blue-600 font-medium">Step 1:</span>
+                          <div>
+                            <span className="font-medium">Choose Category</span> - Main service type
+                            <div className="text-xs text-blue-600 mt-1">Examples: Plumbing, Electrical, Cleaning, Repair & Maintenance</div>
+                          </div>
+                        </div>
+                        <div className="flex items-start space-x-2">
+                          <span className="text-blue-600 font-medium">Step 2:</span>
+                          <div>
+                            <span className="font-medium">Choose Subcategory</span> - Specific service area (optional)
+                            <div className="text-xs text-blue-600 mt-1">Examples: Tap Installation, Pipe Repair, AC Installation</div>
+                          </div>
+                        </div>
+                        <div className="flex items-start space-x-2">
+                          <span className="text-blue-600 font-medium">Step 3:</span>
+                          <div>
+                            <span className="font-medium">Enter Service Name</span> - Exact service offering
+                            <div className="text-xs text-blue-600 mt-1">Examples: "Kitchen Tap Installation", "Emergency Pipe Leak Repair", "Split AC Installation with Gas Filling"</div>
+                          </div>
+                        </div>
                       </div>
+                    </div>
 
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Category *
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          📂 1. Category * <span className="text-xs text-gray-500">(Main service type)</span>
                         </label>
                         <select
                           required
                           value={formData.category_id}
                           onChange={(e) => setFormData({ ...formData, category_id: e.target.value, subcategory_id: '' })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className={`w-full px-3 py-2 border-2 rounded-md focus:outline-none focus:ring-2 transition-colors ${
+                            errors.category_id 
+                              ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
+                              : 'border-gray-200 focus:ring-blue-500 focus:border-blue-500'
+                          }`}
                         >
-                          <option value="">Select a category</option>
+                          <option value="">Select a category...</option>
                           {categories.filter(cat => cat.is_active).map((category) => (
                             <option key={category.id} value={category.id}>
                               {category.name}
                             </option>
                           ))}
                         </select>
+                        {errors.category_id && (
+                          <p className="text-red-600 text-sm mt-1 flex items-center">
+                            <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                            {errors.category_id}
+                          </p>
+                        )}
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Subcategory
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          📁 2. Subcategory <span className="text-xs text-gray-500">(Specific area, optional)</span>
                         </label>
                         <select
                           value={formData.subcategory_id}
                           onChange={(e) => setFormData({ ...formData, subcategory_id: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className={`w-full px-3 py-2 border-2 rounded-md focus:outline-none focus:ring-2 transition-colors ${
+                            errors.subcategory_id 
+                              ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
+                              : 'border-gray-200 focus:ring-blue-500 focus:border-blue-500'
+                          }`}
+                          disabled={!formData.category_id}
                         >
-                          <option value="">Select a subcategory</option>
+                          <option value="">
+                            {formData.category_id 
+                              ? "Select subcategory (optional)..." 
+                              : "First select a category"
+                            }
+                          </option>
                           {filteredSubcategories.filter(sub => sub.is_active).map((subcategory) => (
                             <option key={subcategory.id} value={subcategory.id}>
                               {subcategory.name}
                             </option>
                           ))}
                         </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Duration (minutes) *
-                        </label>
-                        <input
-                          type="number"
-                          required
-                          min="15"
-                          value={formData.duration}
-                          onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) || 60 })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
+                        {errors.subcategory_id && (
+                          <p className="text-red-600 text-sm mt-1 flex items-center">
+                            <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                            {errors.subcategory_id}
+                          </p>
+                        )}
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Short Description *
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        📄 3. Service Name * <span className="text-xs text-gray-500">(Exact service offering)</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        className={`w-full px-3 py-2 border-2 rounded-md focus:outline-none focus:ring-2 transition-colors ${
+                          errors.name 
+                            ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
+                            : 'border-gray-200 focus:ring-blue-500 focus:border-blue-500'
+                        }`}
+                        placeholder="e.g., Kitchen Tap Installation, Emergency Pipe Leak Repair, Complete Toilet Installation"
+                      />
+                      {errors.name && (
+                        <p className="text-red-600 text-sm mt-1 flex items-center">
+                          <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
+                          {errors.name}
+                        </p>
+                      )}
+                      <p className="text-xs text-gray-500 mt-1 flex items-start">
+                        <span className="mr-1">💡</span>
+                        <span>Be specific about what service you're offering. This will appear in customer search results.</span>
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        ⏱️ Service Duration *
+                      </label>
+                      <input
+                        type="number"
+                        required
+                        min="15"
+                        value={formData.duration}
+                        onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) || 60 })}
+                        className={`w-full px-3 py-2 border-2 rounded-md focus:outline-none focus:ring-2 transition-colors ${
+                          errors.duration 
+                            ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
+                            : 'border-gray-200 focus:ring-blue-500 focus:border-blue-500'
+                        }`}
+                        placeholder="60"
+                      />
+                      {errors.duration && (
+                        <p className="text-red-600 text-sm mt-1 flex items-center">
+                          <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
+                          {errors.duration}
+                        </p>
+                      )}
+                      <p className="text-xs text-gray-500 mt-1">Duration in minutes (minimum 15 minutes)</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        🔸 Short Description * <span className="text-red-500 font-bold">(Required - Min 10 chars)</span>
                       </label>
                       <input
                         type="text"
                         required
                         value={formData.short_description}
                         onChange={(e) => setFormData({ ...formData, short_description: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className={`w-full px-3 py-2 border-2 rounded-md focus:outline-none focus:ring-2 transition-colors ${
+                          errors.short_description 
+                            ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
+                            : 'border-gray-200 focus:ring-blue-500 focus:border-blue-500'
+                        }`}
                         placeholder="Professional bathroom fittings installation and repair service"
                       />
+                      {errors.short_description && (
+                        <p className="text-red-600 text-sm mt-1 flex items-center">
+                          <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
+                          {errors.short_description}
+                        </p>
+                      )}
+                      <div className="flex items-center justify-between mt-1">
+                        <p className="text-xs text-gray-500">
+                          Current length: {formData.short_description.length} characters
+                        </p>
+                        {formData.short_description.length >= 10 ? (
+                          <span className="text-xs text-green-600 font-medium flex items-center">
+                            <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                            Valid
+                          </span>
+                        ) : (
+                          <span className="text-xs text-orange-600 font-medium">
+                            Need {10 - formData.short_description.length} more chars
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Detailed Description *
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        🔸 Detailed Description * <span className="text-red-500 font-bold">(Required - Min 10 chars, Max 255 chars)</span>
                       </label>
                       <textarea
                         required
                         rows={4}
                         value={formData.description}
                         onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className={`w-full px-3 py-2 border-2 rounded-md focus:outline-none focus:ring-2 transition-colors resize-none ${
+                          errors.description 
+                            ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
+                            : 'border-gray-200 focus:ring-blue-500 focus:border-blue-500'
+                        }`}
                         placeholder="Professional installation and repair of bathroom fittings including taps, shower heads, towel holders, soap dispensers, and other bathroom accessories."
                       />
+                      {errors.description && (
+                        <p className="text-red-600 text-sm mt-1 flex items-center">
+                          <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
+                          {errors.description}
+                        </p>
+                      )}
+                      <div className="flex items-center justify-between mt-1">
+                        <p className="text-xs text-gray-500">
+                          Current length: {formData.description.length}/255 characters
+                        </p>
+                        {formData.description.length >= 10 && formData.description.length <= 255 ? (
+                          <span className="text-xs text-green-600 font-medium flex items-center">
+                            <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                            Valid
+                          </span>
+                        ) : formData.description.length < 10 ? (
+                          <span className="text-xs text-orange-600 font-medium">
+                            Need {10 - formData.description.length} more chars
+                          </span>
+                        ) : (
+                          <span className="text-xs text-red-600 font-medium">
+                            Too long! Reduce by {formData.description.length - 255} chars
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -697,22 +985,39 @@ const ServicesManagement: React.FC<ServicesManagementProps> = ({ onServiceChange
                           step="0.01"
                           value={formData.base_price}
                           onChange={(e) => setFormData({ ...formData, base_price: parseFloat(e.target.value) || 0 })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className={`w-full px-3 py-2 border-2 rounded-md focus:outline-none focus:ring-2 transition-colors ${
+                            errors.base_price 
+                              ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
+                              : 'border-gray-200 focus:ring-blue-500 focus:border-blue-500'
+                          }`}
                         />
+                        {errors.base_price && (
+                          <p className="text-red-600 text-sm mt-1 flex items-center">
+                            <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                            {errors.base_price}
+                          </p>
+                        )}
                       </div>
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Discounted Price (₹)
+                          💰 Discount Percentage (%)
                         </label>
                         <input
                           type="number"
                           min="0"
-                          step="0.01"
-                          value={formData.discounted_price || ''}
-                          onChange={(e) => setFormData({ ...formData, discounted_price: parseFloat(e.target.value) || undefined })}
+                          max="99"
+                          step="1"
+                          value={formData.discount_percentage || ''}
+                          onChange={(e) => setFormData({ ...formData, discount_percentage: parseFloat(e.target.value) || 0 })}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="e.g., 20 for 20% off"
                         />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Optional: Enter percentage off from base price (0-99%)
+                        </p>
                       </div>
 
                       <div>
@@ -758,26 +1063,48 @@ const ServicesManagement: React.FC<ServicesManagementProps> = ({ onServiceChange
                             <span className="text-gray-600">Base Price:</span>
                             <span className="font-medium ml-2">{formatPrice(formData.base_price)}</span>
                           </div>
-                          {formData.discounted_price && (
-                            <div>
-                              <span className="text-gray-600">Discounted Price:</span>
-                              <span className="font-medium ml-2 text-green-600">{formatPrice(formData.discounted_price)}</span>
-                            </div>
+                          
+                          {formData.discount_percentage && formData.discount_percentage > 0 && (
+                            <>
+                              <div>
+                                <span className="text-gray-600">Discount ({formData.discount_percentage}%):</span>
+                                <span className="font-medium ml-2 text-red-600">-{formatPrice(formData.base_price * formData.discount_percentage / 100)}</span>
+                              </div>
+                              <div>
+                                <span className="text-gray-600">Discounted Price:</span>
+                                <span className="font-medium ml-2 text-green-600">{formatPrice(formData.base_price * (1 - formData.discount_percentage / 100))}</span>
+                              </div>
+                            </>
                           )}
+                          
                           <div>
                             <span className="text-gray-600">Service Charge:</span>
                             <span className="font-medium ml-2 text-orange-600">{formatPrice(formData.service_charge)}</span>
                           </div>
-                          <div>
-                            <span className="text-gray-600">GST ({formData.gst_percentage}%):</span>
-                            <span className="font-medium ml-2">{formatPrice((formData.discounted_price || formData.base_price) * formData.gst_percentage / 100)}</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-600">Total Price (with service charge):</span>
-                            <span className="font-bold ml-2 text-lg">{formatPrice((formData.discounted_price || formData.base_price) * (1 + formData.gst_percentage / 100) + formData.service_charge)}</span>
-                          </div>
-                          <div className="text-xs text-gray-500 mt-2">
-                            *Includes service charge (₹{formData.service_charge}) applied per category
+                          
+                          {(() => {
+                            const finalPrice = formData.discount_percentage && formData.discount_percentage > 0 
+                              ? formData.base_price * (1 - formData.discount_percentage / 100)
+                              : formData.base_price;
+                            const gstAmount = finalPrice * formData.gst_percentage / 100;
+                            const totalPrice = finalPrice + gstAmount + formData.service_charge;
+                            
+                            return (
+                              <>
+                                <div>
+                                  <span className="text-gray-600">GST ({formData.gst_percentage}%):</span>
+                                  <span className="font-medium ml-2">{formatPrice(gstAmount)}</span>
+                                </div>
+                                <div className="border-t pt-2">
+                                  <span className="text-gray-600">Total Price:</span>
+                                  <span className="font-bold ml-2 text-lg text-blue-600">{formatPrice(totalPrice)}</span>
+                                </div>
+                              </>
+                            );
+                          })()}
+                          
+                          <div className="text-xs text-gray-500 mt-2 bg-blue-50 p-2 rounded">
+                            💡 <strong>Price Breakdown:</strong> Base Price {formData.discount_percentage && formData.discount_percentage > 0 ? `- Discount (${formData.discount_percentage}%)` : ''} + GST ({formData.gst_percentage}%) + Service Charge (₹{formData.service_charge})
                           </div>
                         </div>
                       </div>
@@ -1029,6 +1356,20 @@ const ServicesManagement: React.FC<ServicesManagementProps> = ({ onServiceChange
                 )}
               </div>
 
+              {/* General Error Message */}
+              {errors.general && (
+                <div className="px-6 pb-4">
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+                    <div className="flex items-center">
+                      <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      {errors.general}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Modal Footer */}
               <div className="border-t border-gray-200 px-6 py-4 bg-gray-50 flex justify-between">
                 <button
@@ -1040,9 +1381,24 @@ const ServicesManagement: React.FC<ServicesManagementProps> = ({ onServiceChange
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 px-6 rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all transform hover:scale-105 shadow-lg font-semibold"
+                  disabled={isSubmitting}
+                  className={`flex-1 text-white py-3 px-6 rounded-lg transition-all transform shadow-lg font-semibold flex items-center justify-center ${
+                    isSubmitting 
+                      ? 'bg-gradient-to-r from-gray-400 to-gray-500 cursor-not-allowed' 
+                      : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 hover:scale-105'
+                  }`}
                 >
-                  {editingService ? 'Update Service' : 'Create Service'}
+                  {isSubmitting ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      {editingService ? 'Updating...' : 'Creating...'}
+                    </>
+                  ) : (
+                    editingService ? 'Update Service' : 'Create Service'
+                  )}
                 </button>
               </div>
             </form>
@@ -1124,6 +1480,9 @@ const ServicesManagement: React.FC<ServicesManagementProps> = ({ onServiceChange
                         <div>
                           <div className="text-lg font-bold text-green-600">{formatPrice(service.discounted_price)}</div>
                           <div className="text-sm text-gray-400 line-through">{formatPrice(service.base_price)}</div>
+                          <div className="text-xs text-red-500 font-medium">
+                            {Math.round(((service.base_price - service.discounted_price) / service.base_price) * 100)}% OFF
+                          </div>
                         </div>
                       ) : (
                         <div className="text-lg font-bold text-gray-900">{formatPrice(service.base_price)}</div>

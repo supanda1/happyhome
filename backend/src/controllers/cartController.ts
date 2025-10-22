@@ -18,15 +18,45 @@ const userAppliedCoupons = new Map<string, {
   appliedAt: Date;
 }>();
 
-// Helper function to extract user ID from JWT token
+// Helper function to extract user ID from JWT token (cookies or header)
 const getUserIdFromToken = (req: Request): string | null => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  // Simple cookie parser helper
+  const parseCookies = (req: Request): Record<string, string> => {
+    const cookies: Record<string, string> = {};
+    const cookieHeader = req.headers.cookie;
+    
+    if (cookieHeader) {
+      cookieHeader.split(';').forEach(cookie => {
+        const [name, ...rest] = cookie.split('=');
+        const value = rest.join('=').trim();
+        if (name && value) {
+          cookies[name.trim()] = decodeURIComponent(value);
+        }
+      });
+    }
+    
+    return cookies;
+  };
+
+  // Get cookies from request
+  const cookies = parseCookies(req);
+  
+  // First try to get token from HTTP-only cookie
+  let token = cookies.access_token;
+  
+  // Fallback to Authorization header if no cookie (for backward compatibility)
+  if (!token) {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+    }
+  }
+  
+  if (!token) {
     return null;
   }
   
   try {
-    const token = authHeader.substring(7);
     const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
     return decoded.userId;
   } catch {
@@ -34,8 +64,16 @@ const getUserIdFromToken = (req: Request): string | null => {
   }
 };
 
-// Simple cookie parser helper
-const parseCookies = (req: Request): Record<string, string> => {
+
+// Get or create anonymous session ID for non-authenticated users
+const getOrCreateSessionId = (req: Request, res: Response): string => {
+  // First try to get user ID from JWT token
+  const userId = getUserIdFromToken(req);
+  if (userId) {
+    return userId; // Return actual user UUID
+  }
+  
+  // For anonymous users, use session cookie with UUID format
   const cookies: Record<string, string> = {};
   const cookieHeader = req.headers.cookie;
   
@@ -49,19 +87,6 @@ const parseCookies = (req: Request): Record<string, string> => {
     });
   }
   
-  return cookies;
-};
-
-// Get or create anonymous session ID for non-authenticated users
-const getOrCreateSessionId = (req: Request, res: Response): string => {
-  // First try to get user ID from JWT token
-  const userId = getUserIdFromToken(req);
-  if (userId) {
-    return userId; // Return actual user UUID
-  }
-  
-  // For anonymous users, use session cookie with UUID format
-  const cookies = parseCookies(req);
   let sessionId = cookies['cart_session'];
   
   // Validate existing sessionId is a proper UUID format
@@ -94,7 +119,7 @@ export const getCart = async (req: Request, res: Response) => {
       SELECT 
         ci.id,
         ci.service_id as "serviceId",
-        ci.variant_id as "variantId", 
+        ci.service_variant_id as "variantId", 
         ci.quantity,
         ci.unit_price as "unitPrice",
         ci.created_at as "createdAt",
@@ -226,7 +251,7 @@ export const addToCart = async (req: Request, res: Response) => {
     // Check if item already exists in cart
     const existingItem = await pool.query(`
       SELECT * FROM cart_items 
-      WHERE user_id = $1 AND service_id = $2 AND variant_id IS NOT DISTINCT FROM $3
+      WHERE user_id = $1 AND service_id = $2 AND service_variant_id IS NOT DISTINCT FROM $3
     `, [sessionId, serviceId, variantId || null]);
 
     let cartItem;
@@ -247,7 +272,7 @@ export const addToCart = async (req: Request, res: Response) => {
       // Insert new item
       const insertResult = await pool.query(`
         INSERT INTO cart_items (
-          id, user_id, service_id, variant_id, quantity, unit_price, customizations
+          id, user_id, service_id, service_variant_id, quantity, unit_price, customizations
         )
         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, '{}')
         RETURNING *
@@ -261,7 +286,7 @@ export const addToCart = async (req: Request, res: Response) => {
       id: cartItem.id,
       serviceId: cartItem.service_id,
       serviceName: service.name,
-      variantId: cartItem.variant_id,
+      variantId: cartItem.service_variant_id,
       quantity: cartItem.quantity,
       basePrice: service.base_price,
       discountedPrice: service.discounted_price,
@@ -335,7 +360,7 @@ export const updateCartItem = async (req: Request, res: Response) => {
       id: updateResult.rows[0].id,
       serviceId: updateResult.rows[0].service_id,
       serviceName: item.service_name,
-      variantId: updateResult.rows[0].variant_id,
+      variantId: updateResult.rows[0].service_variant_id,
       quantity: updateResult.rows[0].quantity,
       basePrice: item.base_price,
       discountedPrice: item.discounted_price,
@@ -424,24 +449,47 @@ export const clearCart = async (req: Request, res: Response) => {
 // Apply coupon to cart
 export const applyCoupon = async (req: Request, res: Response) => {
   try {
+    console.log('🎟️ Applying coupon - Request body:', req.body);
     
     const { couponCode } = req.body;
     
     // Get session ID (works for both authenticated and anonymous users)
     const sessionId = getOrCreateSessionId(req, res);
+    console.log('🔑 Session ID:', sessionId);
 
     if (!couponCode) {
+      console.log('❌ No coupon code provided');
       return res.status(400).json({
         success: false,
         error: 'Coupon code is required'
       });
     }
 
-    // Validate coupon
+    console.log('🎯 Applying coupon:', couponCode);
+
+    // Validate coupon using correct column names
     const couponResult = await pool.query(`
-      SELECT * FROM coupons 
+      SELECT 
+        id,
+        code,
+        title,
+        description,
+        discount_type,
+        discount_value,
+        minimum_order_amount,
+        maximum_discount_amount,
+        valid_from,
+        valid_until,
+        usage_limit,
+        usage_count,
+        usage_limit_per_user,
+        is_active,
+        first_time_users_only,
+        applicable_categories,
+        applicable_services
+      FROM coupons 
       WHERE code = $1 AND is_active = true 
-      AND valid_from <= NOW() AND valid_until >= NOW()
+      AND valid_from <= CURRENT_DATE AND valid_until >= CURRENT_DATE
     `, [couponCode]);
 
     if (couponResult.rows.length === 0) {
@@ -451,6 +499,8 @@ export const applyCoupon = async (req: Request, res: Response) => {
       });
     }
 
+    const coupon = couponResult.rows[0];
+    
     // Get cart items with category and service information for validation
     const cartItemsResult = await pool.query(`
       SELECT 
@@ -476,7 +526,6 @@ export const applyCoupon = async (req: Request, res: Response) => {
     `, [sessionId]);
 
     const total = parseFloat(cartTotal.rows[0].total);
-    const coupon = couponResult.rows[0];
 
     // Check minimum order amount
     if (total < coupon.minimum_order_amount) {
@@ -486,13 +535,79 @@ export const applyCoupon = async (req: Request, res: Response) => {
       });
     }
 
+    // Check first-time user restriction (for authenticated users only)
+    if (coupon.first_time_users_only) {
+      const userId = getUserIdFromToken(req);
+      if (userId) {
+        // Check if user has any previous orders
+        const existingOrdersResult = await pool.query(
+          'SELECT COUNT(*) FROM orders WHERE customer_id = $1',
+          [userId]
+        );
+        if (parseInt(existingOrdersResult.rows[0].count) > 0) {
+          return res.status(400).json({
+            success: false,
+            error: 'This coupon is only valid for first-time users'
+          });
+        }
+      }
+      // For anonymous users, allow coupon application (will be validated during order creation)
+      // Anonymous users are by definition first-time users for coupon purposes
+    }
+
+    // Check usage limits
+    if (coupon.usage_limit && coupon.usage_count >= coupon.usage_limit) {
+      return res.status(400).json({
+        success: false,
+        error: 'Coupon usage limit exceeded'
+      });
+    }
+
+    // Check per-user usage limit (for authenticated users only)
+    if (coupon.usage_limit_per_user) {
+      const userId = getUserIdFromToken(req);
+      if (userId) {
+        const userUsageResult = await pool.query(
+          'SELECT COUNT(*) FROM coupon_usages WHERE coupon_id = $1 AND user_id = $2',
+          [coupon.id, userId]
+        );
+        if (parseInt(userUsageResult.rows[0].count) >= coupon.usage_limit_per_user) {
+          return res.status(400).json({
+            success: false,
+            error: 'You have already used this coupon the maximum number of times'
+          });
+        }
+      }
+    }
+
     // Validate coupon applicability to cart items
     const cartItems = cartItemsResult.rows;
 
+    // Parse JSONB fields and check category/service restrictions
+    let applicableCategories = [];
+    let applicableServices = [];
+    
+    try {
+      if (coupon.applicable_categories) {
+        applicableCategories = typeof coupon.applicable_categories === 'string' 
+          ? JSON.parse(coupon.applicable_categories) 
+          : coupon.applicable_categories;
+      }
+      
+      if (coupon.applicable_services) {
+        applicableServices = typeof coupon.applicable_services === 'string' 
+          ? JSON.parse(coupon.applicable_services) 
+          : coupon.applicable_services;
+      }
+    } catch (jsonError) {
+      console.error('Error parsing coupon restrictions:', jsonError);
+      // Continue with empty arrays if JSON parsing fails
+    }
+
     // Check if coupon has category restrictions
-    if (coupon.applicable_categories && coupon.applicable_categories.length > 0) {
+    if (Array.isArray(applicableCategories) && applicableCategories.length > 0) {
       const hasValidCategory = cartItems.some(item => 
-        coupon.applicable_categories.includes(item.category_id)
+        applicableCategories.includes(item.category_id)
       );
       
       if (!hasValidCategory) {
@@ -504,9 +619,9 @@ export const applyCoupon = async (req: Request, res: Response) => {
     }
 
     // Check if coupon has service restrictions
-    if (coupon.applicable_services && coupon.applicable_services.length > 0) {
+    if (Array.isArray(applicableServices) && applicableServices.length > 0) {
       const hasValidService = cartItems.some(item => 
-        coupon.applicable_services.includes(item.service_id)
+        applicableServices.includes(item.service_id)
       );
       
       if (!hasValidService) {
@@ -518,15 +633,17 @@ export const applyCoupon = async (req: Request, res: Response) => {
     }
 
 
-    // Calculate discount
+    // Calculate discount using correct field names
     let discountAmount = 0;
-    if (coupon.type === 'percentage') {
-      discountAmount = (total * coupon.value) / 100;
+    if (coupon.discount_type === 'percentage') {
+      discountAmount = (total * coupon.discount_value) / 100;
       if (coupon.maximum_discount_amount) {
         discountAmount = Math.min(discountAmount, coupon.maximum_discount_amount);
       }
-    } else if (coupon.type === 'fixed_amount') {
-      discountAmount = Math.min(coupon.value, total);
+    } else if (coupon.discount_type === 'fixed_amount') {
+      discountAmount = Math.min(coupon.discount_value, total);
+    } else if (coupon.discount_type === 'free_service') {
+      discountAmount = Math.min(coupon.discount_value, total);
     }
 
     // Store applied coupon information
@@ -552,7 +669,8 @@ export const applyCoupon = async (req: Request, res: Response) => {
       message: `Coupon applied! You save ₹${Math.round(discountAmount)}`
     });
   } catch (error) {
-    console.error('Error applying coupon:', error);
+    console.error('💥 Error applying coupon:', error);
+    console.error('💥 Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     res.status(500).json({
       success: false,
       error: 'Failed to apply coupon'

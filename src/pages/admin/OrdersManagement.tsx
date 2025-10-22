@@ -8,43 +8,10 @@ import {
   getStatusDisplayName,
   getStatusColor
 } from '../../utils/adminDataManager';
-import type { OrderHistory } from '../../types/api';
+import { ordersAPI } from '../../services/api';
+import type { OrderHistory, OrderItem, Order } from '../../types/api';
 
-// Enhanced Order and OrderItem types for this component
-interface OrderItem {
-  id: string;
-  service_name: string;
-  quantity: number;
-  unit_price: number;
-  total_price: number;
-  price?: number; // Computed field for backward compatibility
-  item_status: 'pending' | 'assigned' | 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
-  status?: 'pending' | 'assigned' | 'scheduled' | 'in_progress' | 'completed' | 'cancelled'; // Computed field
-  notes?: string;
-  item_notes?: string;
-}
-
-interface Order {
-  id: string;
-  order_number: string;
-  customer_name: string;
-  customer_phone: string;
-  customer_email: string;
-  customer_address: string;
-  service_address?: any; // Support for JSONB address format from backend
-  status: 'pending' | 'confirmed' | 'scheduled' | 'in_progress' | 'completed' | 'cancelled' | 'postponed';
-  priority: 'low' | 'medium' | 'high' | 'urgent';
-  total_amount: number;
-  created_at: string;
-  updated_at: string;
-  items: OrderItem[];
-  notes?: string;
-  // Additional fields that might be in API response
-  customer_id?: string;
-  service_date?: string;
-  final_amount?: number;
-  [key: string]: any; // Allow additional properties from API
-}
+// Using imported types from api.ts
 
 const OrdersManagement: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -157,7 +124,7 @@ const OrdersManagement: React.FC = () => {
     }
   };
 
-  // Check if all tasks are completed and auto-complete the order
+  // Check if all tasks are completed and auto-complete the order (only for in_progress orders)
   const checkAndCompleteOrder = async (orderId: string) => {
     try {
       // Get fresh order data
@@ -172,13 +139,30 @@ const OrdersManagement: React.FC = () => {
         const freshOrder = orderData.data || orderData;
         
         if (freshOrder && freshOrder.items && freshOrder.items.length > 0) {
+          // Only auto-complete if order is currently in_progress (not for other statuses)
+          if (freshOrder.status !== 'in_progress') {
+            console.log('🔍 Order not in progress, skipping auto-completion check:', freshOrder.status);
+            return;
+          }
+          
           // Check if all items are completed
           const allItemsCompleted = freshOrder.items.every((item: any) => 
-            item.item_status === 'completed' || item.status === 'completed'
+            item.item_status === 'completed'
           );
           
-          if (allItemsCompleted && freshOrder.status !== 'completed') {
-            console.log('✅ All tasks completed - Auto-completing order');
+          const completedCount = freshOrder.items.filter((item: any) => item.item_status === 'completed').length;
+          const totalCount = freshOrder.items.length;
+          
+          console.log('🔍 Completion check:', {
+            orderId: freshOrder.id,
+            orderStatus: freshOrder.status,
+            completedTasks: completedCount,
+            totalTasks: totalCount,
+            allItemsCompleted
+          });
+          
+          if (allItemsCompleted && freshOrder.status === 'in_progress') {
+            console.log('✅ All tasks completed manually - Auto-completing order');
             await handleOrderStatusUpdate(orderId, 'completed');
             
             // Additional local state update to ensure UI consistency
@@ -199,8 +183,12 @@ const OrdersManagement: React.FC = () => {
             
             setNotification({
               type: 'success', 
-              message: `🎉 All tasks completed! Order #${freshOrder.order_number || freshOrder.id.slice(0, 8).toUpperCase()} automatically marked as completed.`
+              message: `🎉 All ${totalCount} tasks completed individually! Order #${freshOrder.order_number || freshOrder.id.slice(0, 8).toUpperCase()} automatically marked as completed.`
             });
+          } else if (allItemsCompleted) {
+            console.log('ℹ️ All items completed but order not in progress status. Current status:', freshOrder.status);
+          } else {
+            console.log('ℹ️ Order completion check - still pending:', `${completedCount}/${totalCount} tasks completed`);
           }
         }
       }
@@ -272,15 +260,15 @@ const OrdersManagement: React.FC = () => {
         try {
           const processedItems = (order.items || []).map((item: any) => {
             // Fix price mapping: use total_price or unit_price as fallback
-            const itemPrice = item.total_price || item.unit_price || item.price || 0;
+            const itemPrice = item.total_price || item.unit_price || 0;
             
             // Fix status synchronization: if main order is cancelled, override item status
-            const itemStatus = order.status === 'cancelled' ? 'cancelled' : (item.item_status || item.status || 'pending');
+            const itemStatus = order.status === 'cancelled' ? 'cancelled' : (item.item_status || 'pending');
             
             return {
               ...item,
-              price: itemPrice, // Map to expected field name
-              status: itemStatus // Map to expected field name with sync logic
+              total_price: itemPrice, // Ensure total_price is set
+              item_status: itemStatus // Ensure item_status is set with sync logic
             };
           });
           
@@ -288,7 +276,7 @@ const OrdersManagement: React.FC = () => {
             ...order,
             items: processedItems,
             // Ensure required fields exist
-            customer_address: order.customer_address || 'Address not provided'
+            service_address: order.service_address || { city: 'Address not provided', state: '', pincode: '' }
           };
         } catch (itemError) {
           console.error('Error processing order:', order.id, itemError);
@@ -299,6 +287,25 @@ const OrdersManagement: React.FC = () => {
       console.log('✅ Processed orders:', {
         count: processedOrders.length,
         sample: processedOrders[0]
+      });
+      
+      // Debug engineer assignment data before setting orders
+      console.log('🔍 PROCESSED ORDERS DEBUG:', {
+        totalOrders: processedOrders.length,
+        sampleOrderWithAssignments: processedOrders.find(o => o.items?.some((item: any) => item.assigned_engineer_name)),
+        allAssignedEngineers: processedOrders.flatMap(o => 
+          o.items?.filter((item: any) => item.assigned_engineer_name)
+            .map((item: any) => ({
+              orderId: o.id,
+              orderNumber: o.order_number,
+              serviceName: item.service_name,
+              engineerName: item.assigned_engineer_name,
+              engineerId: item.assigned_engineer_id,
+              itemStatus: item.item_status,
+              scheduledDate: item.scheduled_date,
+              scheduledTimeSlot: item.scheduled_time_slot
+            })) || []
+        )
       });
       
       setOrders(processedOrders);
@@ -383,12 +390,13 @@ const OrdersManagement: React.FC = () => {
       if (result) {
         console.log(`✅ Order status updated successfully:`, result);
         
-        // If completing or cancelling the order, also update all item statuses
-        if (newStatus === 'completed') {
+        // If completing, confirming, or cancelling the order, also update all item statuses
+        if (newStatus === 'completed' || newStatus === 'confirmed') {
           try {
             const order = orders.find(o => o.id === orderId);
             if (order && order.items) {
-              console.log(`🔄 Updating ${order.items.length} item statuses to completed...`);
+              const targetItemStatus = newStatus === 'completed' ? 'completed' : 'confirmed';
+              console.log(`🔄 Updating ${order.items.length} item statuses to ${targetItemStatus}...`);
               
               const itemUpdatePromises = order.items.map(async (item) => {
                 try {
@@ -399,13 +407,13 @@ const OrdersManagement: React.FC = () => {
                     },
                     credentials: 'include',
                     body: JSON.stringify({
-                      item_status: 'completed',
-                      item_notes: `${item.item_notes || ''}\n[${new Date().toISOString().substring(0, 10)}] Completed via order completion`
+                      item_status: targetItemStatus,
+                      item_notes: `${item.item_notes || ''}\n[${new Date().toISOString().substring(0, 10)}] ${targetItemStatus === 'completed' ? 'Completed' : 'Confirmed'} via order ${newStatus}`
                     }),
                   });
                   
                   if (response.ok) {
-                    console.log(`✅ Item ${item.service_name} status updated to completed`);
+                    console.log(`✅ Item ${item.service_name} status updated to ${targetItemStatus}`);
                   } else {
                     console.warn(`⚠️ Failed to update item ${item.service_name} status:`, response.status);
                   }
@@ -415,7 +423,7 @@ const OrdersManagement: React.FC = () => {
               });
               
               await Promise.allSettled(itemUpdatePromises);
-              console.log(`✅ All item statuses updated for order ${orderId}`);
+              console.log(`✅ All item statuses updated to ${targetItemStatus} for order ${orderId}`);
             }
           } catch (itemsError) {
             console.warn('⚠️ Failed to update some item statuses:', itemsError);
@@ -429,7 +437,7 @@ const OrdersManagement: React.FC = () => {
             return {
               ...order,
               status: newStatus,
-              // Update item statuses for cancelled and completed orders
+              // Update item statuses for cancelled, completed, and confirmed orders
               items: (newStatus === 'cancelled') ? order.items.map(item => ({
                 ...item,
                 status: 'cancelled',
@@ -438,6 +446,10 @@ const OrdersManagement: React.FC = () => {
                 ...item,
                 status: 'completed',
                 item_status: 'completed'
+              })) : (newStatus === 'confirmed') ? order.items.map(item => ({
+                ...item,
+                status: 'confirmed',
+                item_status: 'confirmed'
               })) : order.items
             };
           }
@@ -449,6 +461,8 @@ const OrdersManagement: React.FC = () => {
           type: 'success', 
           message: newStatus === 'completed' 
             ? `Order completed successfully! All items marked as completed.`
+            : newStatus === 'confirmed'
+            ? `Order confirmed successfully! All tasks marked as confirmed.`
             : `Order status updated to ${newStatus} successfully.`
         });
       } else {
@@ -463,7 +477,19 @@ const OrdersManagement: React.FC = () => {
   // Handle employee assignment to order item
   const handleAssignEmployee = async (orderId: string, itemId: string, employeeId: string) => {
     try {
+      console.log('🎯 Manual Assignment Started:', {
+        orderId,
+        itemId, 
+        employeeId,
+        selectedEmployee,
+        showAssignModal
+      });
+      
       setAssignmentLoading(true);
+      
+      // Find the selected employee details
+      const selectedEmp = employees.find(emp => emp.id === employeeId || emp.employee_id === employeeId);
+      console.log('👤 Selected Employee:', selectedEmp);
       
       const response = await fetch(`/api/orders/${orderId}/items/${itemId}/assign`, {
         method: 'POST',
@@ -478,36 +504,33 @@ const OrdersManagement: React.FC = () => {
         }),
       });
 
+      console.log('📡 Assignment API Response:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        url: response.url
+      });
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Assignment failed: ${response.status}`);
+        console.error('❌ Assignment API Failed - Status:', response.status);
+        const errorText = await response.text();
+        console.error('❌ Assignment API Error Body:', errorText);
+        
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { error: errorText || `HTTP ${response.status}` };
+        }
+        
+        throw new Error(errorData.error || `Assignment failed: ${response.status} - ${errorText}`);
       }
 
       const result = await response.json();
       console.log('✅ Employee assigned successfully:', result);
       
-      // After successful assignment, update item status to scheduled
-      try {
-        const statusResponse = await fetch(`/api/orders/${orderId}/items/${itemId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-          body: JSON.stringify({
-            item_status: 'scheduled',
-            item_notes: `Task moved from ${(orders.find(o => o.id === orderId)?.items?.find(i => i.id === itemId)?.status || 'unknown')} to scheduled after employee assignment`
-          }),
-        });
-
-        if (statusResponse.ok) {
-          console.log('✅ Task status updated to scheduled');
-        } else {
-          console.warn('⚠️ Failed to update task status, but assignment succeeded');
-        }
-      } catch (statusError) {
-        console.warn('⚠️ Assignment succeeded but status update failed:', statusError);
-      }
+      // Note: Task status remains 'pending' after assignment - admins can manually change status as needed
+      console.log('✅ Employee assigned successfully - task remains in pending state for admin review');
       
       await fetchData(); // Refresh orders data
       
@@ -531,8 +554,8 @@ const OrdersManagement: React.FC = () => {
             );
             
             if (allTasksAssigned && freshOrder.items && freshOrder.items.length > 0) {
-              console.log('✅ All tasks assigned - Auto-moving order to scheduled status');
-              await handleOrderStatusUpdate(orderId, 'scheduled');
+              console.log('✅ All tasks assigned - Order remains in current state for admin approval');
+              // Order status remains unchanged - admin must manually approve status changes
             }
           }
         }
@@ -541,14 +564,28 @@ const OrdersManagement: React.FC = () => {
         // Don't fail the assignment if auto-scheduling fails
       }
       
-      setNotification({type: 'success', message: 'Employee assigned! Task moved to scheduled. Order will auto-move to scheduled when all tasks are assigned.'});
+      console.log('🎉 Assignment successful - setting success notification');
+      setNotification({type: 'success', message: 'Employee assigned successfully! Task remains in pending state for admin approval.'});
       setShowAssignModal(null);
       setSelectedEmployee('');
+      console.log('✅ Assignment completed successfully');
     } catch (error) {
       console.error('❌ Failed to assign employee:', error);
-      setNotification({type: 'error', message: `Failed to assign employee: ${error instanceof Error ? error.message : 'Unknown error'}`});
+      console.error('❌ Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        orderId,
+        itemId,
+        employeeId
+      });
+      
+      setNotification({
+        type: 'error', 
+        message: `Failed to assign employee: ${error instanceof Error ? error.message : 'Unknown error'}`
+      });
     } finally {
       setAssignmentLoading(false);
+      console.log('🔄 Assignment loading finished');
     }
   };
 
@@ -572,8 +609,7 @@ const OrdersManagement: React.FC = () => {
         body: JSON.stringify({
           scheduled_date: scheduledDate,
           scheduled_time_slot: scheduledTimeSlot,
-          item_status: 'scheduled',
-          item_notes: `Manually scheduled by admin for ${scheduledDate} at ${scheduledTimeSlot}`
+          item_notes: `Manually scheduled by admin for ${scheduledDate} at ${scheduledTimeSlot} - Status remains pending for admin approval`
         }),
       });
 
@@ -594,17 +630,8 @@ const OrdersManagement: React.FC = () => {
       // Check if all tasks in the order are now scheduled and update order status
       const currentOrder = orders.find(order => order.id === showScheduleModal.orderId);
       if (currentOrder && currentOrder.status === 'confirmed') {
-        // Check if all items will be scheduled after this update
-        const allItemsScheduled = currentOrder.items.every(item => 
-          item.id === showScheduleModal.itemId || // Current item being scheduled
-          item.status === 'scheduled' || // Already scheduled items
-          ((item as any).scheduled_date && (item as any).scheduled_time_slot) // Has scheduling data
-        );
-        
-        if (allItemsScheduled) {
-          // Auto-update order status to scheduled
-          await handleOrderStatusUpdate(showScheduleModal.orderId, 'scheduled');
-        }
+        // Note: Scheduling information is saved but status remains pending for admin approval
+        console.log('✅ Scheduling information saved - task remains in pending state for admin approval');
       }
       
       // Reset form
@@ -626,28 +653,56 @@ const OrdersManagement: React.FC = () => {
   // Handle auto-assignment for entire order
   const handleAutoAssignOrder = async (orderId: string) => {
     try {
-      const response = await fetch(`/api/orders/${orderId}/auto-assign`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Auto-assignment failed: ${response.status}`);
+      const response = await ordersAPI.autoAssignEngineers(orderId);
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Auto-assignment failed');
       }
 
-      const result = await response.json();
+      const result = response.data;
       console.log('✅ Order auto-assigned successfully:', result);
+      
+      // Detailed debugging for assignment result
+      console.log('🔍 AUTO-ASSIGNMENT FRONTEND DEBUG:', {
+        orderId: orderId,
+        response: response,
+        successfulAssignments: result?.successful_assignments,
+        failedAssignments: result?.failed_assignments
+      });
+      
+      // Check if this was a case where all items were already assigned
+      if (result && result.successful_assignments === 0 && result.failed_assignments === 0) {
+        setNotification({
+          type: 'info',
+          message: 'All items in this order are already assigned to engineers'
+        });
+        
+        // Clear notification after 5 seconds and then refresh data
+        setTimeout(() => {
+          setNotification(null);
+          fetchData(); // Refresh to update UI
+        }, 5000);
+        
+        return;
+      }
+      
+      // Show success notification with assignment details
+      if (result && result.successful_assignments > 0) {
+        setNotification({
+          type: 'success',
+          message: `Successfully assigned ${result.successful_assignments} item${result.successful_assignments !== 1 ? 's' : ''} to engineers`
+        });
+      }
       
       // After successful auto-assignment, update all assigned items to in_progress
       try {
         const order = orders.find(o => o.id === orderId);
         if (order) {
+          // Note: Tasks remain in 'pending' status after auto-assignment for admin review
+          console.log('✅ All tasks auto-assigned successfully - tasks remain in pending state for admin approval');
+          
+          // Optional: Add notes to indicate auto-assignment without changing status
           const updatePromises = order.items.map(async (item) => {
-            const currentStatus = item.status || 'pending';
             try {
               const statusResponse = await fetch(`/api/orders/${orderId}/items/${item.id}`, {
                 method: 'PUT',
@@ -656,18 +711,17 @@ const OrdersManagement: React.FC = () => {
                 },
                 credentials: 'include',
                 body: JSON.stringify({
-                  item_status: 'scheduled',
-                  item_notes: `Task moved from ${currentStatus} to scheduled after auto-assignment`
+                  item_notes: `Auto-assigned engineer - Status remains pending for admin approval`
                 }),
               });
               
               if (statusResponse.ok) {
-                console.log(`✅ Task "${item.service_name}" status: ${currentStatus} → scheduled`);
+                console.log(`✅ Added auto-assignment note for "${item.service_name}"`);
               } else {
-                console.warn(`⚠️ Failed to update status for ${item.service_name}`);
+                console.warn(`⚠️ Failed to add note for ${item.service_name}`);
               }
             } catch (itemError) {
-              console.warn(`⚠️ Status update failed for ${item.service_name}:`, itemError);
+              console.warn(`⚠️ Note update failed for ${item.service_name}:`, itemError);
             }
           });
           
@@ -693,8 +747,8 @@ const OrdersManagement: React.FC = () => {
           const freshOrder = orderData.data || orderData;
           
           if (freshOrder && freshOrder.status === 'confirmed') {
-            console.log('✅ All tasks auto-assigned - Auto-moving order to scheduled status');
-            await handleOrderStatusUpdate(orderId, 'scheduled');
+            console.log('✅ All tasks auto-assigned - Order remains in confirmed state for admin approval');
+            // Order status remains unchanged - admin must manually approve status changes
           }
         }
       } catch (autoScheduleError) {
@@ -702,7 +756,10 @@ const OrdersManagement: React.FC = () => {
         // Don't fail the auto-assignment if auto-scheduling fails
       }
       
-      setNotification({type: 'success', message: 'All tasks auto-assigned and moved to scheduled! Order status updated to scheduled.'});
+      // Only show success notification if actual assignments were made
+      if (result && result.successful_assignments > 0) {
+        setNotification({type: 'success', message: 'All tasks auto-assigned successfully! Tasks remain in pending state for admin approval.'});
+      }
     } catch (error) {
       console.error('❌ Failed to auto-assign order:', error);
       setNotification({type: 'error', message: `Failed to auto-assign order: ${error instanceof Error ? error.message : 'Unknown error'}`});
@@ -720,15 +777,15 @@ const OrdersManagement: React.FC = () => {
 
       // Check if all tasks have scheduled times configured
       const unscheduledTasks = order.items?.filter(item => {
-        const hasDate = (item as any).scheduled_date;
-        const hasTimeSlot = (item as any).scheduled_time_slot;
+        const hasDate = item.scheduled_date;
+        const hasTimeSlot = item.scheduled_time_slot;
         return !hasDate || !hasTimeSlot;
       }) || [];
 
       if (unscheduledTasks.length > 0) {
         const taskDetails = unscheduledTasks.map(task => {
-          const hasDate = (task as any).scheduled_date;
-          const hasTimeSlot = (task as any).scheduled_time_slot;
+          const hasDate = task.scheduled_date;
+          const hasTimeSlot = task.scheduled_time_slot;
           const missing = [];
           if (!hasDate) missing.push('date');
           if (!hasTimeSlot) missing.push('time slot');
@@ -1023,7 +1080,7 @@ const OrdersManagement: React.FC = () => {
     completed: orders.filter(o => getEffectiveOrderStatus(o) === 'completed').length,
     totalRevenue: Math.round(orders
       .filter(o => getEffectiveOrderStatus(o) === 'completed') // Only count completed orders for revenue
-      .reduce((sum, order) => sum + (Number(order.total_amount) || 0), 0))
+      .reduce((sum, order) => sum + (Number(order.final_amount) || Number(order.total_amount) || 0), 0))
   };
 
   return (
@@ -1346,7 +1403,7 @@ const OrdersManagement: React.FC = () => {
                             {order.customer_name}
                           </span>
                           <span className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
-                            ₹{order.total_amount?.toLocaleString() || 0}
+                            ₹{(order.final_amount || order.total_amount || 0).toLocaleString()}
                           </span>
                           <span className="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded-full">
                             📞 {order.customer_phone}
@@ -1362,8 +1419,8 @@ const OrdersManagement: React.FC = () => {
                       </span>
                       
                       {/* Inline Action Buttons - Conditional based on order status */}
-                      {/* Status button only for pending orders */}
-                      {getEffectiveOrderStatus(order) === 'pending' && (
+                      {/* Status button for orders that can have status changes (not completed, cancelled, confirmed, or scheduled) */}
+                      {!['completed', 'cancelled', 'confirmed', 'scheduled'].includes(getEffectiveOrderStatus(order)) && (
                         <button
                           onClick={() => setShowStatusModal({
                             orderId: order.id,
@@ -1422,7 +1479,7 @@ const OrdersManagement: React.FC = () => {
                         className="bg-violet-500 hover:bg-violet-600 text-white font-medium py-1 px-3 rounded-full transition-colors duration-200 text-xs flex items-center space-x-1"
                       >
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 616 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 6 1 6 0z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                         </svg>
                         <span>
@@ -1642,9 +1699,9 @@ const OrdersManagement: React.FC = () => {
                             const parts = [];
                             if (addr.area) parts.push(addr.area);
                             if (addr.city) parts.push(addr.city);
-                            return parts.length > 0 ? parts.join(', ') : (order.customer_address || 'Address not provided');
+                            return parts.length > 0 ? parts.join(', ') : 'Address not provided';
                           }
-                          return serviceAddr || order.customer_address || 'Address not provided';
+                          return serviceAddr || 'Address not provided';
                         })()}
                       </div>
                     </div>
@@ -1677,8 +1734,8 @@ const OrdersManagement: React.FC = () => {
                         <div className="text-xs text-indigo-600 font-medium mb-1">Service Schedule:</div>
                         {order.items && order.items.length > 0 ? (
                           order.items.map((item, index) => {
-                            const scheduledDate = (item as any).scheduled_date;
-                            const scheduledTime = (item as any).scheduled_time_slot;
+                            const scheduledDate = item.scheduled_date;
+                            const scheduledTime = item.scheduled_time_slot;
                             
                             return (
                               <div key={item.id || index} className="flex items-center justify-between text-xs">
@@ -1768,7 +1825,7 @@ const OrdersManagement: React.FC = () => {
                           <div className="p-4">
                             <div className="space-y-3">
                               {order.items.map((item, index) => {
-                                const itemPrice = Number(item.price) || Number(item.total_price) || Number(item.unit_price) || 0;
+                                const itemPrice = Number(item.total_price) || Number(item.unit_price) || 0;
                                 const itemQuantity = Number(item.quantity) || 1;
                                 const totalPrice = Number(item.total_price) || (itemPrice * itemQuantity) || 0;
                                 
@@ -1810,19 +1867,19 @@ const OrdersManagement: React.FC = () => {
                                         
                                         <div className="flex items-center space-x-2">
                                           <div className={`px-2 py-1 text-xs font-bold rounded-lg border ${
-                                            (order.status === 'cancelled' || item.status === 'cancelled') ? 'bg-red-100 text-red-700 border-red-300' :
-                                            (getEffectiveOrderStatus(order) === 'completed' || item.status === 'completed') ? 'bg-emerald-100 text-emerald-700 border-emerald-300' :
-                                            item.status === 'in_progress' ? 'bg-blue-100 text-blue-700 border-blue-300' :
-                                            item.status === 'assigned' ? 'bg-amber-100 text-amber-700 border-amber-300' :
+                                            (order.status === 'cancelled' || item.item_status === 'cancelled') ? 'bg-red-100 text-red-700 border-red-300' :
+                                            (getEffectiveOrderStatus(order) === 'completed' || item.item_status === 'completed') ? 'bg-emerald-100 text-emerald-700 border-emerald-300' :
+                                            item.item_status === 'in_progress' ? 'bg-blue-100 text-blue-700 border-blue-300' :
+                                            item.item_status === 'scheduled' ? 'bg-amber-100 text-amber-700 border-amber-300' :
                                             'bg-gray-100 text-gray-700 border-gray-300'
                                           }`}>
                                             {order.status === 'cancelled' ? 'CANCELLED' : 
                                              getEffectiveOrderStatus(order) === 'completed' ? 'COMPLETED' :
-                                             (item.status || 'pending').toUpperCase()}
+                                             (item.item_status || 'pending').toUpperCase()}
                                           </div>
                                           
                                           {/* Complete Task Button - Show for in_progress and scheduled tasks */}
-                                          {(item.status === 'in_progress' || (item.status === 'scheduled' && getEffectiveOrderStatus(order) === 'in_progress')) && order.status !== 'cancelled' && getEffectiveOrderStatus(order) !== 'completed' && (
+                                          {(item.item_status === 'in_progress' || (item.item_status === 'scheduled' && getEffectiveOrderStatus(order) === 'in_progress')) && order.status !== 'cancelled' && getEffectiveOrderStatus(order) !== 'completed' && (
                                             <button
                                               onClick={() => handleCompleteTask(order.id, item.id, item.service_name)}
                                               className="bg-green-500 hover:bg-green-600 text-white font-medium py-1 px-2 rounded-lg transition-colors duration-200 text-xs flex items-center space-x-1 shadow-sm hover:shadow-md transform hover:scale-105"
@@ -1857,14 +1914,26 @@ const OrdersManagement: React.FC = () => {
                                                 value={(item as any).assigned_engineer_id || ''}
                                                 onChange={async (e) => {
                                                   const newEngineerId = e.target.value;
+                                                  console.log('🎯 Inline Assignment Started:', {
+                                                    orderId: order.id,
+                                                    orderNumber: order.order_number,
+                                                    itemId: item.id,
+                                                    serviceName: item.service_name,
+                                                    newEngineerId,
+                                                    availableEmployees: employees.map(emp => ({ id: emp.id, name: emp.name }))
+                                                  });
+                                                  
                                                   const selectedEngineer = employees.find(emp => emp.id === newEngineerId);
+                                                  console.log('👤 Selected Engineer for inline assignment:', selectedEngineer);
                                                   
                                                   if (!selectedEngineer) {
+                                                    console.error('❌ No engineer found for ID:', newEngineerId);
                                                     setOrderError(order.id, 'Please select a valid engineer for this task');
                                                     return;
                                                   }
                                                   
                                                   try {
+                                                    console.log('📡 Making inline assignment API call...');
                                                     const response = await fetch(`/api/orders/${order.id}/items/${item.id}/assign`, {
                                                       method: 'POST',
                                                       headers: { 'Content-Type': 'application/json' },
@@ -1872,16 +1941,35 @@ const OrdersManagement: React.FC = () => {
                                                       body: JSON.stringify({
                                                         engineer_id: newEngineerId,
                                                         scheduled_date: new Date().toISOString(),
-                                                        notes: `Engineer reassigned to ${selectedEngineer.name} by admin`
+                                                        scheduled_time_slot: '09:00-11:00', // Default time slot for inline assignment
+                                                        notes: `Engineer assigned to ${selectedEngineer.name} by admin with default time slot`
                                                       }),
                                                     });
+                                                    
+                                                    const responseData = await response.json();
+                                                    
+                                                    console.log('📡 Inline Assignment API Response:', {
+                                                      status: response.status,
+                                                      statusText: response.statusText,
+                                                      ok: response.ok,
+                                                      responseBody: responseData
+                                                    });
+                                                    
                                                     if (response.ok) {
+                                                      console.log('✅ Inline assignment successful - Updated item data:', responseData.data);
                                                       clearOrderError(order.id);
-                                                      setNotification({type: 'success', message: `${selectedEngineer.name} assigned to ${item.service_name}`});
+                                                      setNotification({type: 'success', message: `${selectedEngineer.name} assigned to ${item.service_name} with schedule`});
                                                       fetchData(); // Refresh
+                                                    } else {
+                                                      console.error('❌ Inline assignment failed:', {
+                                                        status: response.status,
+                                                        responseBody: responseData
+                                                      });
+                                                      setOrderError(order.id, `Failed to assign engineer: ${responseData.error || response.statusText}`);  
                                                     }
                                                   } catch (error) {
-                                                    setOrderError(order.id, 'Failed to reassign engineer for this task');
+                                                    console.error('❌ Inline assignment error:', error);
+                                                    setOrderError(order.id, `Failed to reassign engineer: ${error instanceof Error ? error.message : 'Unknown error'}`);
                                                   }
                                                 }}
                                                 className="w-full text-xs p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -1908,7 +1996,7 @@ const OrdersManagement: React.FC = () => {
                                               </label>
                                               <input
                                                 type="date"
-                                                value={(item as any).scheduled_date || ''}
+                                                value={item.scheduled_date || ''}
                                                 onChange={async (e) => {
                                                   const newDate = e.target.value;
                                                   
@@ -1935,7 +2023,7 @@ const OrdersManagement: React.FC = () => {
                                                       setNotification({type: 'success', message: `Date set for ${item.service_name}`});
                                                       
                                                       // Check if current time slot is still valid for the new date
-                                                      const currentTimeSlot = (item as any).scheduled_time_slot;
+                                                      const currentTimeSlot = item.scheduled_time_slot;
                                                       if (currentTimeSlot) {
                                                         const availableSlots = getAvailableTimeSlots(newDate);
                                                         const isCurrentSlotValid = availableSlots.some(slot => slot.value === currentTimeSlot);
@@ -1976,7 +2064,7 @@ const OrdersManagement: React.FC = () => {
                                                 Time Slot
                                                 <span className="text-gray-500 font-normal">
                                                   {(() => {
-                                                    const selectedDate = (item as any).scheduled_date;
+                                                    const selectedDate = item.scheduled_date;
                                                     const today = new Date().toISOString().split('T')[0];
                                                     if (selectedDate === today) {
                                                       return ' (30+ min remaining)';
@@ -1986,10 +2074,10 @@ const OrdersManagement: React.FC = () => {
                                                 </span>
                                               </label>
                                               <select
-                                                value={(item as any).scheduled_time_slot || ''}
+                                                value={item.scheduled_time_slot || ''}
                                                 onChange={async (e) => {
                                                   const newTimeSlot = e.target.value;
-                                                  const selectedDate = (item as any).scheduled_date;
+                                                  const selectedDate = item.scheduled_date;
                                                   
                                                   // Validate time slot for today's date
                                                   if (selectedDate) {
@@ -2028,8 +2116,8 @@ const OrdersManagement: React.FC = () => {
                                               >
                                                 <option value="">
                                                   {(() => {
-                                                    const availableSlots = getAvailableTimeSlots((item as any).scheduled_date || '');
-                                                    const selectedDate = (item as any).scheduled_date;
+                                                    const availableSlots = getAvailableTimeSlots(item.scheduled_date || '');
+                                                    const selectedDate = item.scheduled_date;
                                                     const today = new Date().toISOString().split('T')[0];
                                                     
                                                     if (selectedDate === today && availableSlots.length === 0) {
@@ -2038,7 +2126,7 @@ const OrdersManagement: React.FC = () => {
                                                     return 'Select time slot';
                                                   })()}
                                                 </option>
-                                                {getAvailableTimeSlots((item as any).scheduled_date || '').map(slot => (
+                                                {getAvailableTimeSlots(item.scheduled_date || '').map(slot => (
                                                   <option key={slot.value} value={slot.value}>
                                                     {slot.label}
                                                   </option>
@@ -2064,25 +2152,118 @@ const OrdersManagement: React.FC = () => {
                                           {/* Schedule Status and Actions */}
                                           <div className="flex items-center justify-between">
                                             <div className="flex-1">
-                                              {(item as any).scheduled_date && (item as any).scheduled_time_slot ? (
+                                              {item.scheduled_date && item.scheduled_time_slot ? (
                                                 <div className="flex items-center text-xs text-green-700 bg-green-100 px-3 py-2 rounded-full border border-green-300">
                                                   <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                                   </svg>
-                                                  <span>Scheduled for {(item as any).scheduled_date} at {(item as any).scheduled_time_slot}</span>
+                                                  <span>Scheduled for {item.scheduled_date} at {item.scheduled_time_slot}</span>
                                                 </div>
-                                              ) : (
-                                                <div className="flex items-center text-xs text-amber-700 bg-amber-100 px-3 py-2 rounded-full border border-amber-300">
-                                                  <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                  </svg>
-                                                  <span>Please set date and time to complete scheduling</span>
-                                                </div>
-                                              )}
+                                              ) : (() => {
+                                                console.log('🔍 Schedule Check for item:', {
+                                                  itemId: item.id,
+                                                  serviceName: item.service_name,
+                                                  scheduled_date: item.scheduled_date,
+                                                  scheduled_time_slot: item.scheduled_time_slot,
+                                                  hasDate: !!item.scheduled_date,
+                                                  hasTimeSlot: !!item.scheduled_time_slot
+                                                });
+                                                return (
+                                                  <div className="flex items-center text-xs text-amber-700 bg-amber-100 px-3 py-2 rounded-full border border-amber-300">
+                                                    <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                    </svg>
+                                                    <span>Please set date and time to complete scheduling</span>
+                                                  </div>
+                                                );
+                                              })()}
                                             </div>
                                             
+                                            {/* Schedule Button - Start Task (Scheduled → In Progress) */}
+                                            {item.scheduled_date && item.scheduled_time_slot && item.item_status === 'scheduled' && order.status !== 'cancelled' && (
+                                              <div className="ml-3">
+                                                <button
+                                                  onClick={async () => {
+                                                    try {
+                                                      console.log('🚀 Starting scheduled task:', {
+                                                        orderId: order.id,
+                                                        itemId: item.id,
+                                                        serviceName: item.service_name,
+                                                        scheduledDate: item.scheduled_date,
+                                                        scheduledTime: item.scheduled_time_slot
+                                                      });
+                                                      
+                                                      // Update task status to in_progress
+                                                      const response = await fetch(`/api/orders/${order.id}/items/${item.id}`, {
+                                                        method: 'PUT',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        credentials: 'include',
+                                                        body: JSON.stringify({
+                                                          item_status: 'in_progress',
+                                                          item_notes: `Task started at ${new Date().toLocaleString()} - moved from scheduled to in_progress`
+                                                        }),
+                                                      });
+                                                      
+                                                      if (response.ok) {
+                                                        clearOrderError(order.id);
+                                                        setNotification({
+                                                          type: 'success', 
+                                                          message: `${item.service_name} started - moved to in progress`
+                                                        });
+                                                        
+                                                        // Check if all tasks are now in progress and update order status
+                                                        setTimeout(async () => {
+                                                          try {
+                                                            const orderResponse = await fetch(`/api/orders/${order.id}`, {
+                                                              credentials: 'include'
+                                                            });
+                                                            if (orderResponse.ok) {
+                                                              const orderData = await orderResponse.json();
+                                                              const allTasksInProgress = orderData.data?.items?.every((orderItem: any) => 
+                                                                orderItem.item_status === 'in_progress' || orderItem.item_status === 'completed'
+                                                              );
+                                                              
+                                                              if (allTasksInProgress && orderData.data?.status === 'scheduled') {
+                                                                // Update order status to in_progress
+                                                                await fetch(`/api/orders/${order.id}`, {
+                                                                  method: 'PUT',
+                                                                  headers: { 'Content-Type': 'application/json' },
+                                                                  credentials: 'include',
+                                                                  body: JSON.stringify({
+                                                                    status: 'in_progress'
+                                                                  }),
+                                                                });
+                                                                console.log('✅ Order status updated to in_progress');
+                                                              }
+                                                            }
+                                                          } catch (statusError) {
+                                                            console.warn('Failed to update order status:', statusError);
+                                                          }
+                                                        }, 100);
+                                                        
+                                                        await fetchData(); // Refresh
+                                                      } else {
+                                                        const errorData = await response.json();
+                                                        setOrderError(order.id, `Failed to start task: ${errorData.error || 'Unknown error'}`);
+                                                      }
+                                                    } catch (error) {
+                                                      console.error('Error starting scheduled task:', error);
+                                                      setOrderError(order.id, `Failed to start ${item.service_name} - please try again`);
+                                                    }
+                                                  }}
+                                                  className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition-all duration-200 text-xs flex items-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-105"
+                                                  title={`Start ${item.service_name} task`}
+                                                >
+                                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h1m4 0h1m2-7V6a2 2 0 00-2-2H7a2 2 0 00-2 2v1m2 0V6a2 2 0 012-2h6a2 2 0 012 2v1m2 0V9a2 2 0 00-2 2v8a2 2 0 01-2 2H7a2 2 0 01-2-2v-8a2 2 0 00-2-2V7" />
+                                                  </svg>
+                                                  <span>Scheduled</span>
+                                                </button>
+                                              </div>
+                                            )}
+                                            
                                             {/* Task Completion Button in Scheduling Section */}
-                                            {((item.status === 'in_progress' || item.status === 'scheduled') && getEffectiveOrderStatus(order) === 'in_progress' && getEffectiveOrderStatus(order) !== 'completed') && (
+                                            {((item.item_status === 'in_progress' || item.item_status === 'scheduled') && getEffectiveOrderStatus(order) === 'in_progress' && getEffectiveOrderStatus(order) !== 'completed') && (
                                               <div className="ml-3">
                                                 <button
                                                   onClick={() => handleCompleteTask(order.id, item.id, item.service_name)}
@@ -2235,9 +2416,53 @@ const OrdersManagement: React.FC = () => {
                       required
                     >
                       <option value="">Select status</option>
-                      <option value="confirmed">Confirmed</option>
-                      <option value="cancelled">Cancelled</option>
-                      <option value="postponed">Postponed</option>
+                      {/* Show available status transitions based on current order status */}
+                      {(() => {
+                        const currentOrder = orders.find(o => o.id === showStatusModal?.orderId);
+                        const currentStatus = currentOrder ? getEffectiveOrderStatus(currentOrder) : '';
+                        
+                        const availableStatuses = [];
+                        
+                        // Always allow cancellation and postponement for non-completed orders
+                        if (currentStatus !== 'completed' && currentStatus !== 'cancelled') {
+                          availableStatuses.push(
+                            <option key="cancelled" value="cancelled">Cancelled</option>,
+                            <option key="postponed" value="postponed">Postponed</option>
+                          );
+                        }
+                        
+                        // Status-specific transitions
+                        if (currentStatus === 'pending') {
+                          availableStatuses.push(<option key="confirmed" value="confirmed">Confirmed</option>);
+                        }
+                        
+                        if (currentStatus === 'confirmed') {
+                          availableStatuses.push(<option key="pending" value="pending">Back to Pending</option>);
+                        }
+                        
+                        if (currentStatus === 'scheduled') {
+                          availableStatuses.push(
+                            <option key="confirmed" value="confirmed">Back to Confirmed</option>,
+                            <option key="pending" value="pending">Back to Pending</option>
+                          );
+                        }
+                        
+                        if (currentStatus === 'in_progress') {
+                          availableStatuses.push(
+                            <option key="scheduled" value="scheduled">Back to Scheduled</option>,
+                            <option key="completed" value="completed">Mark as Completed</option>
+                          );
+                        }
+                        
+                        if (currentStatus === 'postponed') {
+                          availableStatuses.push(
+                            <option key="pending" value="pending">Resume (Back to Pending)</option>,
+                            <option key="confirmed" value="confirmed">Resume as Confirmed</option>
+                          );
+                        }
+                        
+                        return availableStatuses;
+                      })()}
                     </select>
                   </div>
 

@@ -126,13 +126,7 @@ export interface Booking {
   updatedAt: Date;
 }
 
-export type BookingStatus = 
-  | 'pending'
-  | 'confirmed'
-  | 'in_progress'
-  | 'completed'
-  | 'cancelled'
-  | 'refunded';
+export type BookingStatus = 'pending' | 'confirmed' | 'scheduled' | 'postponed' | 'cancelled';
 
 export interface Address {
   street: string;

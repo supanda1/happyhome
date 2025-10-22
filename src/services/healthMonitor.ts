@@ -71,34 +71,20 @@ class HealthMonitorService {
       critical: true,
       isRuntime: true // Special flag for runtime checks
     },
-    backend_python: {
-      name: 'Backend (FastAPI)',
-      url: import.meta.env.VITE_BACKEND_PYTHON_URL || 'http://localhost:8000',
-      healthEndpoint: '/health',
-      timeout: parseInt(import.meta.env.VITE_HEALTH_TIMEOUT || '5000'),
-      critical: true
-    },
     backend_node: {
       name: 'Backend (Node.js)',
       url: import.meta.env.VITE_BACKEND_NODE_URL || 'http://localhost:8001', 
       healthEndpoint: '/health',
       timeout: parseInt(import.meta.env.VITE_HEALTH_TIMEOUT || '5000'),
-      critical: false
+      critical: true
     },
     database: {
       name: 'PostgreSQL Database',
-      url: import.meta.env.VITE_BACKEND_PYTHON_URL || 'http://localhost:8000',
-      healthEndpoint: '/health',
+      url: import.meta.env.VITE_BACKEND_NODE_URL || 'http://localhost:8001',
+      healthEndpoint: '/health/db',
       timeout: parseInt(import.meta.env.VITE_HEALTH_TIMEOUT || '3000'),
       critical: true,
       checkDb: true
-    },
-    redis: {
-      name: 'Redis Cache',
-      url: import.meta.env.VITE_BACKEND_PYTHON_URL || 'http://localhost:8000',
-      healthEndpoint: '/health',
-      timeout: parseInt(import.meta.env.VITE_HEALTH_TIMEOUT || '3000'),
-      critical: false
     }
   };
 
@@ -286,7 +272,7 @@ class HealthMonitorService {
 
     try {
       // Try to check if Docker containers are running via backend API
-      const response = await fetch(`${import.meta.env.VITE_BACKEND_PYTHON_URL || 'http://localhost:8000'}/admin/system/containers`, {
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_NODE_URL || 'http://localhost:8001'}/admin/system/containers`, {
         credentials: 'include'
       } as RequestInit);
 
@@ -392,10 +378,8 @@ class HealthMonitorService {
   private getSuggestedFix(serviceName: string, error?: string): string {
     const suggestions: Record<string, string> = {
       'Frontend (React)': 'Check if Vite dev server is running. Run: npm run dev',
-      'Backend (FastAPI)': 'Check if Python backend is running. Run: docker compose up api -d',
-      'Backend (Node.js)': 'Check if Node.js backend is running. Run: npm run dev in backend directory',
-      'PostgreSQL Database': 'Check if PostgreSQL is running. Run: docker compose up postgres -d',
-      'Redis Cache': 'Check if Redis is running. Run: docker compose up redis -d'
+      'Backend (Node.js)': 'Check if Node.js backend is running. Run: docker compose up api -d',
+      'PostgreSQL Database': 'Check if PostgreSQL is running. Run: docker compose up postgres -d'
     };
 
     let suggestion = suggestions[serviceName] || 'Check service logs and restart if necessary';
@@ -415,7 +399,7 @@ class HealthMonitorService {
   private async sendAlertNotification(alert: HealthAlert): Promise<void> {
     try {
       // Send to backend notification system
-      await fetch(`${import.meta.env.VITE_BACKEND_PYTHON_URL || 'http://localhost:8000'}/admin/notifications/alerts`, {
+      await fetch(`${import.meta.env.VITE_BACKEND_NODE_URL || 'http://localhost:8001'}/admin/notifications/alerts`, {
         method: 'POST',
         credentials: 'include',
         headers: {

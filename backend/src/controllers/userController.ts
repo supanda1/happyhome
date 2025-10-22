@@ -90,27 +90,24 @@ export const getUserAddresses = async (req: Request, res: Response) => {
     }
     
     
-    // Query addresses from database with user information
+    // Query addresses from database with current schema
     const result = await pool.query(`
       SELECT 
         ua.id,
-        ua.type as address_type,
-        ua.title,
-        ua.full_address,
+        ua.address_type,
+        ua.full_name,
+        ua.mobile_number,
+        ua.pincode,
+        ua.house_number,
+        ua.area,
         ua.landmark,
         ua.city,
         ua.state,
-        ua.postal_code,
-        ua.country,
         ua.is_default,
         ua.created_at,
-        ua.updated_at,
-        u.first_name,
-        u.last_name,
-        u.phone
+        ua.updated_at
       FROM user_addresses ua
-      LEFT JOIN users u ON ua.user_id = u.id
-      WHERE ua.user_id = $1 AND ua.is_active = true
+      WHERE ua.user_id = $1
       ORDER BY ua.is_default DESC, ua.created_at DESC
     `, [userId]);
     
@@ -118,11 +115,11 @@ export const getUserAddresses = async (req: Request, res: Response) => {
     const addresses: UserAddress[] = result.rows.map(row => ({
       id: row.id,
       addressType: row.address_type as 'home' | 'office' | 'other',
-      fullName: `${row.first_name} ${row.last_name}`.trim(),
-      mobileNumber: row.phone || '',
-      pincode: row.postal_code,
-      houseNumber: '', // Will extract from full_address
-      area: row.full_address,
+      fullName: row.full_name,
+      mobileNumber: row.mobile_number,
+      pincode: row.pincode,
+      houseNumber: row.house_number,
+      area: row.area,
       landmark: row.landmark || '',
       city: row.city,
       state: row.state,
@@ -192,6 +189,20 @@ export const addUserAddress = async (req: Request, res: Response) => {
     // Combine houseNumber and area into full_address
     const fullAddress = actualHouseNumber ? `${actualHouseNumber}, ${actualArea}` : actualArea;
     
+    // Get user details first (needed for the insert)
+    const userResult = await pool.query(
+      'SELECT first_name, last_name, phone FROM users WHERE id = $1',
+      [userId]
+    );
+    const user = userResult.rows[0];
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+    
     // If this is set as default, unset other defaults for this user
     if (isDefault) {
       await pool.query(
@@ -202,50 +213,45 @@ export const addUserAddress = async (req: Request, res: Response) => {
     
     // Check if this is the first address (make it default automatically)
     const existingAddressesResult = await pool.query(
-      'SELECT COUNT(*) as count FROM user_addresses WHERE user_id = $1 AND is_active = true',
+      'SELECT COUNT(*) as count FROM user_addresses WHERE user_id = $1',
       [userId]
     );
     const isFirstAddress = existingAddressesResult.rows[0].count === '0';
     const shouldBeDefault = isDefault || isFirstAddress;
     
-    // Insert new address into database
+    // Insert new address into database - use actual database schema
     const result = await pool.query(`
       INSERT INTO user_addresses (
-        id, user_id, type, title, full_address, landmark, city, state, 
-        postal_code, country, is_default, is_active, created_at, updated_at
+        user_id, address_type, full_name, mobile_number, pincode, house_number, 
+        area, landmark, city, state, is_default, created_at, updated_at
       )
-      VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, 'India', $9, true, NOW(), NOW())
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
       RETURNING *
     `, [
       userId,
       addressType,
-      `${addressType.charAt(0).toUpperCase() + addressType.slice(1)} Address`, // title
-      fullAddress,
-      landmark || null,
+      `${user.first_name} ${user.last_name}`.trim(), // full_name
+      user.phone || '', // mobile_number
+      actualPincode, // pincode
+      actualHouseNumber, // house_number
+      actualArea, // area
+      landmark || null, // landmark
       city,
       state,
-      actualPincode,
-      shouldBeDefault
+      shouldBeDefault // is_default
     ]);
     
     const savedAddress = result.rows[0];
     
-    // Get user details for response
-    const userResult = await pool.query(
-      'SELECT first_name, last_name, phone FROM users WHERE id = $1',
-      [userId]
-    );
-    const user = userResult.rows[0];
-    
     // Format response to match frontend interface
     const responseAddress: UserAddress = {
       id: savedAddress.id,
-      addressType: savedAddress.type as 'home' | 'office' | 'other',
-      fullName: `${user.first_name} ${user.last_name}`.trim(),
-      mobileNumber: user.phone || '',
-      pincode: savedAddress.postal_code,
-      houseNumber: actualHouseNumber,
-      area: actualArea,
+      addressType: savedAddress.address_type as 'home' | 'office' | 'other',
+      fullName: savedAddress.full_name,
+      mobileNumber: savedAddress.mobile_number,
+      pincode: savedAddress.pincode,
+      houseNumber: savedAddress.house_number,
+      area: savedAddress.area,
       landmark: savedAddress.landmark || '',
       city: savedAddress.city,
       state: savedAddress.state,
@@ -328,7 +334,7 @@ export const updateUserAddress = async (req: Request, res: Response) => {
     
     // Verify address belongs to user
     const existingResult = await pool.query(
-      'SELECT * FROM user_addresses WHERE id = $1 AND user_id = $2 AND is_active = true',
+      'SELECT * FROM user_addresses WHERE id = $1 AND user_id = $2',
       [addressId, userId]
     );
     
@@ -347,20 +353,26 @@ export const updateUserAddress = async (req: Request, res: Response) => {
       );
     }
     
-    // Build update fields dynamically
+    // Build update fields dynamically - use correct column names
     const updates = [];
     const values = [];
     let paramCount = 1;
     
     if (addressType) {
-      updates.push(`type = $${paramCount}`);
+      updates.push(`address_type = $${paramCount}`);
       values.push(addressType);
       paramCount++;
     }
     
-    if (houseNumber && area) {
-      updates.push(`full_address = $${paramCount}`);
-      values.push(`${houseNumber}, ${area}`);
+    if (houseNumber !== undefined) {
+      updates.push(`house_number = $${paramCount}`);
+      values.push(houseNumber || '');
+      paramCount++;
+    }
+    
+    if (area) {
+      updates.push(`area = $${paramCount}`);
+      values.push(area);
       paramCount++;
     }
     
@@ -383,7 +395,7 @@ export const updateUserAddress = async (req: Request, res: Response) => {
     }
     
     if (pincode) {
-      updates.push(`postal_code = $${paramCount}`);
+      updates.push(`pincode = $${paramCount}`);
       values.push(pincode);
       paramCount++;
     }
@@ -418,27 +430,15 @@ export const updateUserAddress = async (req: Request, res: Response) => {
     
     const updatedAddress = updateResult.rows[0];
     
-    // Get user details for response
-    const userResult = await pool.query(
-      'SELECT first_name, last_name, phone FROM users WHERE id = $1',
-      [userId]
-    );
-    const user = userResult.rows[0];
-    
-    // Extract houseNumber and area from full_address for response
-    const fullAddressParts = updatedAddress.full_address.split(', ');
-    const responseHouseNumber = fullAddressParts[0] || '';
-    const responseArea = fullAddressParts.slice(1).join(', ') || updatedAddress.full_address;
-    
     // Format response to match frontend interface
     const responseAddress: UserAddress = {
       id: updatedAddress.id,
-      addressType: updatedAddress.type as 'home' | 'office' | 'other',
-      fullName: `${user.first_name} ${user.last_name}`.trim(),
-      mobileNumber: user.phone || '',
-      pincode: updatedAddress.postal_code,
-      houseNumber: responseHouseNumber,
-      area: responseArea,
+      addressType: updatedAddress.address_type as 'home' | 'office' | 'other',
+      fullName: updatedAddress.full_name,
+      mobileNumber: updatedAddress.mobile_number,
+      pincode: updatedAddress.pincode,
+      houseNumber: updatedAddress.house_number,
+      area: updatedAddress.area,
       landmark: updatedAddress.landmark || '',
       city: updatedAddress.city,
       state: updatedAddress.state,
@@ -481,7 +481,7 @@ export const deleteUserAddress = async (req: Request, res: Response) => {
     
     // Verify address belongs to user and get its details
     const existingResult = await pool.query(
-      'SELECT * FROM user_addresses WHERE id = $1 AND user_id = $2 AND is_active = true',
+      'SELECT * FROM user_addresses WHERE id = $1 AND user_id = $2',
       [addressId, userId]
     );
     
@@ -494,16 +494,16 @@ export const deleteUserAddress = async (req: Request, res: Response) => {
     
     const addressToDelete = existingResult.rows[0];
     
-    // Soft delete the address (set is_active = false)
+    // Hard delete the address since we don't have is_active column
     await pool.query(
-      'UPDATE user_addresses SET is_active = false, updated_at = NOW() WHERE id = $1',
+      'DELETE FROM user_addresses WHERE id = $1',
       [addressId]
     );
     
     // If deleted address was default, set another address as default
     if (addressToDelete.is_default) {
       const remainingAddressesResult = await pool.query(
-        'SELECT id FROM user_addresses WHERE user_id = $1 AND is_active = true ORDER BY created_at ASC LIMIT 1',
+        'SELECT id FROM user_addresses WHERE user_id = $1 ORDER BY created_at ASC LIMIT 1',
         [userId]
       );
       

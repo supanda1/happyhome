@@ -25,7 +25,7 @@ export interface CreateOrderRequest {
     subcategory_id: string;
     assigned_engineer_id?: string;
     assigned_engineer_name?: string;
-    item_status: 'pending' | 'scheduled' | 'in_progress' | 'completed' | 'cancelled' | 'postponed';
+    item_status: 'pending' | 'confirmed' | 'scheduled' | 'postponed' | 'cancelled';
     scheduled_date?: string;
     scheduled_time_slot?: string;
     completion_date?: string;
@@ -87,7 +87,7 @@ export interface Order {
   gst_amount: number;
   service_charge: number;
   final_amount: number;
-  status: 'pending' | 'scheduled' | 'in_progress' | 'completed' | 'cancelled' | 'postponed';
+  status: 'pending' | 'confirmed' | 'scheduled' | 'in_progress' | 'completed' | 'postponed' | 'cancelled';
   priority?: 'low' | 'medium' | 'high' | 'urgent';
   notes?: string;
   admin_notes?: string;
@@ -162,9 +162,9 @@ export interface Employee {
   id: string;
   employee_id: string;
   name: string;
-  expert: string; // Legacy field for backward compatibility
-  expertise_areas?: string[]; // New multi-expertise field (optional for backward compatibility)
-  manager: string;
+  expert?: string; // Legacy field for backward compatibility
+  expertise: string[]; // Backend uses 'expertise' as JSONB array
+  address?: string; // Backend uses 'address' instead of 'manager'
   phone: string;
   email: string;
   is_active: boolean;

@@ -31,55 +31,97 @@ DROP TYPE IF EXISTS assignment_status CASCADE;
 DROP TYPE IF EXISTS banner_position CASCADE;
 
 -- ==============================================================================
--- ENUMS AND TYPES
+-- ENUMS AND TYPES - Updated to match Python models
 -- ==============================================================================
 
-CREATE TYPE user_role AS ENUM ('customer', 'admin', 'super_admin', 'employee');
-CREATE TYPE order_status AS ENUM ('pending', 'confirmed', 'assigned', 'in_progress', 'completed', 'cancelled');
-CREATE TYPE assignment_status AS ENUM ('assigned', 'accepted', 'rejected', 'in_progress', 'completed');
-CREATE TYPE banner_position AS ENUM ('hero', 'secondary', 'promotional');
+-- Note: Python models use VARCHAR for roles and statuses for flexibility
+-- So we'll use VARCHAR instead of ENUMs to match the Python models exactly
 
 -- ==============================================================================
 -- CORE TABLES
 -- ==============================================================================
 
--- Users table
+-- Users table - Updated to match Python User model
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Authentication fields
     email VARCHAR(255) UNIQUE NOT NULL,
-    password VARCHAR(255) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    
+    -- Profile fields
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
-    phone VARCHAR(20),
-    role user_role DEFAULT 'customer',
-    is_active BOOLEAN DEFAULT true,
-    email_verified BOOLEAN DEFAULT false,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    phone VARCHAR(20) NOT NULL,
+    
+    -- Role and status (using VARCHAR to match Python model)
+    role VARCHAR(20) NOT NULL DEFAULT 'customer',
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    is_verified BOOLEAN NOT NULL DEFAULT false,
+    
+    -- Authentication tracking
+    last_login TIMESTAMP WITH TIME ZONE,
+    failed_login_attempts INTEGER NOT NULL DEFAULT 0,
+    locked_until TIMESTAMP WITH TIME ZONE,
+    
+    -- Profile completion
+    profile_completed BOOLEAN NOT NULL DEFAULT false,
+    
+    -- Avatar/profile image
+    avatar_url VARCHAR(500),
+    
+    -- User preferences (JSON storage for flexible settings)
+    preferences JSONB DEFAULT '{}'::jsonb
 );
 
--- User addresses
+-- User addresses - Updated to match Python UserAddress model
 CREATE TABLE user_addresses (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    address_line1 VARCHAR(255) NOT NULL,
-    address_line2 VARCHAR(255),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    
+    -- Address type
+    type VARCHAR(20) NOT NULL DEFAULT 'home',
+    
+    -- Address details
+    title VARCHAR(100) NOT NULL,
+    full_address TEXT NOT NULL,
+    landmark VARCHAR(200),
+    
+    -- Location details
     city VARCHAR(100) NOT NULL,
     state VARCHAR(100) NOT NULL,
     postal_code VARCHAR(20) NOT NULL,
-    country VARCHAR(100) DEFAULT 'India',
-    is_default BOOLEAN DEFAULT false,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    country VARCHAR(100) NOT NULL DEFAULT 'India',
+    
+    -- GPS coordinates (optional)
+    latitude FLOAT,
+    longitude FLOAT,
+    
+    -- Status
+    is_default BOOLEAN NOT NULL DEFAULT false,
+    is_active BOOLEAN NOT NULL DEFAULT true
 );
 
--- Refresh tokens
+-- Refresh tokens - Updated to match Python RefreshToken model
 CREATE TABLE refresh_tokens (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    token VARCHAR(255) UNIQUE NOT NULL,
-    expires_at TIMESTAMP NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    
+    token VARCHAR(500) UNIQUE NOT NULL,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    is_revoked BOOLEAN NOT NULL DEFAULT false,
+    
+    -- Session tracking
+    device_info VARCHAR(200),
+    ip_address VARCHAR(45), -- IPv6 max length
+    user_agent TEXT
 );
 
 -- Service categories
@@ -109,46 +151,83 @@ CREATE TABLE service_subcategories (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Services
+-- Services - Updated to match Python Service model
 CREATE TABLE services (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    category_id UUID REFERENCES service_categories(id) ON DELETE CASCADE,
-    subcategory_id UUID REFERENCES service_subcategories(id) ON DELETE CASCADE,
-    name VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Basic information
+    name VARCHAR(200) NOT NULL,
+    category_id UUID NOT NULL REFERENCES service_categories(id),
+    subcategory_id UUID REFERENCES service_subcategories(id),
     description TEXT NOT NULL,
-    short_description TEXT,
-    base_price DECIMAL(10,2) NOT NULL,
-    discounted_price DECIMAL(10,2),
-    duration INTEGER, -- in minutes
-    inclusions JSONB DEFAULT '[]',
-    exclusions JSONB DEFAULT '[]',
-    requirements JSONB DEFAULT '[]',
-    tags JSONB DEFAULT '[]',
-    image_paths JSONB DEFAULT '[]',
-    gst_percentage DECIMAL(5,2) DEFAULT 18.00,
-    service_charge DECIMAL(10,2) DEFAULT 0.00,
-    rating DECIMAL(3,2) DEFAULT 0.00,
-    review_count INTEGER DEFAULT 0,
-    booking_count INTEGER DEFAULT 0,
-    availability_settings JSONB DEFAULT '{}',
-    is_active BOOLEAN DEFAULT true,
-    is_featured BOOLEAN DEFAULT false,
-    is_combo_eligible BOOLEAN DEFAULT true,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    short_description VARCHAR(300) NOT NULL,
+    
+    -- Base pricing (can be overridden by variants)
+    base_price FLOAT NOT NULL,
+    discounted_price FLOAT,
+    
+    -- Service details
+    duration INTEGER NOT NULL, -- Duration in minutes
+    
+    -- JSON fields for flexible data storage
+    inclusions JSONB NOT NULL DEFAULT '[]'::jsonb,
+    exclusions JSONB NOT NULL DEFAULT '[]'::jsonb,
+    requirements JSONB NOT NULL DEFAULT '[]'::jsonb,
+    
+    -- Ratings and reviews
+    rating FLOAT NOT NULL DEFAULT 0.0,
+    review_count INTEGER NOT NULL DEFAULT 0,
+    booking_count INTEGER NOT NULL DEFAULT 0,
+    
+    -- Status and visibility
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    is_featured BOOLEAN NOT NULL DEFAULT false,
+    
+    -- Tags and categorization
+    tags JSONB NOT NULL DEFAULT '[]'::jsonb,
+    
+    -- Availability settings
+    availability_settings JSONB NOT NULL DEFAULT '{}'::jsonb,
+    
+    -- Image paths for service images (from Pexels downloads)
+    image_paths JSONB DEFAULT '[]'::jsonb
 );
 
--- Service variants (for different pricing tiers)
+-- Service variants - Updated to match Python ServiceVariant model
 CREATE TABLE service_variants (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    service_id UUID REFERENCES services(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    
+    service_id UUID NOT NULL REFERENCES services(id) ON DELETE CASCADE,
     name VARCHAR(100) NOT NULL,
-    description TEXT,
-    base_price DECIMAL(10,2) NOT NULL,
-    discounted_price DECIMAL(10,2),
-    is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    description VARCHAR(500) NOT NULL,
+    base_price FLOAT NOT NULL,
+    discounted_price FLOAT,
+    duration INTEGER NOT NULL, -- Duration in minutes
+    
+    -- JSON fields for flexible data storage
+    inclusions JSONB NOT NULL DEFAULT '[]'::jsonb,
+    exclusions JSONB NOT NULL DEFAULT '[]'::jsonb,
+    features JSONB NOT NULL DEFAULT '{}'::jsonb,
+    
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    sort_order INTEGER NOT NULL DEFAULT 0
+);
+
+-- Service photos table - matches ServicePhoto model
+CREATE TABLE service_photos (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    
+    service_id UUID NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+    url VARCHAR(500) NOT NULL,
+    alt_text VARCHAR(200) NOT NULL,
+    is_primary BOOLEAN NOT NULL DEFAULT false,
+    sort_order INTEGER NOT NULL DEFAULT 0
 );
 
 -- Employees
@@ -171,45 +250,82 @@ CREATE TABLE employees (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Orders
+-- Orders - Updated to match Python Order model
 CREATE TABLE orders (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Order identification
     order_number VARCHAR(50) UNIQUE NOT NULL,
-    status order_status DEFAULT 'pending',
-    subtotal DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-    gst_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-    service_charge DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-    discount_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-    total_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-    customer_name VARCHAR(255) NOT NULL,
-    customer_email VARCHAR(255) NOT NULL,
+    
+    -- Customer information (using String to match model)
+    customer_id VARCHAR(255) NOT NULL,
+    customer_name VARCHAR(100) NOT NULL,
     customer_phone VARCHAR(20) NOT NULL,
-    service_address TEXT NOT NULL,
-    preferred_date DATE,
-    preferred_time TIME,
-    special_instructions TEXT,
-    assigned_employee_id UUID REFERENCES employees(id),
-    completed_at TIMESTAMP,
-    coupon_code VARCHAR(50),
-    coupon_id UUID,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    customer_email VARCHAR(100) NOT NULL,
+    
+    -- Service address (stored as JSON for flexibility)
+    service_address JSONB NOT NULL,
+    
+    -- Order totals
+    total_amount FLOAT NOT NULL,
+    discount_amount FLOAT NOT NULL DEFAULT 0.0,
+    gst_amount FLOAT NOT NULL DEFAULT 0.0,
+    service_charge FLOAT NOT NULL DEFAULT 0.0,
+    final_amount FLOAT NOT NULL,
+    
+    -- Order status and priority
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    priority VARCHAR(10) NOT NULL DEFAULT 'medium',
+    
+    -- Notes
+    notes TEXT,
+    admin_notes TEXT,
+    
+    -- Customer feedback
+    customer_rating INTEGER CHECK (customer_rating >= 1 AND customer_rating <= 5),
+    customer_review TEXT
 );
 
--- Order items
+-- Order items - Updated to match Python OrderItem model
 CREATE TABLE order_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
-    service_id UUID REFERENCES services(id) ON DELETE CASCADE,
-    service_variant_id UUID REFERENCES service_variants(id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Order relationship
+    order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    
+    -- Service information (using String IDs to match model)
+    service_id VARCHAR(100) NOT NULL,
+    service_name VARCHAR(100) NOT NULL,
+    variant_id VARCHAR(100),
+    variant_name VARCHAR(50),
+    
+    -- Quantity and pricing
     quantity INTEGER NOT NULL DEFAULT 1,
-    unit_price DECIMAL(10,2) NOT NULL,
-    total_price DECIMAL(10,2) NOT NULL,
-    service_name VARCHAR(255) NOT NULL,
-    service_description TEXT,
-    customizations JSONB DEFAULT '{}',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    unit_price FLOAT NOT NULL,
+    total_price FLOAT NOT NULL,
+    
+    -- Category information for engineer assignment
+    category_id VARCHAR(100) NOT NULL,
+    subcategory_id VARCHAR(100) NOT NULL,
+    
+    -- Engineer assignment
+    assigned_engineer_id VARCHAR(100),
+    assigned_engineer_name VARCHAR(100),
+    
+    -- Item status and scheduling
+    item_status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    scheduled_date VARCHAR(20), -- YYYY-MM-DD format
+    scheduled_time_slot VARCHAR(20), -- e.g., "09:00-11:00"
+    completion_date VARCHAR(20), -- YYYY-MM-DD format
+    
+    -- Notes and feedback
+    item_notes TEXT,
+    item_rating INTEGER CHECK (item_rating >= 1 AND item_rating <= 5),
+    item_review TEXT
 );
 
 -- Shopping cart
@@ -310,22 +426,71 @@ CREATE TABLE categories AS SELECT * FROM service_categories WHERE false;
 CREATE TABLE subcategories AS SELECT * FROM service_subcategories WHERE false;
 
 -- ==============================================================================
--- INDEXES FOR PERFORMANCE
+-- INDEXES FOR PERFORMANCE - Updated for Python models
 -- ==============================================================================
 
+-- Users indexes
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_role ON users(role);
-CREATE INDEX idx_service_categories_active ON service_categories(is_active);
-CREATE INDEX idx_service_subcategories_category ON service_subcategories(category_id);
-CREATE INDEX idx_services_category ON services(category_id);
-CREATE INDEX idx_services_subcategory ON services(subcategory_id);
-CREATE INDEX idx_services_active ON services(is_active);
-CREATE INDEX idx_services_featured ON services(is_featured);
-CREATE INDEX idx_orders_user ON orders(user_id);
+CREATE INDEX idx_users_phone ON users(phone);
+CREATE INDEX idx_users_is_active ON users(is_active);
+
+-- User addresses indexes
+CREATE INDEX idx_user_addresses_user_id ON user_addresses(user_id);
+CREATE INDEX idx_user_addresses_is_active ON user_addresses(is_active);
+CREATE INDEX idx_user_addresses_user_active ON user_addresses(user_id, is_active);
+CREATE INDEX idx_user_addresses_default ON user_addresses(user_id, is_default) WHERE is_default = true;
+
+-- Refresh tokens indexes
+CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens(user_id);
+CREATE INDEX idx_refresh_tokens_token ON refresh_tokens(token);
+CREATE INDEX idx_refresh_tokens_expires_at ON refresh_tokens(expires_at);
+CREATE INDEX idx_refresh_tokens_is_revoked ON refresh_tokens(is_revoked);
+
+-- Service categories indexes
+CREATE INDEX idx_service_categories_is_active ON service_categories(is_active);
+CREATE INDEX idx_service_categories_sort_order ON service_categories(sort_order);
+
+-- Service subcategories indexes
+CREATE INDEX idx_service_subcategories_category_id ON service_subcategories(category_id);
+CREATE INDEX idx_service_subcategories_is_active ON service_subcategories(is_active);
+CREATE INDEX idx_service_subcategories_sort_order ON service_subcategories(sort_order);
+
+-- Services indexes
+CREATE INDEX idx_services_category_id ON services(category_id);
+CREATE INDEX idx_services_subcategory_id ON services(subcategory_id);
+CREATE INDEX idx_services_is_active ON services(is_active);
+CREATE INDEX idx_services_is_featured ON services(is_featured);
+CREATE INDEX idx_services_rating ON services(rating);
+CREATE INDEX idx_services_base_price ON services(base_price);
+
+-- Service photos indexes
+CREATE INDEX idx_service_photos_service_id ON service_photos(service_id);
+CREATE INDEX idx_service_photos_is_primary ON service_photos(is_primary);
+CREATE INDEX idx_service_photos_sort_order ON service_photos(sort_order);
+
+-- Service variants indexes
+CREATE INDEX idx_service_variants_service_id ON service_variants(service_id);
+CREATE INDEX idx_service_variants_is_active ON service_variants(is_active);
+CREATE INDEX idx_service_variants_sort_order ON service_variants(sort_order);
+
+-- Orders indexes
+CREATE INDEX idx_orders_customer_id ON orders(customer_id);
 CREATE INDEX idx_orders_status ON orders(status);
-CREATE INDEX idx_cart_user ON cart(user_id);
-CREATE INDEX idx_cart_items_cart ON cart_items(cart_id);
-CREATE INDEX idx_employees_available ON employees(is_available);
+CREATE INDEX idx_orders_priority ON orders(priority);
+CREATE INDEX idx_orders_order_number ON orders(order_number);
+
+-- Order items indexes
+CREATE INDEX idx_order_items_order_id ON order_items(order_id);
+CREATE INDEX idx_order_items_service_id ON order_items(service_id);
+CREATE INDEX idx_order_items_category_id ON order_items(category_id);
+CREATE INDEX idx_order_items_subcategory_id ON order_items(subcategory_id);
+CREATE INDEX idx_order_items_assigned_engineer_id ON order_items(assigned_engineer_id);
+CREATE INDEX idx_order_items_item_status ON order_items(item_status);
+
+-- Other indexes
+CREATE INDEX idx_employees_is_available ON employees(is_available);
+CREATE INDEX idx_employees_is_active ON employees(is_active);
 
 -- ==============================================================================
 -- SEED DATA - CATEGORIES (EXACT WORKING IDS)
@@ -633,10 +798,10 @@ INSERT INTO services (id, category_id, subcategory_id, name, description, short_
 -- SEED DATA - ADMIN USERS (EXACT WORKING CREDENTIALS)
 -- ==============================================================================
 
-INSERT INTO users (id, email, password, first_name, last_name, role, is_active, email_verified) VALUES
-('43942929-b0ef-4f4b-a910-3c4e5a14b002', 'superadmin@happyhomes.com', '$2a$10$L6NfFS.5G2ov.mKehJwg9uBreLryZf/NJ39j/hFVTcZds4t6s0Bpu', 'Super', 'Admin', 'super_admin', true, true),
-('58e31fde-9500-42b8-a916-87cfe7ccccd1', 'admin@test.com', '$2a$10$L6NfFS.5G2ov.mKehJwg9uBreLryZf/NJ39j/hFVTcZds4t6s0Bpu', 'Test', 'Admin', 'admin', true, true),
-('a1b2c3d4-1234-5678-9012-345678901234', 'admin@happyhomes.com', '$2a$10$L6NfFS.5G2ov.mKehJwg9uBreLryZf/NJ39j/hFVTcZds4t6s0Bpu', 'System', 'Administrator', 'super_admin', true, true);
+INSERT INTO users (id, email, password_hash, first_name, last_name, phone, role, is_active, is_verified) VALUES
+('43942929-b0ef-4f4b-a910-3c4e5a14b002', 'superadmin@happyhomes.com', '$2a$10$L6NfFS.5G2ov.mKehJwg9uBreLryZf/NJ39j/hFVTcZds4t6s0Bpu', 'Super', 'Admin', '9437341234', 'super_admin', true, true),
+('58e31fde-9500-42b8-a916-87cfe7ccccd1', 'admin@test.com', '$2a$10$L6NfFS.5G2ov.mKehJwg9uBreLryZf/NJ39j/hFVTcZds4t6s0Bpu', 'Test', 'Admin', '9437341235', 'admin', true, true),
+('a1b2c3d4-1234-5678-9012-345678901234', 'admin@happyhomes.com', '$2a$10$L6NfFS.5G2ov.mKehJwg9uBreLryZf/NJ39j/hFVTcZds4t6s0Bpu', 'System', 'Administrator', '9437341236', 'super_admin', true, true);
 
 -- ==============================================================================
 -- SEED DATA - SAMPLE EMPLOYEES

@@ -6,9 +6,8 @@ import { getSubcategories, type Subcategory } from '../../utils/adminDataManager
 interface EmployeeFormData {
   employee_id: string;
   name: string;
-  expert: string; // Legacy field
-  expertise_areas?: string[]; // New multi-expertise field (optional for backward compatibility)
-  manager: string;
+  expertise: string[]; // Backend uses 'expertise' as JSONB array
+  address?: string; // Backend uses 'address' instead of 'manager'
   phone: string;
   email: string;
   is_active: boolean;
@@ -23,9 +22,8 @@ const EmployeesManagement: React.FC = () => {
   const [formData, setFormData] = useState<EmployeeFormData>({
     employee_id: '',
     name: '',
-    expert: '',
-    expertise_areas: [],
-    manager: '',
+    expertise: [],
+    address: '',
     phone: '',
     email: '',
     is_active: true
@@ -74,30 +72,74 @@ const EmployeesManagement: React.FC = () => {
     e.preventDefault();
     
     // Validate that at least one expertise area is selected
-    if (!formData.expertise_areas || formData.expertise_areas.length === 0) {
+    if (!formData.expertise || formData.expertise.length === 0) {
       alert('Please select at least one expertise area');
       return;
     }
     
+    // Add debugging right before the API call
+    console.log('🔍 FORM DEBUGGING - Complete form data being sent:');
+    console.log('Raw form data:', JSON.stringify(formData, null, 2));
+    
+    // Check each required field specifically
+    console.log('🔍 Required field validation check:');
+    console.log('employee_id:', {
+      value: formData.employee_id,
+      type: typeof formData.employee_id,
+      length: formData.employee_id?.length,
+      isValid: formData.employee_id && formData.employee_id.length >= 3 && formData.employee_id.length <= 50
+    });
+    console.log('name:', {
+      value: formData.name,
+      type: typeof formData.name,
+      length: formData.name?.length,
+      isValid: formData.name && formData.name.length >= 2 && formData.name.length <= 100
+    });
+    console.log('phone:', {
+      value: formData.phone,
+      type: typeof formData.phone,
+      matches_pattern: /^[+]?[\d\s\-()]{10,15}$/.test(formData.phone || '')
+    });
+    console.log('email:', {
+      value: formData.email,
+      type: typeof formData.email,
+      is_email: /\S+@\S+\.\S+/.test(formData.email || '')
+    });
+    console.log('expertise:', {
+      value: formData.expertise,
+      type: typeof formData.expertise,
+      is_array: Array.isArray(formData.expertise),
+      array_length: Array.isArray(formData.expertise) ? formData.expertise.length : 'not array'
+    });
+    console.log('address:', {
+      value: formData.address,
+      type: typeof formData.address,
+      length: formData.address?.length
+    });
+
     try {
       if (editingEmployee) {
         // Update existing employee
+        console.log('🔄 UPDATING employee:', editingEmployee.id);
         const response = await employeesAPI.update(editingEmployee.id, formData);
         if (response.success) {
           await fetchEmployees();
           resetForm();
           alert('Employee updated successfully!');
         } else {
+          console.error('❌ Update failed:', response.error);
           alert(`Error updating employee: ${response.error}`);
         }
       } else {
         // Create new employee
+        console.log('✅ CREATING new employee');
         const response = await employeesAPI.create(formData);
         if (response.success) {
           await fetchEmployees();
           resetForm();
           alert('Employee created successfully!');
         } else {
+          console.error('❌ Create failed:', response.error);
           alert(`Error creating employee: ${response.error}`);
         }
       }
@@ -150,9 +192,8 @@ const EmployeesManagement: React.FC = () => {
     setFormData({
       employee_id: '',
       name: '',
-      expert: '',
-      expertise_areas: [],
-      manager: '',
+      expertise: [],
+      address: '',
       phone: '',
       email: '',
       is_active: true
@@ -165,9 +206,8 @@ const EmployeesManagement: React.FC = () => {
     setFormData({
       employee_id: employee.employee_id,
       name: employee.name,
-      expert: employee.expert || '',
-      expertise_areas: employee.expertise_areas || (employee.expert ? [employee.expert] : []),
-      manager: employee.manager,
+      expertise: Array.isArray(employee.expertise) ? employee.expertise : (employee.expert ? [employee.expert] : []),
+      address: (employee as any).address || '',
       phone: employee.phone,
       email: employee.email,
       is_active: employee.is_active
@@ -177,17 +217,16 @@ const EmployeesManagement: React.FC = () => {
   };
 
   // Handle expertise selection
-  const handleExpertiseToggle = (expertise: string) => {
+  const handleExpertiseToggle = (expertiseArea: string) => {
     setFormData(prev => {
-      const currentAreas = prev.expertise_areas || [];
-      const newExpertiseAreas = currentAreas.includes(expertise)
-        ? currentAreas.filter(area => area !== expertise)
-        : [...currentAreas, expertise];
+      const currentAreas = prev.expertise || [];
+      const newExpertiseAreas = currentAreas.includes(expertiseArea)
+        ? currentAreas.filter(area => area !== expertiseArea)
+        : [...currentAreas, expertiseArea];
       
       return {
         ...prev,
-        expertise_areas: newExpertiseAreas,
-        expert: newExpertiseAreas[0] || '' // Set first expertise as legacy expert field
+        expertise: newExpertiseAreas
       };
     });
   };
@@ -316,7 +355,7 @@ const EmployeesManagement: React.FC = () => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg p-4 text-center">
             <p className="text-sm font-medium text-orange-100 mb-2">Multi-Skilled</p>
-            <p className="text-4xl font-bold text-white">{employees.filter(e => e.expertise_areas && e.expertise_areas.length > 1).length}</p>
+            <p className="text-4xl font-bold text-white">{employees.filter(e => Array.isArray(e.expertise) && e.expertise.length > 1).length}</p>
             <p className="text-xs text-orange-200 mt-2">Versatile Staff</p>
           </div>
         </div>
@@ -393,7 +432,7 @@ const EmployeesManagement: React.FC = () => {
                       <input
                         type="checkbox"
                         id={`expertise-${area}`}
-                        checked={formData.expertise_areas?.includes(area) || false}
+                        checked={formData.expertise?.includes(area) || false}
                         onChange={() => handleExpertiseToggle(area)}
                         className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                       />
@@ -406,25 +445,24 @@ const EmployeesManagement: React.FC = () => {
                     </div>
                   ))}
                 </div>
-                {(!formData.expertise_areas || formData.expertise_areas.length === 0) && (
+                {(!formData.expertise || formData.expertise.length === 0) && (
                   <p className="text-red-500 text-xs mt-1">Please select at least one expertise area</p>
                 )}
                 <div className="mt-2 text-xs text-gray-500">
-                  Selected: {!formData.expertise_areas || formData.expertise_areas.length === 0 ? 'None' : formData.expertise_areas.join(', ')}
+                  Selected: {!formData.expertise || formData.expertise.length === 0 ? 'None' : formData.expertise.join(', ')}
                 </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Manager *
+                  Address
                 </label>
                 <input
                   type="text"
-                  required
-                  value={formData.manager}
-                  onChange={(e) => setFormData({ ...formData, manager: e.target.value })}
+                  value={formData.address || ''}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="e.g., Manager Name"
+                  placeholder="e.g., 123 Main Street, City"
                 />
               </div>
 
@@ -540,20 +578,22 @@ const EmployeesManagement: React.FC = () => {
                       <div className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-full inline-block">
                         ID: {employee.employee_id}
                       </div>
-                      <div className="text-sm text-gray-600 mt-1">
-                        Manager: {employee.manager}
-                      </div>
+                      {(employee as any).address && (
+                        <div className="text-sm text-gray-600 mt-1">
+                          Address: {(employee as any).address}
+                        </div>
+                      )}
                     </div>
                   </td>
                   <td className="px-8 py-6">
                     <div className="flex flex-wrap gap-1">
-                      {employee.expertise_areas && employee.expertise_areas.length > 0 ? (
-                        employee.expertise_areas.map((expertise, index) => (
+                      {Array.isArray(employee.expertise) && employee.expertise.length > 0 ? (
+                        employee.expertise.map((expertiseArea, index) => (
                           <span 
                             key={index}
                             className="inline-flex px-3 py-1 text-sm font-semibold rounded-lg bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-800 border border-blue-200"
                           >
-                            {expertise}
+                            {expertiseArea}
                           </span>
                         ))
                       ) : (

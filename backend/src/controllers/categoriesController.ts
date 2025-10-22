@@ -11,7 +11,7 @@ export const getCategories = async (req: Request, res: Response) => {
         name,
         description,
         icon,
-        image_paths,
+        image_path,
         is_active,
         sort_order,
         created_at,
@@ -37,7 +37,7 @@ export const getCategories = async (req: Request, res: Response) => {
 export const createCategory = async (req: Request, res: Response) => {
   try {
     
-    const { name, description, icon, is_active = true, sort_order = 0 } = req.body;
+    const { name, description, icon = '', is_active = true, sort_order = 0 } = req.body;
     
     if (!name || !description) {
       return res.status(400).json({
@@ -72,12 +72,57 @@ export const updateCategory = async (req: Request, res: Response) => {
     const { id } = req.params;
     const { name, description, icon, is_active, sort_order } = req.body;
     
-    const result = await pool.query(`
+    // Build dynamic update query - only update provided fields
+    const updateFields: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+    
+    if (name !== undefined) {
+      updateFields.push(`name = $${paramIndex++}`);
+      values.push(name);
+    }
+    
+    if (description !== undefined) {
+      updateFields.push(`description = $${paramIndex++}`);
+      values.push(description);
+    }
+    
+    if (icon !== undefined) {
+      updateFields.push(`icon = $${paramIndex++}`);
+      values.push(icon);
+    }
+    
+    if (is_active !== undefined) {
+      updateFields.push(`is_active = $${paramIndex++}`);
+      values.push(is_active);
+    }
+    
+    if (sort_order !== undefined) {
+      updateFields.push(`sort_order = $${paramIndex++}`);
+      values.push(sort_order);
+    }
+    
+    if (updateFields.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No fields to update'
+      });
+    }
+    
+    // Always update the updated_at timestamp
+    updateFields.push('updated_at = NOW()');
+    
+    // Add the ID parameter
+    values.push(id);
+    
+    const query = `
       UPDATE service_categories 
-      SET name = $1, description = $2, icon = $3, is_active = $4, sort_order = $5, updated_at = NOW()
-      WHERE id = $6::uuid
+      SET ${updateFields.join(', ')}
+      WHERE id = $${paramIndex}::uuid
       RETURNING *
-    `, [name, description, icon, is_active, sort_order, id]);
+    `;
+    
+    const result = await pool.query(query, values);
     
     if (result.rows.length === 0) {
       return res.status(404).json({

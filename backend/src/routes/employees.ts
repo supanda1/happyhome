@@ -11,12 +11,11 @@ const updateEmployeeValidation = [
   ...validateUUID('id'),
   commonValidations.optionalString('employee_id', 50),
   commonValidations.optionalString('name', 100),
-  commonValidations.optionalString('expert', 100),
-  commonValidations.optionalArray('expertise_areas'),
-  commonValidations.optionalString('manager', 100),
+  commonValidations.optionalArray('expertise'),
+  commonValidations.optionalString('address', 500),
   body('phone').optional().matches(/^[+]?[\d\s\-()]{10,15}$/),
   body('email').optional().isEmail().normalizeEmail(),
-  commonValidations.boolean('is_active'),
+  body('is_active').optional().isBoolean().withMessage('is_active must be a boolean'),
   handleValidationErrors
 ];
 

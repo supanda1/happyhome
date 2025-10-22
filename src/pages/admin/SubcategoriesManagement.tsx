@@ -39,6 +39,14 @@ interface SubcategoryFormData {
   sort_order: number;
 }
 
+interface FormErrors {
+  category_id?: string;
+  name?: string;
+  description?: string;
+  sort_order?: string;
+  general?: string;
+}
+
 interface SubcategoriesManagementProps {
   onCategoryChange?: () => void;
 }
@@ -58,6 +66,8 @@ const SubcategoriesManagement: React.FC<SubcategoriesManagementProps> = ({ onCat
     is_active: true,
     sort_order: 0
   });
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Fetch categories and subcategories from API
   const fetchData = async () => {
@@ -99,9 +109,33 @@ const SubcategoriesManagement: React.FC<SubcategoriesManagementProps> = ({ onCat
     }
   }, [subcategories, selectedCategoryFilter]);
 
+  // Parse validation errors from API response
+  const parseValidationErrors = (errorMessage: string): FormErrors => {
+    const errors: FormErrors = {};
+    
+    if (errorMessage.includes('Validation Error:')) {
+      const errorPart = errorMessage.split('Validation Error:')[1];
+      if (errorPart.includes('description:')) {
+        errors.description = errorPart.split('description:')[1].trim();
+      }
+      if (errorPart.includes('name:')) {
+        errors.name = errorPart.split('name:')[1].split(',')[0].trim();
+      }
+      if (errorPart.includes('category_id:')) {
+        errors.category_id = errorPart.split('category_id:')[1].split(',')[0].trim();
+      }
+    } else {
+      errors.general = errorMessage;
+    }
+    
+    return errors;
+  };
+
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrors({});
+    setIsSubmitting(true);
     
     try {
       if (editingSubcategory) {
@@ -111,21 +145,23 @@ const SubcategoriesManagement: React.FC<SubcategoriesManagementProps> = ({ onCat
           await fetchData();
           onCategoryChange?.(); // Notify parent of subcategory changes
           resetForm();
-          alert('Subcategory updated successfully!');
         } else {
-          alert('Error: Subcategory not found');
+          setErrors({ general: 'Subcategory not found' });
         }
       } else {
         // Create new subcategory
-        await createSubcategory(formData);
+        await createSubcategory({ ...formData, icon: '' });
         await fetchData();
         onCategoryChange?.(); // Notify parent of subcategory changes
         resetForm();
-        alert('Subcategory created successfully!');
       }
     } catch (error) {
       console.error('Error saving subcategory:', error);
-      alert('Error saving subcategory');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      const validationErrors = parseValidationErrors(errorMessage);
+      setErrors(validationErrors);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -140,13 +176,9 @@ const SubcategoriesManagement: React.FC<SubcategoriesManagementProps> = ({ onCat
       if (success) {
         await fetchData();
         onCategoryChange?.(); // Notify parent of subcategory changes
-        alert('Subcategory deleted successfully!');
-      } else {
-        alert('Failed to delete subcategory');
       }
     } catch (error) {
       console.error('Error deleting subcategory:', error);
-      alert('Error deleting subcategory');
     }
   };
 
@@ -160,13 +192,9 @@ const SubcategoriesManagement: React.FC<SubcategoriesManagementProps> = ({ onCat
       if (updatedSubcategory) {
         await fetchData();
         onCategoryChange?.(); // Notify parent of subcategory changes
-        alert(`Subcategory ${!subcategory.is_active ? 'enabled' : 'disabled'} successfully!`);
-      } else {
-        alert('Failed to update subcategory status');
       }
     } catch (error) {
       console.error('Error updating subcategory status:', error);
-      alert('Error updating subcategory status');
     }
   };
 
@@ -180,6 +208,8 @@ const SubcategoriesManagement: React.FC<SubcategoriesManagementProps> = ({ onCat
     });
     setEditingSubcategory(null);
     setShowForm(false);
+    setErrors({});
+    setIsSubmitting(false);
   };
 
   const startEdit = (subcategory: Subcategory) => {
@@ -427,6 +457,17 @@ const SubcategoriesManagement: React.FC<SubcategoriesManagementProps> = ({ onCat
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
+              {/* General Error Message */}
+              {errors.general && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+                  <div className="flex items-center">
+                    <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    {errors.general}
+                  </div>
+                </div>
+              )}
               <div className="space-y-1">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Parent Category *
@@ -435,7 +476,11 @@ const SubcategoriesManagement: React.FC<SubcategoriesManagementProps> = ({ onCat
                   required
                   value={formData.category_id}
                   onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
+                  className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 transition-colors ${
+                    errors.category_id 
+                      ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
+                      : 'border-gray-200 focus:ring-purple-500 focus:border-purple-500'
+                  }`}
                 >
                   <option value="">Select a category</option>
                   {categories.filter(c => c.is_active).map((category) => (
@@ -444,6 +489,14 @@ const SubcategoriesManagement: React.FC<SubcategoriesManagementProps> = ({ onCat
                     </option>
                   ))}
                 </select>
+                {errors.category_id && (
+                  <p className="text-red-600 text-sm mt-1 flex items-center">
+                    <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    {errors.category_id}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1">
@@ -455,9 +508,21 @@ const SubcategoriesManagement: React.FC<SubcategoriesManagementProps> = ({ onCat
                   required
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
+                  className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 transition-colors ${
+                    errors.name 
+                      ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
+                      : 'border-gray-200 focus:ring-purple-500 focus:border-purple-500'
+                  }`}
                   placeholder="e.g., Bath Fittings"
                 />
+                {errors.name && (
+                  <p className="text-red-600 text-sm mt-1 flex items-center">
+                    <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    {errors.name}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1">
@@ -469,9 +534,24 @@ const SubcategoriesManagement: React.FC<SubcategoriesManagementProps> = ({ onCat
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   rows={4}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors resize-none"
+                  className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 transition-colors resize-none ${
+                    errors.description 
+                      ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
+                      : 'border-gray-200 focus:ring-purple-500 focus:border-purple-500'
+                  }`}
                   placeholder="Professional installation and repair services for bathroom fittings including taps, shower heads, and accessories. Our experts ensure proper water pressure and leak-free connections."
                 />
+                {errors.description && (
+                  <p className="text-red-600 text-sm mt-1 flex items-center">
+                    <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    {errors.description}
+                  </p>
+                )}
+                <p className="text-xs text-gray-500 mt-1">
+                  Minimum 5 characters required. Current length: {formData.description.length}
+                </p>
               </div>
 
               <div className="space-y-1">
@@ -507,9 +587,24 @@ const SubcategoriesManagement: React.FC<SubcategoriesManagementProps> = ({ onCat
               <div className="flex space-x-3 pt-4">
                 <button
                   type="submit"
-                  className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 px-6 rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all transform hover:scale-105 shadow-lg font-semibold"
+                  disabled={isSubmitting}
+                  className={`flex-1 bg-gradient-to-r text-white py-3 px-6 rounded-lg transition-all transform shadow-lg font-semibold flex items-center justify-center ${
+                    isSubmitting 
+                      ? 'from-gray-400 to-gray-500 cursor-not-allowed' 
+                      : 'from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 hover:scale-105'
+                  }`}
                 >
-                  {editingSubcategory ? 'Update Subcategory' : 'Create Subcategory'}
+                  {isSubmitting ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      {editingSubcategory ? 'Updating...' : 'Creating...'}
+                    </>
+                  ) : (
+                    editingSubcategory ? 'Update Subcategory' : 'Create Subcategory'
+                  )}
                 </button>
                 <button
                   type="button"

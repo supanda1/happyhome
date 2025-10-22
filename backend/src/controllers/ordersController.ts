@@ -24,13 +24,12 @@ export class OrdersController {
             'id', oi.id,
             'service_id', oi.service_id,
             'service_name', oi.service_name,
-            'variant_id', oi.variant_id,
-            'variant_name', oi.variant_name,
+            'variant_id', oi.service_variant_id,
             'quantity', oi.quantity,
             'unit_price', oi.unit_price,
             'total_price', oi.total_price,
-            'category_id', oi.category_id,
-            'subcategory_id', oi.subcategory_id,
+            'service_description', oi.service_description,
+            'customizations', oi.customizations,
             'assigned_engineer_id', oi.assigned_engineer_id,
             'assigned_engineer_name', oi.assigned_engineer_name,
             'item_status', oi.item_status,
@@ -121,13 +120,11 @@ export class OrdersController {
             'id', oi.id,
             'service_id', oi.service_id,
             'service_name', oi.service_name,
-            'variant_id', oi.variant_id,
-            'variant_name', oi.variant_name,
+            'variant_id', oi.service_variant_id,
+            'variant_name', oi.service_name,
             'quantity', oi.quantity,
             'unit_price', oi.unit_price,
             'total_price', oi.total_price,
-            'category_id', oi.category_id,
-            'subcategory_id', oi.subcategory_id,
             'assigned_engineer_id', oi.assigned_engineer_id,
             'assigned_engineer_name', oi.assigned_engineer_name,
             'item_status', oi.item_status,
@@ -215,8 +212,8 @@ export class OrdersController {
             serviceId: item.service_id,
             scheduledDate: getValidDate(item.scheduled_date, order.created_at),
             timeSlot: {
-              startTime: item.scheduled_time_slot?.start_time || '09:00',
-              endTime: item.scheduled_time_slot?.end_time || '11:00', 
+              startTime: item.scheduled_time_slot?.split('-')[0] || '09:00',
+              endTime: item.scheduled_time_slot?.split('-')[1] || '11:00', 
               isAvailable: true
             },
             // Preserve both status fields for unified status logic
@@ -285,13 +282,11 @@ export class OrdersController {
             'id', oi.id,
             'service_id', oi.service_id,
             'service_name', oi.service_name,
-            'variant_id', oi.variant_id,
-            'variant_name', oi.variant_name,
+            'variant_id', oi.service_variant_id,
+            'variant_name', oi.service_name,
             'quantity', oi.quantity,
             'unit_price', oi.unit_price,
             'total_price', oi.total_price,
-            'category_id', oi.category_id,
-            'subcategory_id', oi.subcategory_id,
             'assigned_engineer_id', oi.assigned_engineer_id,
             'assigned_engineer_name', oi.assigned_engineer_name,
             'item_status', oi.item_status,
@@ -356,13 +351,91 @@ export class OrdersController {
       const countResult = await client.query('SELECT COUNT(*) FROM orders');
       const orderNumber = `HH${String(parseInt(countResult.rows[0].count) + 1).padStart(8, '0')}`;
       
+      // Handle coupon application if provided
+      let appliedCoupon = null;
+      let calculatedDiscountAmount = orderData.discount_amount || 0;
+      
+      if (orderData.coupon_code) {
+        try {
+          // Validate coupon
+          const couponResult = await client.query(`
+            SELECT id, code, title, discount_type, discount_value, minimum_order_amount, 
+                   maximum_discount_amount, usage_limit, usage_count, usage_limit_per_user,
+                   first_time_users_only, is_active, valid_from, valid_until
+            FROM coupons 
+            WHERE code = $1 AND is_active = true 
+            AND valid_from <= CURRENT_DATE AND valid_until >= CURRENT_DATE
+          `, [orderData.coupon_code]);
+          
+          if (couponResult.rows.length === 0) {
+            throw new Error('Invalid or expired coupon code');
+          }
+          
+          const coupon = couponResult.rows[0];
+          
+          // Check minimum order amount
+          if (orderData.total_amount < coupon.minimum_order_amount) {
+            throw new Error(`Minimum order amount of ₹${coupon.minimum_order_amount} required for this coupon`);
+          }
+          
+          // Check usage limits
+          if (coupon.usage_limit && coupon.usage_count >= coupon.usage_limit) {
+            throw new Error('Coupon usage limit exceeded');
+          }
+          
+          // Check first-time user restriction
+          if (coupon.first_time_users_only && orderData.customer_id) {
+            const existingOrdersResult = await client.query(
+              'SELECT COUNT(*) FROM orders WHERE customer_id = $1',
+              [orderData.customer_id]
+            );
+            if (parseInt(existingOrdersResult.rows[0].count) > 0) {
+              throw new Error('This coupon is only valid for first-time users');
+            }
+          }
+          
+          // Check per-user usage limit
+          if (orderData.customer_id && coupon.usage_limit_per_user) {
+            const userUsageResult = await client.query(
+              'SELECT COUNT(*) FROM coupon_usages WHERE coupon_id = $1 AND user_id = $2',
+              [coupon.id, orderData.customer_id]
+            );
+            if (parseInt(userUsageResult.rows[0].count) >= coupon.usage_limit_per_user) {
+              throw new Error('You have already used this coupon the maximum number of times');
+            }
+          }
+          
+          // Calculate discount
+          if (coupon.discount_type === 'percentage') {
+            calculatedDiscountAmount = (orderData.total_amount * coupon.discount_value) / 100;
+            if (coupon.maximum_discount_amount) {
+              calculatedDiscountAmount = Math.min(calculatedDiscountAmount, coupon.maximum_discount_amount);
+            }
+          } else if (coupon.discount_type === 'fixed_amount') {
+            calculatedDiscountAmount = Math.min(coupon.discount_value, orderData.total_amount);
+          }
+          
+          appliedCoupon = coupon;
+          
+        } catch (couponError) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({
+            success: false,
+            error: `Coupon validation failed: ${couponError instanceof Error ? couponError.message : 'Unknown error'}`
+          });
+        }
+      }
+      
+      // Recalculate final amount with applied discount
+      const finalCalculatedAmount = orderData.total_amount + (orderData.gst_amount || 0) + (orderData.service_charge || 0) - calculatedDiscountAmount;
+      
       // Insert order
       const orderInsertQuery = `
         INSERT INTO orders (
           id, order_number, customer_id, customer_name, customer_phone, customer_email,
           service_address, total_amount, discount_amount, gst_amount, service_charge,
-          final_amount, priority, notes, status
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+          final_amount, priority, notes, status, coupon_code, coupon_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
         RETURNING *
       `;
       
@@ -375,13 +448,15 @@ export class OrdersController {
         orderData.customer_email,
         JSON.stringify(orderData.service_address),
         orderData.total_amount,
-        orderData.discount_amount,
+        calculatedDiscountAmount, // Use calculated discount amount
         orderData.gst_amount,
         orderData.service_charge,
-        orderData.final_amount,
+        finalCalculatedAmount, // Use calculated final amount
         orderData.priority || 'medium',
         orderData.notes,
-        'pending'
+        'pending',
+        orderData.coupon_code || null, // Add coupon code
+        appliedCoupon?.id || null // Add coupon ID
       ];
       
       const orderResult = await client.query(orderInsertQuery, orderValues);
@@ -389,9 +464,9 @@ export class OrdersController {
       // Insert order items
       const itemInsertQuery = `
         INSERT INTO order_items (
-          id, order_id, service_id, service_name, variant_id, variant_name,
-          quantity, unit_price, total_price, category_id, subcategory_id, item_status
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+          id, order_id, service_id, service_name, service_variant_id, 
+          quantity, unit_price, total_price, service_description, customizations
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING *
       `;
       
@@ -403,19 +478,37 @@ export class OrdersController {
           itemId,
           orderId,
           item.service_id,
-          item.service_name,
-          item.variant_id,
-          item.variant_name,
+          item.service_name || 'Service',
+          item.variant_id || null,
           item.quantity,
           item.unit_price,
           item.total_price,
-          item.category_id,
-          item.subcategory_id,
-          'pending'
+          item.service_name || 'Service',
+          '{}' // Empty JSON object as string
         ];
         
         const itemResult = await client.query(itemInsertQuery, itemValues);
         items.push(itemResult.rows[0]);
+      }
+      
+      // Record coupon usage if coupon was applied
+      if (appliedCoupon && orderData.customer_id) {
+        // Update coupon usage count
+        await client.query(
+          'UPDATE coupons SET usage_count = usage_count + 1, updated_at = NOW() WHERE id = $1',
+          [appliedCoupon.id]
+        );
+        
+        // Record usage in coupon_usages table
+        await client.query(`
+          INSERT INTO coupon_usages (coupon_id, user_id, order_id, discount_amount, used_at)
+          VALUES ($1, $2, $3, $4, NOW())
+        `, [
+          appliedCoupon.id,
+          orderData.customer_id,
+          orderId,
+          calculatedDiscountAmount
+        ]);
       }
       
       await client.query('COMMIT');
@@ -428,13 +521,7 @@ export class OrdersController {
         items
       };
 
-      // Trigger auto-assignment after order creation
-      try {
-        await OrdersController.performAutoAssignment(orderId);
-      } catch (autoAssignError) {
-        console.warn(`⚠️ Auto-assignment failed for order ${orderNumber}:`, autoAssignError);
-        // Don't fail the order creation if auto-assignment fails
-      }
+      // Note: Orders start in 'pending' status and require admin confirmation before engineer assignment
       
       const response: ApiResponse<Order> = {
         success: true,
@@ -480,7 +567,7 @@ export class OrdersController {
       }
       
       if (updates.admin_notes) {
-        updateFields.push(`admin_notes = $${valueIndex}`);
+        updateFields.push(`special_instructions = $${valueIndex}`);
         values.push(updates.admin_notes);
         valueIndex++;
       }
@@ -568,11 +655,7 @@ export class OrdersController {
         values.push(updates.item_status);
         valueIndex++;
         
-        if (updates.item_status === 'completed') {
-          updateFields.push(`completion_date = $${valueIndex}`);
-          values.push(new Date().toISOString().split('T')[0]); // YYYY-MM-DD format
-          valueIndex++;
-        }
+        // Supports all order_status enum values: pending, confirmed, scheduled, in_progress, completed, postponed, cancelled
       }
       
       if (updates.scheduled_date) {
@@ -652,6 +735,31 @@ export class OrdersController {
       const { orderId, itemId } = req.params;
       const { engineer_id, notes, scheduled_date, scheduled_time_slot }: AssignEngineerRequest = req.body;
       
+      // Validate order exists and is in confirmed state
+      const orderResult = await client.query(
+        'SELECT status FROM orders WHERE id = $1',
+        [orderId]
+      );
+      
+      if (orderResult.rows.length === 0) {
+        const response: ApiResponse<null> = {
+          success: false,
+          error: 'Order not found'
+        };
+        await client.query('ROLLBACK');
+        return res.status(404).json(response);
+      }
+      
+      const orderStatus = orderResult.rows[0].status;
+      if (orderStatus !== 'confirmed' && orderStatus !== 'scheduled') {
+        const response: ApiResponse<null> = {
+          success: false,
+          error: `Cannot assign engineers to order in '${orderStatus}' status. Order must be in 'confirmed' or 'scheduled' status.`
+        };
+        await client.query('ROLLBACK');
+        return res.status(400).json(response);
+      }
+
       // Validate order item exists and get category info
       const itemResult = await client.query(
         'SELECT * FROM order_items WHERE id = $1 AND order_id = $2',
@@ -677,13 +785,13 @@ export class OrdersController {
       // Get engineer details with expertise validation
       // Handle both UUID and string-based employee IDs (for localStorage compatibility)
       const engineerResult = await client.query(`
-        SELECT e.id, e.name, e.expert, e.phone, e.email,
+        SELECT e.id, e.name, e.expertise, e.phone, e.email,
                COUNT(oi.id) as current_assignments
         FROM employees e
         LEFT JOIN order_items oi ON e.id = oi.assigned_engineer_id 
-                                  AND oi.item_status IN ('scheduled', 'in_progress')
+                                  AND oi.item_status = 'scheduled'
         WHERE (e.id::text = $1 OR e.employee_id = $1) AND e.is_active = true
-        GROUP BY e.id, e.name, e.expert, e.phone, e.email
+        GROUP BY e.id, e.name, e.expertise, e.phone, e.email
       `, [engineer_id]);
       
       if (engineerResult.rows.length === 0) {
@@ -782,16 +890,17 @@ export class OrdersController {
       // Update order item with engineer assignment
       const updateQuery = `
         UPDATE order_items 
-        SET assigned_engineer_id = $1, assigned_engineer_name = $2, item_status = $3, scheduled_date = $4, item_notes = $5
-        WHERE id = $6 AND order_id = $7
+        SET assigned_engineer_id = $1, assigned_engineer_name = $2, item_status = $3, scheduled_date = $4, scheduled_time_slot = $5, item_notes = $6
+        WHERE id = $7 AND order_id = $8
         RETURNING *
       `;
       
       const updateValues = [
         engineer.id,
         engineer.name,
-        'scheduled',
+        'scheduled', // Set status to scheduled after assignment
         formattedScheduledDate,
+        scheduled_time_slot, // Include the time slot from request
         assignmentNote,
         itemId,
         orderId
@@ -810,10 +919,10 @@ export class OrdersController {
       
       if (parseInt(assigned) === parseInt(total)) {
         // All items are assigned, update order status
-        const orderNote = `\n[${new Date().toISOString().substring(0, 10)}] All items assigned - Order ready`;
+        const orderNote = `\n[${new Date().toISOString().substring(0, 10)}] All items assigned - Order scheduled`;
         await client.query(
-          'UPDATE orders SET status = $1, admin_notes = COALESCE(admin_notes, \'\') || $2 WHERE id = $3',
-          ['scheduled', orderNote, orderId]
+          'UPDATE orders SET status = $1, special_instructions = COALESCE(special_instructions, \'\') || $2 WHERE id = $3',
+          ['scheduled', orderNote, orderId] // Set order status to scheduled when all items assigned
         );
       }
       
@@ -872,10 +981,43 @@ export class OrdersController {
         return res.status(400).json(response);
       }
       
-      const results = [];
-      const errors = [];
+      const results: Array<{orderId: string, itemId: string, engineer: string, success: boolean}> = [];
+      const errors: Array<{orderId: string, itemId: string | null, error: string}> = [];
       
-      for (const assignment of assignments) {
+      // First validate all orders are in confirmed status
+      const uniqueOrderIds = [...new Set(assignments.map(a => a.orderId))];
+      for (const orderId of uniqueOrderIds) {
+        const orderResult = await client.query('SELECT status FROM orders WHERE id = $1', [orderId]);
+        if (orderResult.rows.length === 0) {
+          errors.push({
+            orderId: orderId,
+            itemId: null,
+            error: 'Order not found'
+          });
+          continue;
+        }
+        
+        const orderStatus = orderResult.rows[0].status;
+        if (orderStatus !== 'confirmed' && orderStatus !== 'scheduled') {
+          // Mark all assignments for this order as failed
+          const failedAssignments = assignments.filter(a => a.orderId === orderId);
+          failedAssignments.forEach(assignment => {
+            errors.push({
+              orderId: assignment.orderId,
+              itemId: assignment.itemId,
+              error: `Cannot assign engineers to order in '${orderStatus}' status. Order must be in 'confirmed' or 'scheduled' status.`
+            });
+          });
+          continue;
+        }
+      }
+      
+      // Filter out assignments for failed orders
+      const validAssignments = assignments.filter(a => 
+        !errors.some(e => e.orderId === a.orderId)
+      );
+      
+      for (const assignment of validAssignments) {
         try {
           // Validate engineer exists and is active (handle both UUID and string IDs)
           const engineerResult = await client.query(
@@ -1032,22 +1174,10 @@ export class OrdersController {
         const statusTimestamp = order.updated_at || order.created_at;
         let statusDescription = '';
         
-        switch(order.status) {
-          case 'scheduled':
-            statusDescription = 'Order confirmed and scheduled for service';
-            break;
-          case 'in_progress':
-            statusDescription = 'Service work in progress';
-            break;
-          case 'completed':
-            statusDescription = 'Order completed successfully';
-            break;
-          case 'cancelled':
-            statusDescription = 'Order cancelled';
-            break;
-          default:
-            statusDescription = `Order status updated to ${order.status}`;
-        }
+        // Simplified status logic - only 'pending' status exists
+        statusDescription = order.status === 'pending' 
+          ? 'Order is pending' 
+          : `Order status: ${order.status}`;
 
         timeline.push({
           timestamp: statusTimestamp,
@@ -1102,22 +1232,7 @@ export class OrdersController {
           });
         }
 
-        // Item Completion
-        if (item.item_status === 'completed' && item.completion_date) {
-          timeline.push({
-            timestamp: item.completion_date,
-            event_type: 'service_completed',
-            title: 'Service Completed',
-            description: `${item.service_name} completed by ${item.engineer_name}`,
-            details: {
-              service: item.service_name,
-              engineer: item.engineer_name,
-              rating: item.item_rating,
-              review: item.item_review,
-              completion_date: item.completion_date
-            }
-          });
-        }
+        // Item completion logic removed - only 'pending' status exists
       }
 
       // Sort timeline by timestamp
@@ -1137,7 +1252,7 @@ export class OrdersController {
         total_amount: order.final_amount,
         items_count: itemsResult.rows.length,
         assigned_items: itemsResult.rows.filter(item => item.assigned_engineer_id).length,
-        completed_items: itemsResult.rows.filter(item => item.item_status === 'completed').length
+        completed_items: 0 // Always 0 since only 'pending' status exists
       };
 
       const response: ApiResponse<{summary: any, timeline: any[]}> = {
@@ -1161,23 +1276,32 @@ export class OrdersController {
     }
   }
 
-  // Internal method for auto-assignment (used by createOrder)
+  // Internal method for auto-assignment (used by admin after confirming order)
   static async performAutoAssignment(orderId: string): Promise<{ assigned: number; failed: number }> {
     const client = await pool.connect();
     
     try {
       await client.query('BEGIN');
       
-      // Get unassigned items for the order
+      // Check if order is in confirmed status
+      const orderResult = await client.query('SELECT status FROM orders WHERE id = $1', [orderId]);
+      if (orderResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        throw new Error('Order not found');
+      }
+      
+      const orderStatus = orderResult.rows[0].status;
+      if (orderStatus !== 'confirmed' && orderStatus !== 'scheduled') {
+        await client.query('ROLLBACK');
+        throw new Error(`Cannot auto-assign engineers to order in '${orderStatus}' status. Order must be in 'confirmed' or 'scheduled' status.`);
+      }
+      
+      // Get unassigned items for the confirmed or scheduled order
       const unassignedItems = await client.query(`
-        SELECT oi.*, sc.name as category_name
+        SELECT oi.*, s.category_id, s.subcategory_id, sc.name as category_name
         FROM order_items oi
-        LEFT JOIN service_categories sc ON (
-          CASE 
-            WHEN pg_typeof(oi.category_id) = pg_typeof(sc.id) THEN oi.category_id = sc.id
-            ELSE oi.category_id::text = sc.id::text
-          END
-        )
+        LEFT JOIN services s ON oi.service_id = s.id
+        LEFT JOIN service_categories sc ON s.category_id = sc.id
         WHERE oi.order_id = $1 AND oi.assigned_engineer_id IS NULL
       `, [orderId]);
       
@@ -1195,7 +1319,7 @@ export class OrdersController {
           // Enhanced flexible matching for engineer expertise
           // This handles variations like "Wiring & Installation" vs "Electric Wiring and installation"
           const engineerResult = await client.query(`
-            SELECT e.id, e.name, e.expert,
+            SELECT e.id, e.name, e.expertise,
                    COUNT(oi.id) as current_load,
                    CASE
                      
@@ -1205,40 +1329,40 @@ export class OrdersController {
                        (LOWER($1) LIKE '%plumb%' OR LOWER($1) LIKE '%pipe%' OR LOWER($1) LIKE '%drain%' OR LOWER($1) LIKE '%water%' OR
                         LOWER($1) LIKE '%bath%' OR LOWER($1) LIKE '%basin%' OR LOWER($1) LIKE '%toilet%' OR LOWER($1) LIKE '%faucet%' OR
                         LOWER($1) LIKE '%fitting%' OR LOWER($1) LIKE '%tap%' OR LOWER($1) LIKE '%sink%' OR LOWER($1) LIKE '%shower%') AND
-                       (LOWER(e.expert) LIKE '%plumb%' OR LOWER(e.expert) LIKE '%pipe%' OR LOWER(e.expert) LIKE '%drain%' OR
-                        LOWER(e.expert) LIKE '%bath%' OR LOWER(e.expert) LIKE '%fitting%')
+                       (LOWER(e.expertise::text) LIKE '%plumb%' OR LOWER(e.expertise::text) LIKE '%pipe%' OR LOWER(e.expertise::text) LIKE '%drain%' OR
+                        LOWER(e.expertise::text) LIKE '%bath%' OR LOWER(e.expertise::text) LIKE '%fitting%')
                      ) THEN 9
                      
                      -- Electrical domain keywords (MUST have electrical expertise)
                      WHEN (
                        (LOWER($1) LIKE '%electric%' OR LOWER($1) LIKE '%wiring%' OR LOWER($1) LIKE '%electrical%' OR
                         LOWER($1) LIKE '%switch%' OR LOWER($1) LIKE '%socket%' OR LOWER($1) LIKE '%lighting%' OR LOWER($1) LIKE '%fan%') AND
-                       (LOWER(e.expert) LIKE '%electric%' OR LOWER(e.expert) LIKE '%wiring%' OR LOWER(e.expert) LIKE '%electrical%')
+                       (LOWER(e.expertise::text) LIKE '%electric%' OR LOWER(e.expertise::text) LIKE '%wiring%' OR LOWER(e.expertise::text) LIKE '%electrical%')
                      ) THEN 9
                      
                      -- Cleaning domain keywords (MUST have cleaning expertise)
                      WHEN (
                        (LOWER($1) LIKE '%clean%' OR LOWER($1) LIKE '%wash%' OR LOWER($1) LIKE '%septic%' OR LOWER($1) LIKE '%ac clean%') AND
-                       (LOWER(e.expert) LIKE '%clean%' OR LOWER(e.expert) LIKE '%wash%')
+                       (LOWER(e.expertise::text) LIKE '%clean%' OR LOWER(e.expertise::text) LIKE '%wash%')
                      ) THEN 9
                      
                      -- Generic installation/repair matching (LOWER PRIORITY - only when no domain expert available)
                      WHEN (
                        (LOWER($1) LIKE '%install%' OR LOWER($1) LIKE '%repair%' OR LOWER($1) LIKE '%fix%') AND
-                       (LOWER(e.expert) LIKE '%install%' OR LOWER(e.expert) LIKE '%repair%' OR LOWER(e.expert) LIKE '%fix%')
+                       (LOWER(e.expertise::text) LIKE '%install%' OR LOWER(e.expertise::text) LIKE '%repair%' OR LOWER(e.expertise::text) LIKE '%fix%')
                      ) THEN 6
                      
                      -- Category name partial match (broader)
-                     WHEN LOWER(e.expert) LIKE '%' || LOWER($2) || '%' THEN 5
+                     WHEN LOWER(e.expertise::text) LIKE '%' || LOWER($2) || '%' THEN 5
                      
                      -- Fallback: any active engineer gets minimal score (ONLY if no domain expert available)
                      ELSE 1
                    END as expertise_score
             FROM employees e
             LEFT JOIN order_items oi ON e.id = oi.assigned_engineer_id 
-                                      AND oi.item_status IN ('scheduled', 'in_progress')
+                                      AND oi.item_status = 'pending'
             WHERE e.is_active = true
-            GROUP BY e.id, e.name, e.expert
+            GROUP BY e.id, e.name, e.expertise
             ORDER BY expertise_score DESC, current_load ASC, e.name ASC
             LIMIT 1
           `, [
@@ -1278,16 +1402,28 @@ export class OrdersController {
           const truncatedName = engineer.name.length > 20 ? engineer.name.substring(0, 20) : engineer.name;
           const shortNote = `\n[${new Date().toISOString().substring(0, 10)}] Auto-assigned to ${truncatedName} (load: ${engineer.current_load})`;
           
+          // Set default scheduled date (tomorrow) and time slot for auto-assigned items
+          const tomorrow = new Date();
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          const defaultScheduledDate = tomorrow.toISOString().substring(0, 10); // YYYY-MM-DD format
+          const defaultTimeSlot = '09:00-11:00'; // Simple string format expected by frontend
+          
+          console.log(`🤖 Auto-assigning ${engineer.name} (ID: ${engineer.id}) to item ${item.id} with default schedule ${defaultScheduledDate} 09:00-11:00`);
+          
           await client.query(`
             UPDATE order_items 
             SET assigned_engineer_id = $1, 
                 assigned_engineer_name = $2,
                 item_status = 'scheduled',
-                item_notes = COALESCE(item_notes, '') || $3
-            WHERE id = $4
+                scheduled_date = $3,
+                scheduled_time_slot = $4,
+                item_notes = COALESCE(item_notes, '') || $5
+            WHERE id = $6
           `, [
             engineer.id,
             truncatedName,
+            defaultScheduledDate,
+            defaultTimeSlot,
             shortNote,
             item.id
           ]);
@@ -1300,6 +1436,8 @@ export class OrdersController {
             current_load: parseInt(engineer.current_load)
           });
           
+          console.log(`✅ Successfully assigned ${engineer.name} to ${item.service_name} - scheduled for ${defaultScheduledDate} at ${defaultTimeSlot}`);
+          
         } catch (error) {
           console.error(`❌ Assignment failed for ${item.service_name}:`, error);
           failures.push({
@@ -1307,6 +1445,27 @@ export class OrdersController {
             service_name: item.service_name,
             reason: 'Assignment failed'
           });
+        }
+      }
+      
+      // Update overall order status if all items are now assigned
+      if (assignments.length > 0) {
+        const orderItemsResult = await client.query(
+          'SELECT COUNT(*) as total, COUNT(assigned_engineer_id) as assigned FROM order_items WHERE order_id = $1',
+          [orderId]
+        );
+        
+        const { total, assigned } = orderItemsResult.rows[0];
+        
+        if (parseInt(assigned) === parseInt(total)) {
+          // All items are assigned, update order status to scheduled
+          const orderNote = `\n[${new Date().toISOString().substring(0, 10)}] All items auto-assigned - Order scheduled`;
+          await client.query(
+            'UPDATE orders SET status = $1, special_instructions = COALESCE(special_instructions, \'\') || $2 WHERE id = $3',
+            ['scheduled', orderNote, orderId]
+          );
+          
+          console.log(`✅ Order ${orderId} status updated to 'scheduled' - all ${total} items assigned`);
         }
       }
       
@@ -1331,21 +1490,59 @@ export class OrdersController {
       const result = await OrdersController.performAutoAssignment(orderId);
       
       if (result.assigned === 0 && result.failed === 0) {
-        const response: ApiResponse<null> = {
-          success: false,
-          error: 'No unassigned items found for this order'
+        const response: ApiResponse<{ successful_assignments: number; failed_assignments: number; total_processed: number }> = {
+          success: true,
+          data: {
+            successful_assignments: 0,
+            failed_assignments: 0,
+            total_processed: 0
+          },
+          message: 'All items in this order are already assigned to engineers'
         };
-        return res.status(404).json(response);
+        return res.status(200).json(response);
       }
       
-      const response: ApiResponse<{ successful_assignments: number; failed_assignments: number; total_processed: number }> = {
+      // Check if order was moved to scheduled status and get assignment details
+      const orderResult = await pool.query(`
+        SELECT o.status, 
+        JSON_AGG(
+          JSON_BUILD_OBJECT(
+            'id', oi.id,
+            'service_name', oi.service_name,
+            'assigned_engineer_id', oi.assigned_engineer_id,
+            'assigned_engineer_name', oi.assigned_engineer_name,
+            'item_status', oi.item_status,
+            'scheduled_date', oi.scheduled_date,
+            'scheduled_time_slot', oi.scheduled_time_slot
+          )
+        ) as items
+        FROM orders o
+        LEFT JOIN order_items oi ON o.id = oi.order_id
+        WHERE o.id = $1
+        GROUP BY o.id, o.status
+      `, [orderId]);
+      
+      const currentStatus = orderResult.rows[0]?.status;
+      const assignedItems = orderResult.rows[0]?.items || [];
+      const statusMessage = currentStatus === 'scheduled' ? ' - Order moved to scheduled status' : '';
+      
+      console.log('🔍 AUTO-ASSIGNMENT RESULT DEBUG:', {
+        orderId,
+        currentStatus,
+        assignedCount: result.assigned,
+        failedCount: result.failed,
+        assignedItems: assignedItems.filter((item: any) => item.id !== null)
+      });
+      
+      const response: ApiResponse<{ successful_assignments: number; failed_assignments: number; total_processed: number; assigned_items: any[] }> = {
         success: result.assigned > 0,
         data: {
           successful_assignments: result.assigned,
           failed_assignments: result.failed,
-          total_processed: result.assigned + result.failed
+          total_processed: result.assigned + result.failed,
+          assigned_items: assignedItems.filter((item: any) => item.id !== null)
         },
-        message: `Auto-assignment completed: ${result.assigned} assigned, ${result.failed} failed`
+        message: `Auto-assignment completed: ${result.assigned} assigned, ${result.failed} failed${statusMessage}`
       };
       
       res.json(response);
@@ -1421,20 +1618,12 @@ export class OrdersController {
         return res.status(403).json(response);
       }
       
-      // Check if order can be cancelled
-      if (order.status === 'completed' || order.status === 'cancelled') {
-        const response: ApiResponse<null> = {
-          success: false,
-          error: `Cannot cancel order with status: ${order.status}`
-        };
-        await client.query('ROLLBACK');
-        return res.status(400).json(response);
-      }
+      // Status check removed - all orders can be cancelled (only 'pending' status exists)
       
       // Update order status to cancelled
-      const originalStatus = order.status;
+      // originalStatus variable removed - not used
       const cancellationNote = `CANCELLED by ${userEmail}: ${cancelReason}`;
-      const existingNotes = order.admin_notes || '';
+      const existingNotes = order.special_instructions || '';
       const updatedAdminNotes = existingNotes 
         ? `${existingNotes}\n${cancellationNote}` 
         : cancellationNote;
@@ -1442,7 +1631,7 @@ export class OrdersController {
       await client.query(`
         UPDATE orders 
         SET status = 'cancelled', 
-            admin_notes = $1,
+            special_instructions = $1,
             updated_at = CURRENT_TIMESTAMP
         WHERE id = $2
       `, [updatedAdminNotes, orderId]);
@@ -1452,8 +1641,9 @@ export class OrdersController {
       const items = order.items || [];
       
       for (const item of items) {
-        if (item.item_status !== 'completed') {
-          const originalItemStatus = item.item_status;
+        // Always true since only 'pending' status exists
+        if (true) {
+          // originalItemStatus variable removed - not used
           await client.query(`
             UPDATE order_items 
             SET item_status = 'cancelled'
@@ -1539,14 +1729,7 @@ export class OrdersController {
         return res.status(403).json(response);
       }
 
-      // Check if order is completed (only completed orders can be rated)
-      if (order.status !== 'completed') {
-        const response: ApiResponse<null> = {
-          success: false,
-          error: 'Only completed orders can be rated'
-        };
-        return res.status(400).json(response);
-      }
+      // Rating check removed - all orders can be rated (only 'pending' status exists)
 
       // Update order with rating and review
       const updateQuery = `
@@ -1628,19 +1811,20 @@ export class OrdersController {
           e.id,
           e.employee_id,
           e.name,
-          e.expert,
+          e.expertise,
           e.phone,
           e.email,
           e.is_active,
-          COUNT(CASE WHEN oi.item_status IN ('pending', 'scheduled', 'in_progress') THEN 1 END) as active_tasks,
+          COUNT(CASE WHEN oi.item_status = 'scheduled' THEN 1 END) as active_tasks,
           COUNT(CASE WHEN oi.item_status = 'pending' THEN 1 END) as pending_tasks,
+          COUNT(CASE WHEN oi.item_status = 'confirmed' THEN 1 END) as confirmed_tasks,
           COUNT(CASE WHEN oi.item_status = 'scheduled' THEN 1 END) as scheduled_tasks,
-          COUNT(CASE WHEN oi.item_status = 'in_progress' THEN 1 END) as in_progress_tasks,
-          COUNT(CASE WHEN oi.item_status = 'completed' THEN 1 END) as completed_tasks,
+          COUNT(CASE WHEN oi.item_status = 'postponed' THEN 1 END) as postponed_tasks,
+          COUNT(CASE WHEN oi.item_status = 'cancelled' THEN 1 END) as cancelled_tasks
           COALESCE(
             JSON_AGG(
               CASE 
-                WHEN oi.id IS NOT NULL AND oi.item_status IN ('pending', 'scheduled', 'in_progress') 
+                WHEN oi.id IS NOT NULL AND oi.item_status = 'scheduled' 
                 THEN JSON_BUILD_OBJECT(
                   'order_id', o.id,
                   'order_number', o.order_number,
@@ -1652,14 +1836,14 @@ export class OrdersController {
                   'priority', o.priority
                 )
               END
-            ) FILTER (WHERE oi.id IS NOT NULL AND oi.item_status IN ('pending', 'scheduled', 'in_progress')),
+            ) FILTER (WHERE oi.id IS NOT NULL AND oi.item_status = 'scheduled'),
             '[]'::json
           ) as active_assignments
         FROM employees e
         LEFT JOIN order_items oi ON e.id = oi.assigned_engineer_id
         LEFT JOIN orders o ON oi.order_id = o.id
         WHERE e.is_active = true
-        GROUP BY e.id, e.employee_id, e.name, e.expert, e.phone, e.email, e.is_active
+        GROUP BY e.id, e.employee_id, e.name, e.expertise, e.phone, e.email, e.is_active
         ORDER BY active_tasks DESC, e.name ASC
       `;
       
