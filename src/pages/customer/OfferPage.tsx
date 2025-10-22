@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useServices } from '../../contexts/ServiceContext';
 import type { Service } from '../../types';
-import { applyCouponToCart } from '../../utils/adminDataManager';
+import { applyCouponToCart, addToCart } from '../../utils/adminDataManager';
 import { formatPrice } from '../../utils/priceFormatter';
 import { Card, CardContent, CardHeader, Button } from '../../components/ui';
 
@@ -79,6 +79,7 @@ const OfferPage: React.FC<OfferPageProps> = ({
   const [selectedPlan, setSelectedPlan] = useState<OfferPlan | null>(null);
   const [selectedServices, setSelectedServices] = useState<Record<string, {quantity: number; customizations?: string[]}>>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [totals, setTotals] = useState<{
     originalAmount: number;
     discountAmount: number;
@@ -201,42 +202,51 @@ const OfferPage: React.FC<OfferPageProps> = ({
       return;
     }
 
+    setIsAddingToCart(true);
+    
     try {
-      // Add each selected service to cart using the regular cart system
-      const cartItems: Array<{serviceId: string, quantity: number, service: Service}> = [];
-      selectedServiceIds.forEach(serviceId => {
+      // First, add each selected service to cart
+      console.log('🛒 Adding services to cart...');
+      
+      for (const serviceId of selectedServiceIds) {
         const selectedService = selectedServices[serviceId];
         const quantity = selectedService?.quantity || 0;
         const service = services.find(s => s.id === serviceId);
         
         if (service && quantity > 0) {
-          cartItems.push({serviceId, quantity, service});
+          console.log(`Adding ${service.name} (${quantity}x) to cart...`);
+          
+          // Add item to cart with the specified quantity
+          await addToCart(serviceId, quantity);
+          
+          console.log(`✅ Added ${service.name} to cart`);
         }
-      });
-      
-      console.log('Adding to cart:', cartItems);
+      }
 
       // Apply the appropriate offer coupon based on selected plan
       const offerCouponCode = `OFFER${Math.round(selectedPlan.discount_percentage)}`;
       
       try {
+        console.log(`🎫 Applying coupon: ${offerCouponCode}`);
         // Auto-apply the plan-specific coupon
         await applyCouponToCart(offerCouponCode);
         
-        // Show success message
-        alert(`🎉 ${selectedPlan.title} activated! ${selectedPlan.discount_percentage}% discount applied to your cart. Services added successfully!`);
+        console.log(`✅ ${selectedPlan.title} plan with ${selectedPlan.discount_percentage}% discount added to cart!`);
         
       } catch (couponError) {
         console.warn('Coupon application failed:', couponError);
-        alert('Services added to cart! Please apply coupon manually if needed.');
+        console.log('Services added to cart! Coupon can be applied manually.');
       }
       
       // Navigate to cart to show added items with discount
+      console.log('🧭 Navigating to cart for checkout...');
       navigateToCart();
       
     } catch (error) {
-      console.error('Error during checkout:', error);
+      console.error('❌ Error during checkout:', error);
       alert('There was an error processing your request. Please try again.');
+    } finally {
+      setIsAddingToCart(false);
     }
   };
 
@@ -542,13 +552,15 @@ const OfferPage: React.FC<OfferPageProps> = ({
                       <div className="space-y-3">
                         <Button
                           onClick={handleProceedToCheckout}
-                          disabled={Object.keys(selectedServices).length === 0}
+                          disabled={Object.keys(selectedServices).length === 0 || isAddingToCart}
                           variant="primary"
                           size="lg"
                           fullWidth
                           className="text-base"
                         >
-                          {Object.keys(selectedServices).length === 0 
+                          {isAddingToCart
+                            ? '🔄 Adding to Cart...'
+                            : Object.keys(selectedServices).length === 0 
                             ? '🛒 Select Services First'
                             : `🛒 Buy Plan + Services`
                           }
