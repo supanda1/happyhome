@@ -226,6 +226,82 @@ def upgrade() -> None:
             true,
             NOW(),
             NOW()
+        ),
+        
+        -- Offer Plan Coupons
+        (
+            '950e8400-e29b-41d4-a716-446655440020',
+            'STARTER20',
+            'Smart Start Plan - 20% Off',
+            'Exclusive 20% discount for Smart Start plan subscribers',
+            'percentage',
+            20.0,
+            0.0,
+            NULL,
+            99999,
+            0,
+            99,
+            true,
+            NOW() - INTERVAL '1 day',
+            NOW() + INTERVAL '365 days',
+            '[]'::jsonb,
+            '[]'::jsonb,
+            '[]'::jsonb,
+            'Valid for Smart Start plan subscribers only. Can be used multiple times during plan period. Exclusive offer plan coupon.',
+            'Smart Start Plan - Get 20% off on all services for 3 months!',
+            false,
+            NOW(),
+            NOW()
+        ),
+        
+        (
+            '950e8400-e29b-41d4-a716-446655440025',
+            'PREMIUM25',
+            'Premium Care Plan - 25% Off',
+            'Exclusive 25% discount for Premium Care plan subscribers',
+            'percentage',
+            25.0,
+            0.0,
+            NULL,
+            99999,
+            0,
+            99,
+            true,
+            NOW() - INTERVAL '1 day',
+            NOW() + INTERVAL '365 days',
+            '[]'::jsonb,
+            '[]'::jsonb,
+            '[]'::jsonb,
+            'Valid for Premium Care plan subscribers only. Can be used multiple times during plan period. Exclusive offer plan coupon.',
+            'Premium Care Plan - Get 25% off on all services for 6 months!',
+            false,
+            NOW(),
+            NOW()
+        ),
+        
+        (
+            '950e8400-e29b-41d4-a716-446655440030',
+            'ELITE30',
+            'Elite Guard Plan - 30% Off',
+            'Exclusive 30% discount for Elite Guard plan subscribers',
+            'percentage',
+            30.0,
+            0.0,
+            NULL,
+            99999,
+            0,
+            99,
+            true,
+            NOW() - INTERVAL '1 day',
+            NOW() + INTERVAL '365 days',
+            '[]'::jsonb,
+            '[]'::jsonb,
+            '[]'::jsonb,
+            'Valid for Elite Guard plan subscribers only. Can be used multiple times during plan period. Exclusive offer plan coupon.',
+            'Elite Guard Plan - Get 30% off on all services for 12 months!',
+            false,
+            NOW(),
+            NOW()
         )
         
         ON CONFLICT (id) DO NOTHING;
@@ -243,6 +319,9 @@ def downgrade() -> None:
             '950e8400-e29b-41d4-a716-446655440005',
             '950e8400-e29b-41d4-a716-446655440006',
             '950e8400-e29b-41d4-a716-446655440007',
-            '950e8400-e29b-41d4-a716-446655440008'
+            '950e8400-e29b-41d4-a716-446655440008',
+            '950e8400-e29b-41d4-a716-446655440020',
+            '950e8400-e29b-41d4-a716-446655440025',
+            '950e8400-e29b-41d4-a716-446655440030'
         )
     """)

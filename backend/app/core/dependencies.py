@@ -90,7 +90,12 @@ async def get_current_user(
         user.first_name = "Test" if user_id.startswith("customer-") else "Admin"
         user.last_name = "User"
         user.phone = "9876543210"
-        user.role = UserRole.CUSTOMER if user_id.startswith("customer-") else UserRole.ADMIN
+        if user_id.startswith("customer-"):
+            user.role = UserRole.CUSTOMER
+        elif user_id.startswith("super_admin-") or user_id.startswith("superadmin-"):
+            user.role = UserRole.SUPER_ADMIN
+        else:
+            user.role = UserRole.ADMIN
         user.is_active = True
         user.is_verified = True
         user.profile_completed = True

@@ -1,0 +1,18 @@
+# Dedicated Migration Container - ONLY handles database setup
+FROM postgres:15-alpine
+
+# Install additional tools
+RUN apk add --no-cache curl bash
+
+# Create migration directory
+WORKDIR /migration
+
+# Copy migration files
+COPY migrations/000_complete_setup.sql ./
+COPY scripts/robust-migration.sh ./
+
+# Make script executable
+RUN chmod +x ./robust-migration.sh
+
+# This container ONLY runs migration and exits
+ENTRYPOINT ["./robust-migration.sh"]

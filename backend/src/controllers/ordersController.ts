@@ -1820,7 +1820,7 @@ export class OrdersController {
           COUNT(CASE WHEN oi.item_status = 'confirmed' THEN 1 END) as confirmed_tasks,
           COUNT(CASE WHEN oi.item_status = 'scheduled' THEN 1 END) as scheduled_tasks,
           COUNT(CASE WHEN oi.item_status = 'postponed' THEN 1 END) as postponed_tasks,
-          COUNT(CASE WHEN oi.item_status = 'cancelled' THEN 1 END) as cancelled_tasks
+          COUNT(CASE WHEN oi.item_status = 'cancelled' THEN 1 END) as cancelled_tasks,
           COALESCE(
             JSON_AGG(
               CASE 
