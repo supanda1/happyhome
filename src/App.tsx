@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from './contexts/AuthContext';
-import { useServices } from './hooks/useBackendData';
+// import { useServices } from './hooks/useBackendData'; // Disabled to prevent conflicts with adminDataManager
 import LoginPage from './pages/customer/LoginPage';
 import RegisterPage from './pages/customer/RegisterPage';
 import CartPage from './pages/customer/CartPage';
@@ -21,13 +21,11 @@ import CartSidebarFixed from './components/cart/CartSidebarFixed';
 import WhatsAppButton from './components/ui/WhatsAppButton';
 // Import Facebook component  
 // import FacebookButton from './components/ui/FacebookButton'; // TODO: Add Facebook integration when needed
-// Import WhatsApp Tester (Development only)
-import WhatsAppTester from './components/test/WhatsAppTester';
 // Import required utilities (keeping existing working functionality)
 import { 
   getCategories, // Using async API for real-time admin sync
   getSubcategories, // Using async API for real-time admin sync  
-  // getServices, // Using async API for real-time admin sync - TODO: Add when needed
+  getServices, // Using async API for real-time admin sync
   initializeAllAdminData,
   addToCart,
   getCart,
@@ -90,8 +88,10 @@ const App: React.FC = () => {
   const [cartSuccessMessages, setCartSuccessMessages] = useState<{[serviceId: string]: string}>({});
   const [isCartCollapsed, setIsCartCollapsed] = useState(false);
 
-  // Get real backend services data
-  const { services, loading: servicesLoading } = useServices();
+  // Get real backend services data (disabled to prevent conflicts with adminDataManager)
+  // const { services, loading: servicesLoading } = useServices();
+  const [services, setServices] = useState<any[]>([]);
+  const [servicesLoading, setServicesLoading] = useState(false);
 
   // Helper function to convert Service[] to BackendService[]
   const convertToBackendServices = (frontendServices: typeof services): BackendService[] => {
@@ -159,8 +159,8 @@ const App: React.FC = () => {
       }
       
       
-      await initializeAllAdminData();
-      await loadCategoriesData();
+      await initializeAllAdminData(); // This already loads categories, subcategories, services, coupons
+      await loadCategoriesAndServices(); // Load and set categories and services state
       await loadContactSettings();
       await updateGlobalCartCount();
     };
@@ -196,15 +196,13 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Load categories and subcategories from admin data (REAL-TIME API)
-  const loadCategoriesData = async () => {
+  // Load categories, subcategories and services from admin data (REAL-TIME API)
+  const loadCategoriesAndServices = async () => {
     try {
-      
-      // Debug: Test backend connection first
-      
+      setServicesLoading(true);
       const allCategories = await getCategories();
       const allSubcategories = await getSubcategories();
-      
+      const allServices = await getServices();
       
       // Check if we received valid arrays
       if (!Array.isArray(allCategories)) {
@@ -214,14 +212,20 @@ const App: React.FC = () => {
       if (!Array.isArray(allSubcategories)) {
         throw new Error('Invalid subcategories data received from API');
       }
+
+      if (!Array.isArray(allServices)) {
+        throw new Error('Invalid services data received from API');
+      }
       
-      // Filter only active categories
+      // Filter only active data
       const activeCategories = allCategories.filter(cat => cat.is_active);
       const activeSubcategories = allSubcategories.filter(sub => sub.is_active);
-      
+      const activeServices = allServices.filter(service => service.is_active);
       
       setCategories(activeCategories);
       setSubcategories(activeSubcategories);
+      setServices(activeServices);
+      setServicesLoading(false);
       
       // Build service categories object
       const serviceCategoriesObj: Record<string, string[]> = {
@@ -248,6 +252,8 @@ const App: React.FC = () => {
       // Fallback to empty state for now
       setCategories([]);
       setSubcategories([]);
+      setServices([]);
+      setServicesLoading(false);
       setServiceCategories({ 'All Services': [] });
     }
   };
@@ -270,15 +276,15 @@ const App: React.FC = () => {
     setShowServicesDropdown(false);
   };
 
-  const navigateToCategory = (category: string) => {
+  const navigateToCategory = useCallback((category: string) => {
     setCurrentPage(category.toLowerCase().replace(/\s+/g, '-'));
     setShowServicesDropdown(false);
-  };
+  }, []);
 
-  const navigateToSubcategory = (category: string, subcategory: string) => {
+  const navigateToSubcategory = useCallback((category: string, subcategory: string) => {
     setCurrentPage(`${category.toLowerCase().replace(/\s+/g, '-').replace('&', '&').replace('/', '')}-${subcategory.toLowerCase().replace(/\s+/g, '-').replace('&', '&').replace('/', '')}`);
     setShowServicesDropdown(false);
-  };
+  }, []);
 
   const navigateToLogin = () => {
     setCurrentPage('login');
@@ -305,7 +311,7 @@ const App: React.FC = () => {
     setShowServicesDropdown(false);
   };
 
-  const navigateToServiceDetail = (serviceId: string) => {
+  const navigateToServiceDetail = useCallback((serviceId: string) => {
     console.log('🚀 Navigation triggered to service detail:', serviceId);
     console.log('🚀 Current page before change:', currentPage);
     setSelectedServiceId(serviceId);
@@ -313,7 +319,7 @@ const App: React.FC = () => {
     setShowServicesDropdown(false);
     console.log('📄 Page changed to: service-detail');
     console.log('📄 Selected service ID set to:', serviceId);
-  };
+  }, [currentPage]);
 
 
   const navigateToMyBookings = () => {
@@ -341,7 +347,7 @@ const App: React.FC = () => {
 
   // Function to refresh categories data (call when returning from admin)
   const refreshCategoriesData = async () => {
-    await loadCategoriesData();
+    await loadCategoriesAndServices();
   };
 
   // Function to refresh contact settings (call when updated from admin)
@@ -1319,11 +1325,8 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
 
   // Home Page Component
   const HomePage = ({ navigateToServiceDetail }: { navigateToServiceDetail: (serviceId: string) => void }) => {
-    // Get all active categories (show all, even if no services yet)
-    const activeCategories = categories.filter(cat => cat.is_active);
-    
-    // Test the navigation function
-    console.log('🔧 HomePage rendered with navigateToServiceDetail:', typeof navigateToServiceDetail);
+    // Get all active categories (show all, even if no services yet) - memoized to prevent re-renders
+    const activeCategories = useMemo(() => categories.filter(cat => cat.is_active), [categories]);
     
     // Banner state
     const [banners, setBanners] = useState<{
@@ -2699,8 +2702,6 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
         message="Hi! I need help with household services. Can you assist me?"
       />
 
-      {/* WhatsApp Tester - Development Only */}
-      {import.meta.env.DEV && <WhatsAppTester />}
     </div>
   );
 };

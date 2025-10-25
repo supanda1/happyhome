@@ -70,31 +70,153 @@ const seedDatabase = async () => {
     
     console.log('✅ Subcategories seeded');
     
-    // Seed Employees
-    const employees = [
-      { id: 'emp-1', employee_id: 'EMP001', name: 'Rajesh Kumar', expert: 'Plumbing', manager: 'Suresh Patel', phone: '9876543210', email: 'rajesh.kumar@happyhomes.com' },
-      { id: 'emp-2', employee_id: 'EMP002', name: 'Amit Singh', expert: 'Electrical', manager: 'Suresh Patel', phone: '9876543211', email: 'amit.singh@happyhomes.com' },
-      { id: 'emp-3', employee_id: 'EMP003', name: 'Priya Sharma', expert: 'Cleaning', manager: 'Kavita Mehta', phone: '9876543212', email: 'priya.sharma@happyhomes.com' },
-      { id: 'emp-4', employee_id: 'EMP004', name: 'Deepak Gupta', expert: 'Civil Work', manager: 'Suresh Patel', phone: '9876543213', email: 'deepak.gupta@happyhomes.com' },
-      { id: 'emp-5', employee_id: 'EMP005', name: 'Kavita Mehta', expert: 'Management', manager: 'CEO', phone: '9876543214', email: 'kavita.mehta@happyhomes.com' },
-      { id: 'emp-6', employee_id: 'EMP006', name: 'Ravi Patel', expert: 'Plumbing', manager: 'Suresh Patel', phone: '9876543215', email: 'ravi.patel@happyhomes.com' },
-      { id: 'emp-7', employee_id: 'EMP007', name: 'Sanjay Electricals', expert: 'Electrical', manager: 'Suresh Patel', phone: '9876543216', email: 'sanjay.electricals@happyhomes.com' },
-      { id: 'emp-8', employee_id: 'EMP008', name: 'Maya Cleaning', expert: 'Cleaning', manager: 'Kavita Mehta', phone: '9876543217', email: 'maya.cleaning@happyhomes.com' },
-      { id: 'emp-9', employee_id: 'EMP009', name: 'Raman Transport', expert: 'Call A Service', manager: 'Kavita Mehta', phone: '9876543218', email: 'raman.transport@happyhomes.com' },
-      { id: 'emp-10', employee_id: 'EMP010', name: 'Sunil Finance', expert: 'Finance & Insurance', manager: 'Kavita Mehta', phone: '9876543219', email: 'sunil.finance@happyhomes.com' },
-      { id: 'emp-11', employee_id: 'EMP011', name: 'Dr. Anita Care', expert: 'Personal Care', manager: 'Kavita Mehta', phone: '9876543220', email: 'anita.care@happyhomes.com' },
-      { id: 'emp-12', employee_id: 'EMP012', name: 'Vinod Construction', expert: 'Civil Work', manager: 'Suresh Patel', phone: '9876543221', email: 'vinod.construction@happyhomes.com' }
+    // Seed Engineers
+    const engineers = [
+      { 
+        engineer_id: 'ENG001', 
+        name: 'Rajesh Kumar', 
+        email: 'rajesh.kumar@happyhomes.com',
+        phone: '9876543210', 
+        expertise_areas: JSON.stringify(['plumbing', 'bathroom_fitting']), 
+        location: 'Bhubaneswar, Sahid Nagar',
+        service_areas: JSON.stringify(['Sahid Nagar', 'Khandagiri', 'Patia']),
+        department: 'Technical Services',
+        position: 'Senior Plumber',
+        skills: JSON.stringify(['pipe_fitting', 'leak_detection', 'bathroom_installation']),
+        certifications: JSON.stringify(['Certified Plumber', 'Safety Training']),
+        rating: 4.8,
+        completed_jobs: 150,
+        customer_satisfaction_score: 4.7,
+        work_schedule: JSON.stringify({
+          monday: { start: '09:00', end: '18:00' },
+          tuesday: { start: '09:00', end: '18:00' },
+          wednesday: { start: '09:00', end: '18:00' },
+          thursday: { start: '09:00', end: '18:00' },
+          friday: { start: '09:00', end: '18:00' },
+          saturday: { start: '09:00', end: '14:00' }
+        }),
+        notes: 'Senior technician with 10+ years experience in plumbing'
+      },
+      { 
+        engineer_id: 'ENG002', 
+        name: 'Amit Singh', 
+        email: 'amit.singh@happyhomes.com',
+        phone: '9876543211', 
+        expertise_areas: JSON.stringify(['electrical', 'wiring']), 
+        location: 'Bhubaneswar, Patia',
+        service_areas: JSON.stringify(['Patia', 'Chandrasekharpur', 'Jaydev Vihar']),
+        department: 'Technical Services',
+        position: 'Electrical Technician',
+        skills: JSON.stringify(['wiring', 'switch_installation', 'appliance_repair']),
+        certifications: JSON.stringify(['Licensed Electrician', 'Safety Certification']),
+        rating: 4.6,
+        completed_jobs: 120,
+        customer_satisfaction_score: 4.5,
+        work_schedule: JSON.stringify({
+          monday: { start: '09:00', end: '18:00' },
+          tuesday: { start: '09:00', end: '18:00' },
+          wednesday: { start: '09:00', end: '18:00' },
+          thursday: { start: '09:00', end: '18:00' },
+          friday: { start: '09:00', end: '18:00' },
+          saturday: { start: '09:00', end: '14:00' }
+        }),
+        notes: 'Experienced electrical technician specializing in home wiring'
+      },
+      { 
+        engineer_id: 'ENG003', 
+        name: 'Priya Sharma', 
+        email: 'priya.sharma@happyhomes.com',
+        phone: '9876543212', 
+        expertise_areas: JSON.stringify(['cleaning', 'deep_cleaning']), 
+        location: 'Bhubaneswar, Khandagiri',
+        service_areas: JSON.stringify(['Khandagiri', 'Old Town', 'Unit-4']),
+        department: 'Cleaning Services',
+        position: 'Senior Cleaner',
+        skills: JSON.stringify(['bathroom_cleaning', 'kitchen_cleaning', 'floor_cleaning']),
+        certifications: JSON.stringify(['Professional Cleaning Certificate', 'Chemical Safety Training']),
+        rating: 4.9,
+        completed_jobs: 200,
+        customer_satisfaction_score: 4.8,
+        work_schedule: JSON.stringify({
+          monday: { start: '08:00', end: '17:00' },
+          tuesday: { start: '08:00', end: '17:00' },
+          wednesday: { start: '08:00', end: '17:00' },
+          thursday: { start: '08:00', end: '17:00' },
+          friday: { start: '08:00', end: '17:00' },
+          saturday: { start: '08:00', end: '13:00' }
+        }),
+        notes: 'Specialized in deep cleaning and sanitization services'
+      },
+      { 
+        engineer_id: 'ENG004', 
+        name: 'Deepak Gupta', 
+        email: 'deepak.gupta@happyhomes.com',
+        phone: '9876543213', 
+        expertise_areas: JSON.stringify(['civil_work', 'renovation']), 
+        location: 'Bhubaneswar, Chandrasekharpur',
+        service_areas: JSON.stringify(['Chandrasekharpur', 'Infocity', 'Patia']),
+        department: 'Construction',
+        position: 'Civil Engineer',
+        skills: JSON.stringify(['renovation', 'painting', 'tiling']),
+        certifications: JSON.stringify(['Civil Engineering Degree', 'Construction Safety']),
+        rating: 4.5,
+        completed_jobs: 85,
+        customer_satisfaction_score: 4.4,
+        work_schedule: JSON.stringify({
+          monday: { start: '08:00', end: '18:00' },
+          tuesday: { start: '08:00', end: '18:00' },
+          wednesday: { start: '08:00', end: '18:00' },
+          thursday: { start: '08:00', end: '18:00' },
+          friday: { start: '08:00', end: '18:00' },
+          saturday: { start: '08:00', end: '15:00' }
+        }),
+        notes: 'Experienced in home renovation and civil construction work'
+      },
+      { 
+        engineer_id: 'ENG005', 
+        name: 'Ravi Patel', 
+        email: 'ravi.patel@happyhomes.com',
+        phone: '9876543215', 
+        expertise_areas: JSON.stringify(['plumbing', 'pipe_fitting']), 
+        location: 'Bhubaneswar, Unit-1',
+        service_areas: JSON.stringify(['Unit-1', 'Unit-2', 'Unit-3', 'Unit-4']),
+        department: 'Technical Services',
+        position: 'Plumber',
+        skills: JSON.stringify(['pipe_installation', 'water_tank_service', 'drainage']),
+        certifications: JSON.stringify(['Plumbing Certificate', 'Water System Training']),
+        rating: 4.7,
+        completed_jobs: 95,
+        customer_satisfaction_score: 4.6,
+        work_schedule: JSON.stringify({
+          monday: { start: '09:00', end: '18:00' },
+          tuesday: { start: '09:00', end: '18:00' },
+          wednesday: { start: '09:00', end: '18:00' },
+          thursday: { start: '09:00', end: '18:00' },
+          friday: { start: '09:00', end: '18:00' }
+        }),
+        notes: 'Skilled plumber specializing in water tank and pipe installations'
+      }
     ];
     
-    for (const employee of employees) {
+    for (const engineer of engineers) {
       await client.query(`
-        INSERT INTO employees (id, employee_id, name, expert, manager, phone, email, is_active, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-        ON CONFLICT (employee_id) DO NOTHING
-      `, [employee.id, employee.employee_id, employee.name, employee.expert, employee.manager, employee.phone, employee.email]);
+        INSERT INTO engineers (
+          engineer_id, name, email, phone, expertise_areas, location, service_areas,
+          department, position, skills, certifications, rating, completed_jobs, 
+          customer_satisfaction_score, work_schedule, notes, is_active, is_available,
+          created_at, updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, true, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        ON CONFLICT (email) DO NOTHING
+      `, [
+        engineer.engineer_id, engineer.name, engineer.email, engineer.phone,
+        engineer.expertise_areas, engineer.location, engineer.service_areas, engineer.department,
+        engineer.position, engineer.skills, engineer.certifications, engineer.rating,
+        engineer.completed_jobs, engineer.customer_satisfaction_score, engineer.work_schedule, engineer.notes
+      ]);
     }
     
-    console.log('✅ Employees seeded');
+    console.log('✅ Engineers seeded');
     
     // Seed Services with Image Paths
     const servicesWithImages = [
@@ -289,6 +411,73 @@ const seedDatabase = async () => {
     }
     
     console.log('✅ Services with images seeded');
+    
+    // Seed Test Users (if users table exists)
+    try {
+      const testUsers = [
+        {
+          id: '550e8400-e29b-41d4-a716-446655440001',
+          email: 'test.customer@example.com',
+          phone: '+91-9876543201',
+          full_name: 'Test Customer',
+          role: 'customer'
+        },
+        {
+          id: '550e8400-e29b-41d4-a716-446655440002', 
+          email: 'admin@happyhomes.com',
+          phone: '+91-9876543200',
+          full_name: 'Admin User',
+          role: 'admin'
+        }
+      ];
+      
+      for (const user of testUsers) {
+        await client.query(`
+          INSERT INTO users (id, email, phone, full_name, role, is_active, email_verified, created_at, updated_at)
+          VALUES ($1, $2, $3, $4, $5, true, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          ON CONFLICT (email) DO NOTHING
+        `, [user.id, user.email, user.phone, user.full_name, user.role]);
+      }
+      
+      console.log('✅ Test users seeded');
+      
+      // Seed Test User Addresses
+      const testAddresses = [
+        {
+          user_id: '550e8400-e29b-41d4-a716-446655440001',
+          address_type: 'home',
+          full_name: 'Test Customer',
+          mobile_number: '+91-9876543201',
+          pincode: '751001',
+          house_number: 'A-123',
+          area: 'Sahid Nagar',
+          landmark: 'Near Temple',
+          city: 'Bhubaneswar',
+          state: 'Odisha',
+          is_default: true
+        }
+      ];
+      
+      for (const address of testAddresses) {
+        await client.query(`
+          INSERT INTO user_addresses (
+            user_id, address_type, full_name, mobile_number, pincode, house_number, 
+            area, landmark, city, state, is_default, created_at, updated_at
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          ON CONFLICT DO NOTHING
+        `, [
+          address.user_id, address.address_type, address.full_name, address.mobile_number,
+          address.pincode, address.house_number, address.area, address.landmark, 
+          address.city, address.state, address.is_default
+        ]);
+      }
+      
+      console.log('✅ Test user addresses seeded');
+      
+    } catch (userError) {
+      console.log('ℹ️  Users table not available, skipping user seeding');
+    }
     
     await client.query('COMMIT');
     console.log('🎉 Database seeding completed successfully!');

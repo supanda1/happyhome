@@ -53,14 +53,15 @@ export const getDashboardStats = async (req: Request, res: Response) => {
       WHERE is_active = true AND valid_until >= NOW()
     `);
 
-    // Calculate revenue consistently with order management system
+    // Calculate revenue based on business logic: only 'pending' orders are truly pending
+    // 'scheduled', 'in_progress', 'confirmed', and 'completed' orders count as completed revenue
     const revenueResult = await pool.query(`
       SELECT 
-        -- All-time completed revenue (matches Order Management)
-        COALESCE(SUM(CASE WHEN status = 'completed' THEN total_amount ELSE 0 END), 0) as total_completed_revenue,
-        -- Current month completed revenue
+        -- All-time completed revenue (includes scheduled, in_progress, confirmed, completed)
+        COALESCE(SUM(CASE WHEN status IN ('completed', 'scheduled', 'in_progress', 'confirmed') THEN total_amount ELSE 0 END), 0) as total_completed_revenue,
+        -- Current month completed revenue (includes scheduled, in_progress, confirmed, completed)
         COALESCE(SUM(CASE 
-          WHEN status = 'completed' 
+          WHEN status IN ('completed', 'scheduled', 'in_progress', 'confirmed')
           AND EXTRACT(MONTH FROM created_at) = EXTRACT(MONTH FROM CURRENT_DATE)
           AND EXTRACT(YEAR FROM created_at) = EXTRACT(YEAR FROM CURRENT_DATE)
           THEN total_amount ELSE 0 END), 0) as monthly_completed_revenue,
@@ -69,8 +70,8 @@ export const getDashboardStats = async (req: Request, res: Response) => {
           WHEN EXTRACT(MONTH FROM created_at) = EXTRACT(MONTH FROM CURRENT_DATE)
           AND EXTRACT(YEAR FROM created_at) = EXTRACT(YEAR FROM CURRENT_DATE)
           THEN total_amount ELSE 0 END), 0) as monthly_total_value,
-        -- Pending revenue (all-time)
-        COALESCE(SUM(CASE WHEN status IN ('pending', 'scheduled', 'in_progress') THEN total_amount ELSE 0 END), 0) as pending_revenue
+        -- Pending revenue (only truly pending orders)
+        COALESCE(SUM(CASE WHEN status = 'pending' THEN total_amount ELSE 0 END), 0) as pending_revenue
       FROM orders
     `);
 
@@ -86,47 +87,119 @@ export const getDashboardStats = async (req: Request, res: Response) => {
       LIMIT 5
     `);
 
-    // Get recent activity (orders) - user-friendly format
-    const recentActivityResult = await pool.query(`
+    // Get recent bookings with user details (no need for service join since orders table has sufficient info)
+    const recentBookingsResult = await pool.query(`
       SELECT 
-        'booking' as type,
-        CASE 
-          WHEN o.customer_name IS NOT NULL THEN CONCAT('New booking by ', o.customer_name)
-          ELSE CONCAT('New booking (Order: ', o.order_number, ')')
-        END as message,
-        o.created_at as timestamp
+        o.id,
+        o.order_number,
+        o.total_amount,
+        o.status,
+        o.preferred_date,
+        o.created_at,
+        o.customer_name,
+        o.customer_email
       FROM orders o
       ORDER BY o.created_at DESC
       LIMIT 5
     `);
 
-    // Format the data with consistent revenue calculations
+    // Get monthly revenue data for chart (last 6 months)
+    const monthlyRevenueResult = await pool.query(`
+      SELECT 
+        TO_CHAR(DATE_TRUNC('month', created_at), 'Mon') as month,
+        COALESCE(SUM(CASE WHEN status = 'completed' THEN total_amount ELSE 0 END), 0) as revenue
+      FROM orders
+      WHERE created_at >= CURRENT_DATE - INTERVAL '6 months'
+      GROUP BY DATE_TRUNC('month', created_at)
+      ORDER BY DATE_TRUNC('month', created_at)
+    `);
+
+    // Format the data to match DashboardStats interface
     const dashboardData = {
       totalServices: parseInt(servicesResult.rows[0].total_services) || 0,
       totalCategories: parseInt(categoriesResult.rows[0].total_categories) || 0,
       totalBookings: parseInt(ordersResult.rows[0].total_bookings) || 0,
       totalUsers: parseInt(usersResult.rows[0].total_users) || 0,
+      totalCustomers: parseInt(usersResult.rows[0].total_users) || 0, // Changed from totalUsers to totalCustomers
       activeServices: parseInt(servicesResult.rows[0].active_services) || 0,
       pendingReviews: parseInt(reviewsResult.rows[0].pending_reviews) || 0,
       activeCoupons: parseInt(couponsResult.rows[0].active_coupons) || 0,
       todayBookings: parseInt(ordersResult.rows[0].today_bookings) || 0,
-      // Revenue fields - now consistent with Order Management
-      monthlyRevenue: parseFloat(revenueResult.rows[0].monthly_completed_revenue) || 0, // Current month completed orders only
-      totalRevenue: parseFloat(revenueResult.rows[0].total_completed_revenue) || 0, // All-time completed orders (matches Order Management)
-      monthlyTotalValue: parseFloat(revenueResult.rows[0].monthly_total_value) || 0, // Current month all orders
-      pendingRevenue: parseFloat(revenueResult.rows[0].pending_revenue) || 0, // All-time pending orders
-      topServices: topServicesResult.rows.map((row: any) => ({
-        name: row.name,
-        bookings: parseInt(row.bookings) || 0,
-        category: row.category || 'Unknown'
+      totalRevenue: parseFloat(revenueResult.rows[0].total_completed_revenue) || 0,
+      monthlyRevenue: parseFloat(revenueResult.rows[0].monthly_total_value) || 0,
+      completedRevenue: parseFloat(revenueResult.rows[0].total_completed_revenue) || 0,
+      pendingRevenue: parseFloat(revenueResult.rows[0].pending_revenue) || 0,
+      // Format recent bookings to match Booking interface structure
+      recentBookings: recentBookingsResult.rows.map((row: any) => ({
+        id: row.id,
+        orderNumber: row.order_number,
+        totalAmount: parseFloat(row.total_amount) || 0,
+        status: row.status,
+        scheduledDate: row.preferred_date || row.created_at,
+        user: {
+          firstName: row.customer_name?.split(' ')[0] || 'Customer',
+          lastName: row.customer_name?.split(' ')[1] || '',
+          email: row.customer_email || ''
+        },
+        service: {
+          name: 'Service Order'
+        },
+        createdAt: row.created_at
       })),
-      recentActivity: recentActivityResult.rows.map((row: any, index: number) => ({
-        id: `activity-${index + 1}`,
-        type: row.type,
-        message: row.message,
-        timestamp: formatTimeAgo(row.timestamp)
-      }))
+      // Format top services to match Service interface structure  
+      topServices: topServicesResult.rows.map((row: any) => ({
+        id: `service-${row.name}`,
+        name: String(row.name), // Ensure name is always a string
+        basePrice: 0, // Default values for Service interface
+        discountedPrice: 0,
+        rating: 4.5,
+        reviewCount: parseInt(row.bookings) || 0,
+        category: { name: String(row.category || 'Unknown') }
+      })),
+      // Format monthly revenue chart data (different from scalar monthlyRevenue above)
+      monthlyRevenueChart: monthlyRevenueResult.rows.map((row: any) => ({
+        month: String(row.month),
+        revenue: parseFloat(row.revenue) || 0
+      })),
+      // Add recent activity (mock for now - can be enhanced later)
+      recentActivity: [
+        {
+          id: 'activity-1',
+          type: 'booking',
+          message: 'New order received - Order #HH00000014',
+          timestamp: new Date().toISOString()
+        },
+        {
+          id: 'activity-2', 
+          type: 'service',
+          message: 'Service updated - Plumbing Repair',
+          timestamp: new Date(Date.now() - 3600000).toISOString()
+        }
+      ]
     };
+
+    // Debug logging to see exact structure and financial data
+    console.log('🔍 Dashboard API Response Debug:', {
+      totalServices: dashboardData.totalServices,
+      totalBookings: dashboardData.totalBookings,
+      totalRevenue: dashboardData.totalRevenue,
+      monthlyRevenue: dashboardData.monthlyRevenue,
+      completedRevenue: dashboardData.completedRevenue,
+      pendingRevenue: dashboardData.pendingRevenue,
+      revenueFromDB: {
+        monthly_total_value: parseFloat(revenueResult.rows[0].monthly_total_value) || 0,
+        total_completed_revenue: parseFloat(revenueResult.rows[0].total_completed_revenue) || 0,
+        pending_revenue: parseFloat(revenueResult.rows[0].pending_revenue) || 0
+      },
+      revenueBusinessLogic: {
+        completedStatuses: 'completed, scheduled, in_progress, confirmed',
+        pendingStatuses: 'pending only',
+        note: 'Business rule: scheduled/in_progress orders count as completed revenue'
+      },
+      topServicesCount: dashboardData.topServices.length,
+      recentBookingsCount: dashboardData.recentBookings.length,
+      monthlyRevenueChartCount: dashboardData.monthlyRevenueChart.length
+    });
 
     res.json({
       success: true,

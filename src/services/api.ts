@@ -2,7 +2,8 @@
 import type { 
   Order, 
   OrderItem, 
-  Employee,
+  Engineer,
+  Employee, // Keep for backward compatibility
   CreateOrderRequest,
   UpdateOrderRequest,
   UpdateOrderItemRequest,
@@ -221,13 +222,13 @@ export const ordersAPI = {
   },
 };
 
-// Employees API
+// Engineers API
 export const employeesAPI = {
   // Get all employees with optional filtering
   getAll: async (params?: {
     active_only?: boolean;
     expert?: string;
-  }): Promise<ApiResponse<Employee[]>> => {
+  }): Promise<ApiResponse<Engineer[]>> => {
     const searchParams = new URLSearchParams();
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
@@ -238,37 +239,37 @@ export const employeesAPI = {
     }
     
     const queryString = searchParams.toString();
-    const endpoint = queryString ? `/employees?${queryString}` : '/employees';
+    const endpoint = queryString ? `/engineers?${queryString}` : '/engineers';
     
-    return apiRequest<Employee[]>(endpoint);
+    return apiRequest<Engineer[]>(endpoint);
   },
 
   // Get single employee by ID
-  getById: async (id: string): Promise<ApiResponse<Employee>> => {
-    return apiRequest<Employee>(`/employees/${id}`);
+  getById: async (id: string): Promise<ApiResponse<Engineer>> => {
+    return apiRequest<Engineer>(`/engineers/${id}`);
   },
 
   // Get employees by expertise
-  getByExpertise: async (expertise: string): Promise<ApiResponse<Employee[]>> => {
-    return apiRequest<Employee[]>(`/employees/expertise/${expertise}`);
+  getByExpertise: async (expertise: string): Promise<ApiResponse<Engineer[]>> => {
+    return apiRequest<Engineer[]>(`/engineers/expertise/${expertise}`);
   },
 
   // Get available expertise areas
   getExpertiseAreas: async (): Promise<ApiResponse<string[]>> => {
-    return apiRequest<string[]>('/employees/expertise-areas');
+    return apiRequest<string[]>('/engineers/expertise-areas');
   },
 
   // Create new employee
-  create: async (employeeData: Omit<Employee, 'id' | 'created_at' | 'updated_at'>): Promise<ApiResponse<Employee>> => {
-    return apiRequest<Employee>('/employees', {
+  create: async (employeeData: Omit<Engineer, 'id' | 'created_at' | 'updated_at'>): Promise<ApiResponse<Engineer>> => {
+    return apiRequest<Engineer>('/engineers', {
       method: 'POST',
       body: JSON.stringify(employeeData),
     });
   },
 
   // Update employee
-  update: async (id: string, updates: Partial<Employee>): Promise<ApiResponse<Employee>> => {
-    return apiRequest<Employee>(`/employees/${id}`, {
+  update: async (id: string, updates: Partial<Engineer>): Promise<ApiResponse<Engineer>> => {
+    return apiRequest<Engineer>(`/engineers/${id}`, {
       method: 'PUT',
       body: JSON.stringify(updates),
     });
@@ -276,7 +277,7 @@ export const employeesAPI = {
 
   // Delete employee
   delete: async (id: string): Promise<ApiResponse<null>> => {
-    return apiRequest<null>(`/employees/${id}`, {
+    return apiRequest<null>(`/engineers/${id}`, {
       method: 'DELETE',
     });
   },

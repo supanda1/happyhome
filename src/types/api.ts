@@ -158,9 +158,9 @@ export interface AssignEngineerRequest {
   scheduled_time_slot?: string;
 }
 
-export interface Employee {
+export interface Engineer {
   id: string;
-  employee_id: string;
+  engineer_id: string;
   name: string;
   expert?: string; // Legacy field for backward compatibility
   expertise: string[]; // Backend uses 'expertise' as JSONB array
@@ -171,6 +171,9 @@ export interface Employee {
   created_at: string;
   updated_at: string;
 }
+
+// Backward compatibility alias
+export interface Employee extends Engineer {}
 
 // Type definition for expertise areas - actual data should come from backend
 export type ExpertiseArea = string;

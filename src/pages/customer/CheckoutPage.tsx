@@ -60,6 +60,13 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
   const [showCouponDropdown, setShowCouponDropdown] = useState(false);
   const [availableCoupons, setAvailableCoupons] = useState<Coupon[]>([]);
   const [contactSettings, setContactSettings] = useState<ContactSettings | null>(null);
+  const [offerPlan, setOfferPlan] = useState<{
+    id: string;
+    title: string;
+    coupon_code: string;
+    discount_percentage: number;
+    duration_months: number;
+  } | null>(null);
 
   // Load addresses function (defined early to avoid hoisting issues)
   const loadAddresses = useCallback(async () => {
@@ -76,6 +83,39 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
       console.error('Failed to load addresses:', error);
     }
   }, []); // Remove selectedAddress dependency to break the loop
+
+  // Check for offer plan and auto-apply coupon immediately
+  const checkAndApplyOfferPlanCoupon = useCallback(async () => {
+    try {
+      const offerPlanData = localStorage.getItem('selectedOfferPlan');
+      if (offerPlanData) {
+        const planData = JSON.parse(offerPlanData);
+        console.log('🎯 CheckoutPage: Found offer plan in localStorage:', planData);
+        setOfferPlan(planData);
+        
+        // Always try to apply the offer plan coupon if it exists
+        if (planData.coupon_code) {
+          console.log('🎁 CheckoutPage: Auto-applying offer plan coupon:', planData.coupon_code);
+          
+          // Auto-apply the offer plan coupon (this will replace any existing coupon)
+          const result = await applyCouponToCart(planData.coupon_code);
+          console.log('🔍 CheckoutPage: Coupon application result:', result);
+          
+          if (result.success) {
+            console.log('✅ CheckoutPage: Offer plan coupon applied successfully');
+            // Wait a moment for backend to process, then reload cart to show updated totals
+            setTimeout(async () => {
+              await loadCart();
+            }, 500);
+          } else {
+            console.error('❌ CheckoutPage: Failed to auto-apply offer plan coupon:', result.error);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('❌ CheckoutPage: Error checking offer plan coupon:', error);
+    }
+  }, []);
 
   // Load cart, coupons, addresses, and time slots on component mount
   const initializeCheckout = useCallback(async () => {
@@ -95,11 +135,12 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
     await new Promise(resolve => setTimeout(resolve, 100));
     
     await loadCart();
+    await checkAndApplyOfferPlanCoupon();
     loadAvailableCoupons();
     await loadAddresses();
     loadTimeSlots(); // Load time slots from backend
     loadContactSettings();
-  }, [user, navigateToLogin, navigateToCart, loadAddresses]);
+  }, [user, navigateToLogin, navigateToCart, loadAddresses, checkAndApplyOfferPlanCoupon]);
 
   useEffect(() => {
     initializeCheckout();
@@ -109,6 +150,12 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
     setIsLoading(true);
     try {
       const cartData = await getCart();
+      console.log('🛒 CheckoutPage: Loaded cart data:', {
+        appliedCoupon: cartData.appliedCoupon,
+        discountAmount: cartData.discountAmount,
+        subtotal: cartData.subtotal,
+        finalAmount: cartData.finalAmount
+      });
       setCart(cartData);
     } catch (error) {
       console.error('Failed to load cart:', error);
@@ -234,6 +281,12 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
     try {
       const success = await removeCouponFromCart();
       if (success) {
+        // Clear offer plan data if coupon removed (user chose to override offer plan)
+        if (offerPlan) {
+          localStorage.removeItem('selectedOfferPlan');
+          setOfferPlan(null);
+          console.log('🗑️ CheckoutPage: Cleared offer plan data - user removed offer coupon');
+        }
         loadCart(); // Reload cart to show updated totals
       }
     } catch (error) {
@@ -495,37 +548,75 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
             <div className="bg-white rounded-lg shadow-sm p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-6">Your Selected Services</h2>
               <div className="space-y-4">
-                {cart.items.map((item) => (
-                  <div key={item.serviceId} className="border border-gray-200 rounded-lg p-4">
-                    <div className="flex items-start space-x-4">
-                      <div className="w-16 h-16 bg-gradient-to-br from-orange-100 to-purple-100 rounded-lg flex items-center justify-center text-2xl flex-shrink-0">
-                        🔧
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <h3 className="font-semibold text-gray-900">{item.serviceName}</h3>
-                            <div className="flex items-center space-x-2 mt-1">
-                              <span className="text-sm text-gray-500">Qty: {item.quantity}</span>
-                              <span className="text-sm text-gray-500">₹{item.basePrice} each</span>
-                            </div>
-                            {item.discountedPrice && (
-                              <div className="text-sm text-green-600 mt-1">
-                                Discounted: ₹{item.discountedPrice}
+{cart.items.map((item) => {
+                  // Calculate offer discount if applicable
+                  const isOfferPlanActive = offerPlan && cart.appliedCoupon === offerPlan.coupon_code;
+                  const offerDiscountPercentage = isOfferPlanActive ? offerPlan.discount_percentage : 0;
+                  
+                  // When offer plan is active, use basePrice and apply uniform offer discount
+                  // When no offer plan, use existing discounted price or base price
+                  const originalPricePerItem = isOfferPlanActive ? item.basePrice : (item.discountedPrice || item.basePrice);
+                  const offerPricePerItem = isOfferPlanActive 
+                    ? Math.round(item.basePrice * (1 - offerDiscountPercentage / 100))
+                    : originalPricePerItem;
+                  const totalOfferPrice = offerPricePerItem * item.quantity;
+                  
+                  return (
+                    <div key={item.serviceId} className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-start space-x-4">
+                        <div className="w-16 h-16 bg-gradient-to-br from-orange-100 to-purple-100 rounded-lg flex items-center justify-center text-2xl flex-shrink-0">
+                          🔧
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <h3 className="font-semibold text-gray-900">{item.serviceName}</h3>
+                              
+                              {isOfferPlanActive ? (
+                                <div className="mt-2">
+                                  <div className="text-2xl font-bold text-green-600">
+                                    {formatPrice(offerPricePerItem)}
+                                  </div>
+                                  <div className="text-sm text-gray-500 line-through">
+                                    {formatPrice(item.basePrice)}
+                                  </div>
+                                  <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-green-100 text-green-800 mt-1">
+                                    {offerDiscountPercentage}% OFF
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="mt-2">
+                                  <div className="text-2xl font-bold text-gray-900">
+                                    {formatPrice(originalPricePerItem)}
+                                  </div>
+                                  {item.discountedPrice && item.discountedPrice < item.basePrice && (
+                                    <div className="text-sm text-gray-500 line-through">
+                                      {formatPrice(item.basePrice)}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              
+                              <div className="flex items-center space-x-2 mt-2">
+                                <span className="text-sm text-gray-500">Quantity: {item.quantity}</span>
                               </div>
-                            )}
-                          </div>
-                          <div className="text-right">
-                            <div className="text-lg font-bold text-gray-900">{formatPrice(item.totalPrice)}</div>
-                            {item.discountedPrice && item.discountedPrice < item.basePrice && (
-                              <div className="text-sm text-gray-500 line-through">{formatPrice(item.basePrice * item.quantity)}</div>
-                            )}
+                            </div>
+                            <div className="text-right">
+                              <div className="text-lg font-bold text-gray-900">
+                                {formatPrice(isOfferPlanActive ? totalOfferPrice : item.totalPrice)}
+                              </div>
+                              {isOfferPlanActive && (
+                                <div className="text-sm text-gray-500 line-through">
+                                  {formatPrice(item.basePrice * item.quantity)}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
@@ -566,7 +657,26 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
                   disabled={!selectedAddress}
                   className="w-full bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 text-white py-3 px-4 rounded-lg text-lg font-semibold hover:from-orange-600 hover:via-purple-700 hover:to-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-300 shadow-lg hover:shadow-xl"
                 >
-                  Proceed to Payment • {cart ? formatPrice(cart.finalAmount) : '₹0'}
+                  Proceed to Payment • {cart ? (() => {
+                    const isOfferPlanActive = offerPlan && cart.appliedCoupon === offerPlan.coupon_code;
+                    const calculatedSubtotal = isOfferPlanActive 
+                      ? cart.items.reduce((sum, item) => {
+                          // Use basePrice for uniform offer discount calculation
+                          const offerPrice = Math.round(item.basePrice * (1 - offerPlan.discount_percentage / 100));
+                          return sum + (offerPrice * item.quantity);
+                        }, 0)
+                      : cart.subtotal;
+                    
+                    // Recalculate GST based on discounted subtotal
+                    const calculatedGST = isOfferPlanActive 
+                      ? Math.round(calculatedSubtotal * 0.18)
+                      : cart.gstAmount;
+                    
+                    const calculatedTotal = isOfferPlanActive 
+                      ? calculatedSubtotal + calculatedGST + cart.serviceChargeAmount
+                      : cart.finalAmount;
+                    return formatPrice(calculatedTotal);
+                  })() : '₹0'}
                 </button>
               </div>
             )}
@@ -630,20 +740,43 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
               
               {/* Applied Coupon Display */}
               {cart.appliedCoupon && (
-                <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div className={`mb-4 p-4 border rounded-lg ${
+                  offerPlan && cart.appliedCoupon === offerPlan.coupon_code
+                    ? 'bg-gradient-to-r from-orange-50 via-purple-50 to-blue-50 border-orange-200'
+                    : 'bg-green-50 border-green-200'
+                }`}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
-                      <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                        offerPlan && cart.appliedCoupon === offerPlan.coupon_code
+                          ? 'bg-gradient-to-r from-orange-500 to-purple-500'
+                          : 'bg-green-500'
+                      }`}>
                         <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
                       </div>
                       <div>
-                        <div className="font-semibold text-green-800">
-                          Coupon Applied: {cart.appliedCoupon}
-                        </div>
+                        {offerPlan && cart.appliedCoupon === offerPlan.coupon_code ? (
+                          <div>
+                            <div className="font-semibold text-orange-800">
+                              🎁 Offer Plan Discount Applied: {cart.appliedCoupon}
+                            </div>
+                            <div className="text-sm text-orange-700">
+                              {offerPlan.title} • {offerPlan.discount_percentage}% OFF for {offerPlan.duration_months} months
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="font-semibold text-green-800">
+                            Coupon Applied: {cart.appliedCoupon}
+                          </div>
+                        )}
                         {cart.couponDetails && (
-                          <div className="text-sm text-green-600">
+                          <div className={`text-sm ${
+                            offerPlan && cart.appliedCoupon === offerPlan.coupon_code
+                              ? 'text-orange-600'
+                              : 'text-green-600'
+                          }`}>
                             {cart.couponDetails.isPartiallyApplied ? (
                               `Applied to ${cart.couponDetails.eligibleItemsCount} of ${cart.couponDetails.eligibleItemsCount + cart.couponDetails.ineligibleItemsCount} items`
                             ) : (
@@ -658,14 +791,39 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
                     </div>
                     <button
                       onClick={handleRemoveCoupon}
-                      className="text-green-600 hover:text-red-600 p-1 rounded-full hover:bg-red-50 transition-colors"
-                      title="Remove coupon"
+                      className={`p-1 rounded-full transition-colors ${
+                        offerPlan && cart.appliedCoupon === offerPlan.coupon_code
+                          ? 'text-orange-600 hover:text-red-600 hover:bg-red-50'
+                          : 'text-green-600 hover:text-red-600 hover:bg-red-50'
+                      }`}
+                      title={offerPlan && cart.appliedCoupon === offerPlan.coupon_code 
+                        ? "Remove offer plan discount (you can still apply other coupons)" 
+                        : "Remove coupon"
+                      }
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     </button>
                   </div>
+
+                  {/* Offer Plan Specific Message */}
+                  {offerPlan && cart.appliedCoupon === offerPlan.coupon_code && (
+                    <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                      <div className="flex items-start space-x-2">
+                        <svg className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div className="text-sm">
+                          <div className="font-medium text-blue-800">Special Offer Plan Active</div>
+                          <div className="text-blue-700 mt-1">
+                            This discount is automatically applied as part of your selected {offerPlan.title} plan. 
+                            You cannot combine this with other coupon codes, but you can remove it to use a different coupon if preferred.
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Partial Application Warning */}
                   {cart.couponDetails?.isPartiallyApplied && (
@@ -689,8 +847,29 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
                 </div>
               )}
 
-              {/* Coupon Input Section */}
-              {!cart.appliedCoupon && (
+              {/* Offer Plan Notice - When offer plan exists but coupon not applied */}
+              {!cart.appliedCoupon && offerPlan && (
+                <div className="p-4 bg-gradient-to-r from-orange-50 via-purple-50 to-blue-50 border border-orange-200 rounded-lg">
+                  <div className="flex items-start space-x-3">
+                    <div className="w-8 h-8 bg-gradient-to-r from-orange-500 to-purple-500 rounded-full flex items-center justify-center flex-shrink-0">
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-semibold text-orange-800 mb-1">
+                        🎁 {offerPlan.title} Discount Active
+                      </div>
+                      <div className="text-sm text-orange-700">
+                        Your {offerPlan.discount_percentage}% discount (code: {offerPlan.coupon_code}) is being applied automatically.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Coupon Input Section - Only show if no offer plan exists */}
+              {!cart.appliedCoupon && !offerPlan && (
                 <div>
                   {/* Manual Entry + Dropdown */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -808,12 +987,32 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Order Summary</h3>
               
               <div className="space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Subtotal ({cart.totalItems} items)</span>
-                  <span className="font-medium">{formatPrice(cart.subtotal)}</span>
-                </div>
+                {(() => {
+                  const isOfferPlanActive = offerPlan && cart.appliedCoupon === offerPlan.coupon_code;
+                  const calculatedSubtotal = isOfferPlanActive 
+                    ? cart.items.reduce((sum, item) => {
+                        // Use basePrice for uniform offer discount calculation
+                        const offerPrice = Math.round(item.basePrice * (1 - offerPlan.discount_percentage / 100));
+                        return sum + (offerPrice * item.quantity);
+                      }, 0)
+                    : cart.subtotal;
+                  
+                  return (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">
+                        Subtotal ({cart.totalItems} items)
+                        {isOfferPlanActive && (
+                          <span className="text-xs text-green-600 ml-1">
+                            ({offerPlan.discount_percentage}% offer applied)
+                          </span>
+                        )}
+                      </span>
+                      <span className="font-medium">{formatPrice(calculatedSubtotal)}</span>
+                    </div>
+                  );
+                })()}
                 
-                {cart.discountAmount > 0 && (
+                {cart.discountAmount > 0 && (!offerPlan || cart.appliedCoupon !== offerPlan.coupon_code) && (
                   <div className="space-y-1">
                     <div className="flex justify-between text-green-600">
                       <span>
@@ -835,10 +1034,28 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
                   </div>
                 )}
                 
-                <div className="flex justify-between">
-                  <span className="text-gray-600">GST ({cart.gstAmount > 0 ? '18%' : 'Included'})</span>
-                  <span className="font-medium">{formatPrice(cart.gstAmount)}</span>
-                </div>
+{(() => {
+                  const isOfferPlanActive = offerPlan && cart.appliedCoupon === offerPlan.coupon_code;
+                  const calculatedSubtotal = isOfferPlanActive 
+                    ? cart.items.reduce((sum, item) => {
+                        // Use basePrice for uniform offer discount calculation
+                        const offerPrice = Math.round(item.basePrice * (1 - offerPlan.discount_percentage / 100));
+                        return sum + (offerPrice * item.quantity);
+                      }, 0)
+                    : cart.subtotal;
+                  
+                  // Recalculate GST based on discounted subtotal
+                  const calculatedGST = isOfferPlanActive 
+                    ? Math.round(calculatedSubtotal * 0.18)
+                    : cart.gstAmount;
+                  
+                  return (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">GST ({calculatedGST > 0 ? '18%' : 'Included'})</span>
+                      <span className="font-medium">{formatPrice(calculatedGST)}</span>
+                    </div>
+                  );
+                })()}
                 
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">
@@ -856,10 +1073,33 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
                 
                 <hr />
                 
-                <div className="flex justify-between text-lg font-bold">
-                  <span>Total Amount</span>
-                  <span>{formatPrice(cart.finalAmount)}</span>
-                </div>
+{(() => {
+                  const isOfferPlanActive = offerPlan && cart.appliedCoupon === offerPlan.coupon_code;
+                  const calculatedSubtotal = isOfferPlanActive 
+                    ? cart.items.reduce((sum, item) => {
+                        // Use basePrice for uniform offer discount calculation
+                        const offerPrice = Math.round(item.basePrice * (1 - offerPlan.discount_percentage / 100));
+                        return sum + (offerPrice * item.quantity);
+                      }, 0)
+                    : cart.subtotal;
+                  
+                  // Recalculate GST based on discounted subtotal
+                  const calculatedGST = isOfferPlanActive 
+                    ? Math.round(calculatedSubtotal * 0.18)
+                    : cart.gstAmount;
+                  
+                  // Calculate total with offer pricing and recalculated GST
+                  const calculatedTotal = isOfferPlanActive 
+                    ? calculatedSubtotal + calculatedGST + cart.serviceChargeAmount
+                    : cart.finalAmount;
+                  
+                  return (
+                    <div className="flex justify-between text-lg font-bold">
+                      <span>Total Amount</span>
+                      <span>{formatPrice(calculatedTotal)}</span>
+                    </div>
+                  );
+                })()}
               </div>
 
               {!showPayment && (
@@ -868,7 +1108,26 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
                   disabled={!selectedAddress}
                   className="w-full mt-6 bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 text-white py-3 px-4 rounded-lg text-lg font-semibold hover:from-orange-600 hover:via-purple-700 hover:to-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-300 shadow-lg hover:shadow-xl"
                 >
-                  Proceed to Payment • {formatPrice(cart.finalAmount)}
+                  Proceed to Payment • {(() => {
+                    const isOfferPlanActive = offerPlan && cart.appliedCoupon === offerPlan.coupon_code;
+                    const calculatedSubtotal = isOfferPlanActive 
+                      ? cart.items.reduce((sum, item) => {
+                          // Use basePrice for uniform offer discount calculation
+                          const offerPrice = Math.round(item.basePrice * (1 - offerPlan.discount_percentage / 100));
+                          return sum + (offerPrice * item.quantity);
+                        }, 0)
+                      : cart.subtotal;
+                    
+                    // Recalculate GST based on discounted subtotal
+                    const calculatedGST = isOfferPlanActive 
+                      ? Math.round(calculatedSubtotal * 0.18)
+                      : cart.gstAmount;
+                    
+                    const calculatedTotal = isOfferPlanActive 
+                      ? calculatedSubtotal + calculatedGST + cart.serviceChargeAmount
+                      : cart.finalAmount;
+                    return formatPrice(calculatedTotal);
+                  })()}
                 </button>
               )}
 

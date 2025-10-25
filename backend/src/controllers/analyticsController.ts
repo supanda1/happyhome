@@ -47,8 +47,9 @@ export class AnalyticsController {
    */
   static async getAnalyticsOverview(req: Request, res: Response): Promise<void> {
     try {
-      // Note: period parameter available for future date filtering
-      // const period = (req.query.period as TimePeriod) || 'monthly';
+      // Get period parameter for time series filtering
+      const period = (req.query.period as string) || 'monthly';
+      console.log('📊 Analytics period requested:', period);
       
 
       // First, check if we have any orders at all
@@ -82,19 +83,29 @@ export class AnalyticsController {
       // const currentStart = new Date(now.getFullYear(), now.getMonth(), 1);
       // const currentEnd = new Date(now);
       
-      // Get basic totals from orders table - consistent with dashboard and order management
+      // Get basic totals from orders table - consistent with dashboard revenue logic
+      // Business rule: 'completed', 'scheduled', 'in_progress', 'confirmed' orders count as completed revenue
       const totalsQuery = `
         SELECT 
-          COALESCE(SUM(CASE WHEN status = 'completed' THEN final_amount ELSE 0 END), 0) as total_revenue,
+          COALESCE(SUM(CASE WHEN status IN ('completed', 'scheduled', 'in_progress', 'confirmed') THEN total_amount ELSE 0 END), 0) as total_revenue,
           COUNT(*) as total_orders,
-          COUNT(*) FILTER (WHERE status = 'completed') as completed_orders,
-          COALESCE(AVG(CASE WHEN status = 'completed' THEN final_amount ELSE NULL END), 0) as avg_order_value
+          COUNT(*) FILTER (WHERE status IN ('completed', 'scheduled', 'in_progress', 'confirmed')) as completed_orders,
+          COALESCE(AVG(CASE WHEN status IN ('completed', 'scheduled', 'in_progress', 'confirmed') THEN total_amount ELSE NULL END), 0) as avg_order_value
         FROM orders 
-        WHERE status NOT IN ('cancelled', 'refunded')
+        WHERE status NOT IN ('cancelled')
       `;
       
       const totalsResult = await pool.query(totalsQuery);
       const totals = totalsResult.rows[0];
+      
+      // Debug logging for analytics data
+      console.log('🔍 Analytics API Debug:', {
+        totalRevenue: parseFloat(totals.total_revenue) || 0,
+        totalOrders: parseInt(totals.total_orders) || 0,
+        completedOrders: parseInt(totals.completed_orders) || 0,
+        avgOrderValue: parseFloat(totals.avg_order_value) || 0,
+        businessLogic: 'completed, scheduled, in_progress, confirmed orders count as revenue'
+      });
 
       // Get categories with any revenue data
       const categoryQuery = `
@@ -111,28 +122,29 @@ export class AnalyticsController {
       const topCategories: RevenueByCategory[] = [];
       
       for (const category of categoryResult.rows) {
-        // Get revenue for this specific category - use order final_amount proportionally
+        // Get revenue for this specific category - consistent with dashboard revenue logic
         const categoryRevenueQuery = `
           SELECT 
             COALESCE(SUM(
               CASE 
-                WHEN o.status = 'completed' THEN 
-                  -- Calculate proportional revenue from order's final_amount
-                  (oi.total_price / NULLIF(category_total.total_item_price, 0)) * o.final_amount
+                WHEN o.status IN ('completed', 'scheduled', 'in_progress', 'confirmed') THEN 
+                  -- Calculate proportional revenue from order's total_amount
+                  (oi.total_price / NULLIF(category_total.total_item_price, 0)) * o.total_amount
                 ELSE 0 
               END
             ), 0) as revenue,
-            COUNT(DISTINCT CASE WHEN o.status = 'completed' THEN o.id ELSE NULL END) as orders
+            COUNT(DISTINCT CASE WHEN o.status IN ('completed', 'scheduled', 'in_progress', 'confirmed') THEN o.id ELSE NULL END) as orders
           FROM order_items oi
           JOIN orders o ON oi.order_id = o.id
+          JOIN services s ON oi.service_id = s.id
           JOIN (
             -- Get total item prices per order for proportional calculation
             SELECT order_id, SUM(total_price) as total_item_price
             FROM order_items 
             GROUP BY order_id
           ) category_total ON o.id = category_total.order_id
-          WHERE oi.category_id = $1
-            AND o.status NOT IN ('cancelled', 'refunded')
+          WHERE s.category_id = $1
+            AND o.status NOT IN ('cancelled')
         `;
         
         const categoryRevenueResult = await pool.query(categoryRevenueQuery, [category.id]);
@@ -154,26 +166,27 @@ export class AnalyticsController {
           const subcategories: RevenueBySubcategory[] = [];
           
           for (const sub of subcategoryResult.rows) {
-            // Get revenue for this subcategory - consistent with category calculation
+            // Get revenue for this subcategory - consistent with dashboard revenue logic
             const subRevenueQuery = `
               SELECT 
                 COALESCE(SUM(
                   CASE 
-                    WHEN o.status = 'completed' THEN 
-                      (oi.total_price / NULLIF(category_total.total_item_price, 0)) * o.final_amount
+                    WHEN o.status IN ('completed', 'scheduled', 'in_progress', 'confirmed') THEN 
+                      (oi.total_price / NULLIF(category_total.total_item_price, 0)) * o.total_amount
                     ELSE 0 
                   END
                 ), 0) as revenue,
-                COUNT(DISTINCT CASE WHEN o.status = 'completed' THEN o.id ELSE NULL END) as orders
+                COUNT(DISTINCT CASE WHEN o.status IN ('completed', 'scheduled', 'in_progress', 'confirmed') THEN o.id ELSE NULL END) as orders
               FROM order_items oi
               JOIN orders o ON oi.order_id = o.id
+              JOIN services s ON oi.service_id = s.id
               JOIN (
                 SELECT order_id, SUM(total_price) as total_item_price
                 FROM order_items 
                 GROUP BY order_id
               ) category_total ON o.id = category_total.order_id
-              WHERE oi.subcategory_id = $1
-                AND o.status NOT IN ('cancelled', 'refunded')
+              WHERE s.subcategory_id = $1
+                AND o.status NOT IN ('cancelled')
             `;
             
             const subRevenueResult = await pool.query(subRevenueQuery, [sub.id]);
@@ -186,8 +199,9 @@ export class AnalyticsController {
                   COALESCE(SUM(oi.total_price), 0) as prev_revenue
                 FROM order_items oi
                 JOIN orders o ON oi.order_id = o.id
-                WHERE oi.subcategory_id = $1
-                  AND o.status NOT IN ('cancelled', 'refunded')
+                JOIN services s ON oi.service_id = s.id
+                WHERE s.subcategory_id = $1
+                  AND o.status NOT IN ('cancelled')
                   AND DATE_TRUNC('month', o.created_at) = DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')
               `;
               
@@ -212,8 +226,9 @@ export class AnalyticsController {
               COALESCE(SUM(oi.total_price), 0) as prev_revenue
             FROM order_items oi
             JOIN orders o ON oi.order_id = o.id
-            WHERE oi.category_id = $1
-              AND o.status NOT IN ('cancelled', 'refunded')
+            JOIN services s ON oi.service_id = s.id
+            WHERE s.category_id = $1
+              AND o.status NOT IN ('cancelled')
               AND DATE_TRUNC('month', o.created_at) = DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')
           `;
           
@@ -236,39 +251,132 @@ export class AnalyticsController {
       // Sort categories by revenue
       topCategories.sort((a, b) => b.totalRevenue - a.totalRevenue);
 
-      // Simple time series data (monthly buckets for last 5 months)
+      // Dynamic time series data based on period
       const timeSeriesData: TimeSeriesPoint[] = [];
-      for (let i = 4; i >= 0; i--) {
-        const date = new Date(now);
-        date.setMonth(date.getMonth() - i);
-        const monthStr = date.toISOString().substring(0, 7); // YYYY-MM format
+      
+      if (period === 'daily') {
+        // Last 30 days
+        for (let i = 29; i >= 0; i--) {
+          const date = new Date(now);
+          date.setDate(date.getDate() - i);
+          const dateStr = date.toISOString().substring(0, 10); // YYYY-MM-DD format
+          
+          const dailyQuery = `
+            SELECT 
+              COALESCE(SUM(CASE WHEN status IN ('completed', 'scheduled', 'in_progress', 'confirmed') THEN total_amount ELSE 0 END), 0) as revenue,
+              COUNT(*) FILTER (WHERE status IN ('completed', 'scheduled', 'in_progress', 'confirmed')) as orders
+            FROM orders 
+            WHERE created_at::date = $1::date
+              AND status NOT IN ('cancelled')
+          `;
+          
+          const dailyResult = await pool.query(dailyQuery, [dateStr]);
+          const daily = dailyResult.rows[0];
+          
+          timeSeriesData.push({
+            date: dateStr,
+            revenue: parseFloat(daily.revenue),
+            orders: parseInt(daily.orders)
+          });
+        }
+      } else if (period === 'weekly') {
+        // Last 12 weeks
+        for (let i = 11; i >= 0; i--) {
+          const date = new Date(now);
+          date.setDate(date.getDate() - (i * 7));
+          const weekStart = new Date(date);
+          weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Start of week (Sunday)
+          const weekEnd = new Date(weekStart);
+          weekEnd.setDate(weekEnd.getDate() + 6); // End of week (Saturday)
+          const weekStr = weekStart.toISOString().substring(0, 10);
+          
+          const weeklyQuery = `
+            SELECT 
+              COALESCE(SUM(CASE WHEN status IN ('completed', 'scheduled', 'in_progress', 'confirmed') THEN total_amount ELSE 0 END), 0) as revenue,
+              COUNT(*) FILTER (WHERE status IN ('completed', 'scheduled', 'in_progress', 'confirmed')) as orders
+            FROM orders 
+            WHERE created_at >= $1::timestamp 
+              AND created_at <= ($2::timestamp + INTERVAL '1 day')
+              AND status NOT IN ('cancelled')
+          `;
+          
+          const weeklyResult = await pool.query(weeklyQuery, [weekStart, weekEnd]);
+          const weekly = weeklyResult.rows[0];
+          
+          timeSeriesData.push({
+            date: `Week ${weekStr}`,
+            revenue: parseFloat(weekly.revenue),
+            orders: parseInt(weekly.orders)
+          });
+        }
+      } else if (period === 'yearly') {
+        // Last 5 years
+        for (let i = 4; i >= 0; i--) {
+          const date = new Date(now);
+          date.setFullYear(date.getFullYear() - i);
+          const yearStr = date.getFullYear().toString();
+          
+          const yearlyQuery = `
+            SELECT 
+              COALESCE(SUM(CASE WHEN status IN ('completed', 'scheduled', 'in_progress', 'confirmed') THEN total_amount ELSE 0 END), 0) as revenue,
+              COUNT(*) FILTER (WHERE status IN ('completed', 'scheduled', 'in_progress', 'confirmed')) as orders
+            FROM orders 
+            WHERE EXTRACT(YEAR FROM created_at) = $1
+              AND status NOT IN ('cancelled')
+          `;
+          
+          const yearlyResult = await pool.query(yearlyQuery, [date.getFullYear()]);
+          const yearly = yearlyResult.rows[0];
+          
+          timeSeriesData.push({
+            date: yearStr,
+            revenue: parseFloat(yearly.revenue),
+            orders: parseInt(yearly.orders)
+          });
+        }
+      } else {
+        // Default: Monthly (last 12 months)
+        for (let i = 11; i >= 0; i--) {
+          const date = new Date(now);
+          date.setMonth(date.getMonth() - i);
+          const monthStr = date.toISOString().substring(0, 7); // YYYY-MM format
+          
+          const monthlyQuery = `
+            SELECT 
+              COALESCE(SUM(CASE WHEN status IN ('completed', 'scheduled', 'in_progress', 'confirmed') THEN total_amount ELSE 0 END), 0) as revenue,
+              COUNT(*) FILTER (WHERE status IN ('completed', 'scheduled', 'in_progress', 'confirmed')) as orders
+            FROM orders 
+            WHERE DATE_TRUNC('month', created_at) = DATE_TRUNC('month', $1::timestamp)
+              AND status NOT IN ('cancelled')
+          `;
+          
+          const monthlyResult = await pool.query(monthlyQuery, [date]);
+          const monthly = monthlyResult.rows[0];
+          
+          timeSeriesData.push({
+            date: monthStr,
+            revenue: parseFloat(monthly.revenue),
+            orders: parseInt(monthly.orders)
+          });
+        }
+      }
+
+      // Calculate period-based growth
+      let periodGrowth = 0;
+      if (timeSeriesData.length >= 2) {
+        const latestPeriod = timeSeriesData[timeSeriesData.length - 1];
+        const previousPeriod = timeSeriesData[timeSeriesData.length - 2];
         
-        const monthlyQuery = `
-          SELECT 
-            COALESCE(SUM(CASE WHEN status = 'completed' THEN final_amount ELSE 0 END), 0) as revenue,
-            COUNT(*) FILTER (WHERE status = 'completed') as orders
-          FROM orders 
-          WHERE DATE_TRUNC('month', created_at) = DATE_TRUNC('month', $1::timestamp)
-            AND status NOT IN ('cancelled', 'refunded')
-        `;
-        
-        const monthlyResult = await pool.query(monthlyQuery, [date]);
-        const monthly = monthlyResult.rows[0];
-        
-        timeSeriesData.push({
-          date: monthStr,
-          revenue: parseFloat(monthly.revenue),
-          orders: parseInt(monthly.orders)
-        });
+        if (previousPeriod.revenue > 0) {
+          periodGrowth = ((latestPeriod.revenue - previousPeriod.revenue) / previousPeriod.revenue) * 100;
+        }
       }
 
       const analyticsData: AnalyticsOverview = {
         totalRevenue: parseFloat(totals.total_revenue),
         totalOrders: parseInt(totals.total_orders),
         avgOrderValue: Math.round(parseFloat(totals.avg_order_value)),
-        monthlyGrowth: timeSeriesData.length >= 2 && timeSeriesData[timeSeriesData.length-2].revenue > 0 
-          ? ((timeSeriesData[timeSeriesData.length-1].revenue - timeSeriesData[timeSeriesData.length-2].revenue) / timeSeriesData[timeSeriesData.length-2].revenue) * 100
-          : 0,
+        monthlyGrowth: periodGrowth, // Now reflects actual period growth
         topCategories: topCategories,
         timeSeriesData: timeSeriesData
       };
@@ -312,22 +420,23 @@ export class AnalyticsController {
           COALESCE(sc.name, 'General') as subcategory,
           COALESCE(SUM(
             CASE 
-              WHEN o.status = 'completed' THEN 
-                (oi.total_price / NULLIF(category_total.total_item_price, 0)) * o.final_amount
+              WHEN o.status IN ('completed', 'scheduled', 'in_progress', 'confirmed') THEN 
+                (oi.total_price / NULLIF(category_total.total_item_price, 0)) * o.total_amount
               ELSE 0 
             END
           ), 0) as revenue,
-          COUNT(DISTINCT CASE WHEN o.status = 'completed' THEN o.id ELSE NULL END) as orders
+          COUNT(DISTINCT CASE WHEN o.status IN ('completed', 'scheduled', 'in_progress', 'confirmed') THEN o.id ELSE NULL END) as orders
         FROM order_items oi
         JOIN orders o ON oi.order_id = o.id
-        JOIN service_categories c ON oi.category_id = c.id
-        LEFT JOIN service_subcategories sc ON oi.subcategory_id = sc.id
+        JOIN services s ON oi.service_id = s.id
+        JOIN service_categories c ON s.category_id = c.id
+        LEFT JOIN service_subcategories sc ON s.subcategory_id = sc.id
         JOIN (
           SELECT order_id, SUM(total_price) as total_item_price
           FROM order_items 
           GROUP BY order_id
         ) category_total ON o.id = category_total.order_id
-        WHERE o.status NOT IN ('cancelled', 'refunded')
+        WHERE o.status NOT IN ('cancelled')
         GROUP BY c.name, sc.name
         ORDER BY revenue DESC, c.name ASC, sc.name ASC
       `;

@@ -14,7 +14,7 @@ from sqlalchemy.orm import selectinload
 from ..core.dependencies import get_current_admin_user
 from ..core.logging import get_logger
 from ..database.connection import get_db_session
-from ..models.booking import Booking, BookingStatus, PaymentStatus
+from ..models.order import Order, OrderStatus, OrderPriority
 from ..models.service import Service, ServiceCategory
 from ..models.user import User, UserRole
 from ..models.review import Review
@@ -67,27 +67,29 @@ async def get_dashboard_stats(
             end_date = datetime.strptime(f"{filters.end_date} 23:59:59", "%Y-%m-%d %H:%M:%S")
         
         # Base query filters
-        booking_query_filters = []
+        order_query_filters = []
         if start_date:
-            booking_query_filters.append(Booking.created_at >= start_date)
+            order_query_filters.append(Order.created_at >= start_date)
         if end_date:
-            booking_query_filters.append(Booking.created_at <= end_date)
-        if filters.service_id:
-            booking_query_filters.append(Booking.service_id == UUID(filters.service_id))
+            order_query_filters.append(Order.created_at <= end_date)
+        # Note: Orders don't have direct service_id, they have order_items
+        # For now, skip service_id filter for orders
         
         # === OVERVIEW STATS ===
         
-        # Total bookings
-        total_bookings_query = db.query(Booking)
-        if booking_query_filters:
-            total_bookings_query = total_bookings_query.filter(and_(*booking_query_filters))
-        total_bookings = await db.scalar(func.count().select().select_from(total_bookings_query.subquery())) or 0
+        # Total orders (using orders table instead of bookings)
+        total_orders_query = db.query(Order)
+        if order_query_filters:
+            total_orders_query = total_orders_query.filter(and_(*order_query_filters))
+        total_orders = await db.scalar(func.count().select().select_from(total_orders_query.subquery())) or 0
         
-        # Total revenue
-        revenue_query = db.query(Booking).filter(Booking.payment_status == PaymentStatus.PAID)
-        if booking_query_filters:
-            revenue_query = revenue_query.filter(and_(*booking_query_filters))
-        total_revenue = await db.scalar(func.sum(Booking.final_amount).select().select_from(revenue_query.subquery())) or 0.0
+        # Total revenue (using orders table - all orders are considered paid when completed)
+        revenue_query = db.query(Order).filter(Order.status == OrderStatus.COMPLETED)
+        if order_query_filters:
+            revenue_query = revenue_query.filter(and_(*order_query_filters))
+        
+        # Use total_amount from orders table
+        total_revenue = await db.scalar(func.sum(Order.total_amount).select().select_from(revenue_query.subquery())) or 0.0
         
         # Total services
         service_query = db.query(Service).filter(Service.is_active == True)
@@ -103,43 +105,43 @@ async def get_dashboard_stats(
             customer_query = customer_query.filter(User.created_at <= end_date)
         total_customers = await db.scalar(func.count().select().select_from(customer_query.subquery())) or 0
         
-        # === BOOKING STATS ===
+        # === ORDER STATS ===
         
-        booking_stats_query = db.query(Booking)
-        if booking_query_filters:
-            booking_stats_query = booking_stats_query.filter(and_(*booking_query_filters))
+        order_stats_query = db.query(Order)
+        if order_query_filters:
+            order_stats_query = order_stats_query.filter(and_(*order_query_filters))
         
-        # Status counts
-        pending_bookings = await db.scalar(
-            func.count(Booking.id).filter(Booking.status == BookingStatus.PENDING)
-            .select().select_from(booking_stats_query.subquery())
+        # Status counts (using Order statuses)
+        pending_orders = await db.scalar(
+            func.count(Order.id).filter(Order.status == OrderStatus.PENDING)
+            .select().select_from(order_stats_query.subquery())
         ) or 0
         
-        confirmed_bookings = await db.scalar(
-            func.count(Booking.id).filter(Booking.status == BookingStatus.CONFIRMED)
-            .select().select_from(booking_stats_query.subquery())
+        confirmed_orders = await db.scalar(
+            func.count(Order.id).filter(Order.status == OrderStatus.SCHEDULED)
+            .select().select_from(order_stats_query.subquery())
         ) or 0
         
-        completed_bookings = await db.scalar(
-            func.count(Booking.id).filter(Booking.status == BookingStatus.COMPLETED)
-            .select().select_from(booking_stats_query.subquery())
+        completed_orders = await db.scalar(
+            func.count(Order.id).filter(Order.status == OrderStatus.COMPLETED)
+            .select().select_from(order_stats_query.subquery())
         ) or 0
         
-        cancelled_bookings = await db.scalar(
-            func.count(Booking.id).filter(Booking.status == BookingStatus.CANCELLED)
-            .select().select_from(booking_stats_query.subquery())
+        cancelled_orders = await db.scalar(
+            func.count(Order.id).filter(Order.status == OrderStatus.CANCELLED)
+            .select().select_from(order_stats_query.subquery())
         ) or 0
         
         # Calculate rates
-        completion_rate = (completed_bookings / total_bookings * 100) if total_bookings > 0 else 0.0
-        cancellation_rate = (cancelled_bookings / total_bookings * 100) if total_bookings > 0 else 0.0
+        completion_rate = (completed_orders / total_orders * 100) if total_orders > 0 else 0.0
+        cancellation_rate = (cancelled_orders / total_orders * 100) if total_orders > 0 else 0.0
         
         booking_stats = BookingStats(
-            totalBookings=total_bookings,
-            pendingBookings=pending_bookings,
-            confirmedBookings=confirmed_bookings,
-            completedBookings=completed_bookings,
-            cancelledBookings=cancelled_bookings,
+            totalBookings=total_orders,
+            pendingBookings=pending_orders,
+            confirmedBookings=confirmed_orders,
+            completedBookings=completed_orders,
+            cancelledBookings=cancelled_orders,
             completionRate=round(completion_rate, 1),
             cancellationRate=round(cancellation_rate, 1)
         )
@@ -149,10 +151,10 @@ async def get_dashboard_stats(
         # Current month revenue
         current_month_start = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         current_month_revenue = await db.scalar(
-            func.sum(Booking.final_amount).filter(
+            func.sum(Order.total_amount).filter(
                 and_(
-                    Booking.payment_status == PaymentStatus.PAID,
-                    Booking.created_at >= current_month_start
+                    Order.status == OrderStatus.COMPLETED,
+                    Order.created_at >= current_month_start
                 )
             )
         ) or 0.0
@@ -161,11 +163,11 @@ async def get_dashboard_stats(
         previous_month_start = (current_month_start - timedelta(days=1)).replace(day=1)
         previous_month_end = current_month_start - timedelta(seconds=1)
         previous_month_revenue = await db.scalar(
-            func.sum(Booking.final_amount).filter(
+            func.sum(Order.total_amount).filter(
                 and_(
-                    Booking.payment_status == PaymentStatus.PAID,
-                    Booking.created_at >= previous_month_start,
-                    Booking.created_at <= previous_month_end
+                    Order.status == OrderStatus.COMPLETED,
+                    Order.created_at >= previous_month_start,
+                    Order.created_at <= previous_month_end
                 )
             )
         ) or 0.0
@@ -175,11 +177,11 @@ async def get_dashboard_stats(
         if previous_month_revenue > 0:
             revenue_growth = ((current_month_revenue - previous_month_revenue) / previous_month_revenue) * 100
         
-        # Average booking value
-        paid_bookings_count = await db.scalar(
-            func.count(Booking.id).filter(Booking.payment_status == PaymentStatus.PAID)
+        # Average order value
+        completed_orders_count = await db.scalar(
+            func.count(Order.id).filter(Order.status == OrderStatus.COMPLETED)
         ) or 0
-        average_booking_value = (total_revenue / paid_bookings_count) if paid_bookings_count > 0 else 0.0
+        average_booking_value = (total_revenue / completed_orders_count) if completed_orders_count > 0 else 0.0
         
         # Revenue by category (simplified)
         revenue_by_category = []
@@ -226,43 +228,44 @@ async def get_dashboard_stats(
             topCustomers=top_customers
         )
         
-        # === RECENT BOOKINGS ===
+        # === RECENT ORDERS ===
         
-        recent_bookings_data = await db.scalars(
-            db.query(Booking)
-            .options(selectinload(Booking.service), selectinload(Booking.user))
-            .order_by(desc(Booking.created_at))
+        recent_orders_data = await db.scalars(
+            db.query(Order)
+            .order_by(desc(Order.created_at))
             .limit(10)
         )
         
         recent_bookings = []
-        for booking in recent_bookings_data:
-            customer_name = f"{booking.user.first_name} {booking.user.last_name}" if booking.user else "Unknown"
-            service_name = booking.service.name if booking.service else "Unknown Service"
+        for order in recent_orders_data:
+            # Use order data directly (no user/service relationships in simple orders table)
+            customer_name = order.customer_name or "Unknown"
+            service_name = "Service Order"  # Orders contain multiple services via order_items
             
             recent_bookings.append(RecentBooking(
-                id=str(booking.id),
+                id=str(order.id),
                 serviceName=service_name,
                 customerName=customer_name,
-                amount=booking.final_amount,
-                status=booking.status.value,
-                scheduledDate=booking.scheduled_date.isoformat(),
-                createdAt=booking.created_at.isoformat()
+                amount=float(order.total_amount or 0),
+                status=order.status.value if order.status else "unknown",
+                scheduledDate=order.preferred_date.isoformat() if order.preferred_date else order.created_at.isoformat(),
+                createdAt=order.created_at.isoformat()
             ))
         
         # === TOP SERVICES ===
         
-        # Get services with most bookings
+        # Get services with most orders (via order_items)
         top_services_data = await db.execute(
             text("""
                 SELECT 
                     s.id,
                     s.name,
-                    COUNT(b.id) as booking_count,
-                    COALESCE(SUM(b.final_amount), 0) as revenue,
+                    COUNT(oi.id) as booking_count,
+                    COALESCE(SUM(o.total_amount), 0) as revenue,
                     COALESCE(AVG(r.rating), 0) as average_rating
                 FROM services s
-                LEFT JOIN bookings b ON s.id = b.service_id
+                LEFT JOIN order_items oi ON s.id = oi.service_id
+                LEFT JOIN orders o ON oi.order_id = o.id
                 LEFT JOIN reviews r ON s.id = r.service_id AND r.is_approved = true
                 WHERE s.is_active = true
                 GROUP BY s.id, s.name
@@ -288,9 +291,9 @@ async def get_dashboard_stats(
             text("""
                 SELECT 
                     DATE_TRUNC('month', created_at) as month,
-                    SUM(final_amount) as revenue
-                FROM bookings
-                WHERE payment_status = 'paid'
+                    SUM(total_amount) as revenue
+                FROM orders
+                WHERE status = 'completed'
                     AND created_at >= CURRENT_DATE - INTERVAL '12 months'
                 GROUP BY DATE_TRUNC('month', created_at)
                 ORDER BY month
@@ -313,12 +316,13 @@ async def get_dashboard_stats(
                     sc.id,
                     sc.name,
                     COUNT(DISTINCT s.id) as service_count,
-                    COUNT(b.id) as booking_count,
-                    COALESCE(SUM(b.final_amount), 0) as revenue,
+                    COUNT(oi.id) as booking_count,
+                    COALESCE(SUM(o.total_amount), 0) as revenue,
                     COALESCE(AVG(r.rating), 0) as average_rating
                 FROM service_categories sc
                 LEFT JOIN services s ON sc.id = s.category_id AND s.is_active = true
-                LEFT JOIN bookings b ON s.id = b.service_id
+                LEFT JOIN order_items oi ON s.id = oi.service_id
+                LEFT JOIN orders o ON oi.order_id = o.id
                 LEFT JOIN reviews r ON s.id = r.service_id AND r.is_approved = true
                 WHERE sc.is_active = true
                 GROUP BY sc.id, sc.name
@@ -340,7 +344,7 @@ async def get_dashboard_stats(
         # === BUILD RESPONSE ===
         
         dashboard_stats = DashboardStatsResponse(
-            totalBookings=total_bookings,
+            totalBookings=total_orders,
             totalRevenue=total_revenue,
             totalServices=total_services,
             totalCustomers=total_customers,
@@ -427,7 +431,7 @@ async def get_date_range_stats(
         
         # Get revenue (paid bookings only)
         revenue_query = booking_query.filter(Booking.payment_status == PaymentStatus.PAID)
-        total_revenue = await db.scalar(func.sum(Booking.final_amount).select().select_from(revenue_query.subquery())) or 0.0
+        total_revenue = await db.scalar(func.sum(final_amount_expr).select().select_from(revenue_query.subquery())) or 0.0
         
         # Get new customers in date range
         customer_filters = [
@@ -572,24 +576,24 @@ async def get_realtime_metrics(
         # Get metrics for the last 24 hours
         last_24h = datetime.utcnow() - timedelta(hours=24)
         
-        # Recent bookings count
+        # Recent orders count
         recent_bookings = await db.scalar(
-            func.count(Booking.id).filter(Booking.created_at >= last_24h)
+            func.count(Order.id).filter(Order.created_at >= last_24h)
         ) or 0
         
         # Recent revenue
         recent_revenue = await db.scalar(
-            func.sum(Booking.final_amount).filter(
+            func.sum(Order.total_amount).filter(
                 and_(
-                    Booking.created_at >= last_24h,
-                    Booking.payment_status == PaymentStatus.PAID
+                    Order.created_at >= last_24h,
+                    Order.status == OrderStatus.COMPLETED
                 )
             )
         ) or 0.0
         
-        # Pending bookings
+        # Pending orders
         pending_bookings = await db.scalar(
-            func.count(Booking.id).filter(Booking.status == BookingStatus.PENDING)
+            func.count(Order.id).filter(Order.status == OrderStatus.PENDING)
         ) or 0
         
         # Active users (users who logged in in the last 24h)

@@ -35,46 +35,46 @@ def check_column_exists(cursor, table_name, column_name):
     """, (table_name, column_name))
     return cursor.fetchone()[0]
 
-def check_employees_table_structure(cursor):
-    """Check the current structure of employees table"""
-    print("🔍 Checking employees table structure...")
+def check_engineers_table_structure(cursor):
+    """Check the current structure of engineers table"""
+    print("🔍 Checking engineers table structure...")
     
     try:
         cursor.execute("""
             SELECT column_name, data_type, is_nullable 
             FROM information_schema.columns 
-            WHERE table_name = 'employees' 
+            WHERE table_name = 'engineers' 
             ORDER BY ordinal_position;
         """)
         
         columns = cursor.fetchall()
         if columns:
-            print("✅ employees table exists with columns:")
+            print("✅ engineers table exists with columns:")
             for col_name, data_type, is_nullable in columns:
                 print(f"   - {col_name}: {data_type} ({'nullable' if is_nullable == 'YES' else 'not null'})")
             return True
         else:
-            print("❌ employees table does not exist")
+            print("❌ engineers table does not exist")
             return False
     except Exception as e:
         print(f"❌ Error checking table structure: {e}")
         return False
 
 def add_expertise_areas_column(cursor):
-    """Add expertise_areas column to employees table"""
+    """Add expertise_areas column to engineers table"""
     print("📝 Adding expertise_areas column...")
     
     try:
         # Add the new column
         cursor.execute("""
-            ALTER TABLE employees 
+            ALTER TABLE engineers 
             ADD COLUMN IF NOT EXISTS expertise_areas JSONB DEFAULT '[]'::jsonb;
         """)
         
         # Create index for better performance
         cursor.execute("""
-            CREATE INDEX IF NOT EXISTS idx_employees_expertise_areas 
-            ON employees USING GIN (expertise_areas);
+            CREATE INDEX IF NOT EXISTS idx_engineers_expertise_areas 
+            ON engineers USING GIN (expertise_areas);
         """)
         
         # Add check constraint (check if exists first)
@@ -82,14 +82,14 @@ def add_expertise_areas_column(cursor):
             SELECT EXISTS (
                 SELECT FROM information_schema.table_constraints 
                 WHERE constraint_name = 'check_expertise_areas_is_array'
-                AND table_name = 'employees'
+                AND table_name = 'engineers'
             );
         """)
         constraint_exists = cursor.fetchone()[0]
         
         if not constraint_exists:
             cursor.execute("""
-                ALTER TABLE employees 
+                ALTER TABLE engineers 
                 ADD CONSTRAINT check_expertise_areas_is_array 
                 CHECK (jsonb_typeof(expertise_areas) = 'array');
             """)
@@ -107,7 +107,7 @@ def migrate_existing_data(cursor):
     try:
         # Update existing records to have expertise_areas based on expert field
         cursor.execute("""
-            UPDATE employees 
+            UPDATE engineers 
             SET expertise_areas = CASE 
                 WHEN expert IS NOT NULL AND expert != '' 
                 THEN jsonb_build_array(expert)
@@ -117,7 +117,7 @@ def migrate_existing_data(cursor):
         """)
         
         rows_affected = cursor.rowcount
-        print(f"✅ Migrated {rows_affected} employee records")
+        print(f"✅ Migrated {rows_affected} engineer records")
         return True
     except Exception as e:
         print(f"❌ Error migrating data: {e}")
@@ -129,16 +129,16 @@ def verify_migration(cursor):
     
     try:
         cursor.execute("""
-            SELECT id, employee_id, name, expert, expertise_areas
-            FROM employees 
+            SELECT id, engineer_id, name, expert, expertise_areas
+            FROM engineers 
             LIMIT 5;
         """)
         
-        employees = cursor.fetchall()
-        print(f"📋 Sample employee data after migration:")
-        for emp in employees:
-            emp_id, employee_id, name, expert, expertise_areas = emp
-            print(f"   {employee_id}: {name}")
+        engineers = cursor.fetchall()
+        print(f"📋 Sample engineer data after migration:")
+        for emp in engineers:
+            emp_id, engineer_id, name, expert, expertise_areas = emp
+            print(f"   {engineer_id}: {name}")
             print(f"      Legacy expert: {expert}")
             print(f"      Expertise areas: {expertise_areas}")
             print()
@@ -161,13 +161,13 @@ def main():
     try:
         cursor = conn.cursor()
         
-        # Check if employees table exists
-        if not check_employees_table_structure(cursor):
-            print("❌ employees table not found. Please run the main table creation script first.")
+        # Check if engineers table exists
+        if not check_engineers_table_structure(cursor):
+            print("❌ engineers table not found. Please run the main table creation script first.")
             return False
         
         # Check if expertise_areas column exists
-        expertise_areas_exists = check_column_exists(cursor, 'employees', 'expertise_areas')
+        expertise_areas_exists = check_column_exists(cursor, 'engineers', 'expertise_areas')
         
         if expertise_areas_exists:
             print("✅ expertise_areas column already exists")
@@ -185,7 +185,7 @@ def main():
             return False
         
         print("\n🎯 Database migration completed successfully!")
-        print("   The employee update functionality should now work properly.")
+        print("   The engineer update functionality should now work properly.")
         return True
         
     except Exception as e:

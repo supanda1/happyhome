@@ -16,7 +16,7 @@ from sqlalchemy.orm import selectinload
 from ..core.dependencies import get_current_admin_user
 from ..core.logging import get_logger
 from ..database.connection import get_db_session
-from ..models.booking import Booking, BookingStatus, PaymentStatus
+from ..models.order import Order, OrderStatus, OrderPriority
 from ..models.service import Service, ServiceCategory, ServiceSubcategory
 from ..models.user import User
 from ..schemas.analytics import (
@@ -54,16 +54,16 @@ def get_date_range_for_period(period: TimePeriod) -> tuple[datetime, datetime]:
         start_date = now - timedelta(weeks=12)
         end_date = now
     elif period == "monthly":
-        # Last 12 months
-        start_date = now - timedelta(days=365)
+        # Last 24 months (wider range to catch more data)
+        start_date = now - timedelta(days=730)
         end_date = now
     elif period == "yearly":
-        # Last 5 years
-        start_date = now - timedelta(days=365 * 5)
+        # Last 10 years (wider range)
+        start_date = now - timedelta(days=365 * 10)
         end_date = now
     else:
-        # Default to monthly
-        start_date = now - timedelta(days=365)
+        # Default to all-time (very wide range)
+        start_date = now - timedelta(days=365 * 10)
         end_date = now
         
     return start_date, end_date
@@ -108,19 +108,50 @@ async def get_analytics_overview(
     try:
         start_date, end_date = get_date_range_for_period(period)
         
+        logger.info("Analytics date range", 
+                   start_date=start_date.isoformat(), 
+                   end_date=end_date.isoformat(),
+                   period=period)
+        
         # === OVERVIEW METRICS ===
         
-        # Total revenue and orders from paid bookings
-        revenue_query = db.query(Booking).filter(
+        # First check total orders without date filter for debugging
+        total_orders_all_time = await db.scalar(
+            func.count(Order.id).filter(Order.status.in_([OrderStatus.COMPLETED, OrderStatus.SCHEDULED, OrderStatus.IN_PROGRESS]))
+        ) or 0
+        
+        # Calculate total_amount using actual database columns
+        total_amount_expr = func.greatest(0, Order.total_amount)
+        
+        total_revenue_all_time = await db.scalar(
+            func.sum(total_amount_expr).filter(Order.status.in_([OrderStatus.COMPLETED, OrderStatus.SCHEDULED, OrderStatus.IN_PROGRESS]))
+        ) or 0.0
+        
+        logger.info("All-time data check", 
+                   total_orders=total_orders_all_time,
+                   total_revenue=total_revenue_all_time)
+        
+        # Total revenue and orders from completed/scheduled/in_progress orders (with date filter)
+        revenue_query = db.query(Order).filter(
             and_(
-                Booking.payment_status == PaymentStatus.PAID,
-                Booking.created_at >= start_date,
-                Booking.created_at <= end_date
+                Order.status.in_([OrderStatus.COMPLETED, OrderStatus.SCHEDULED, OrderStatus.IN_PROGRESS]),
+                Order.created_at >= start_date,
+                Order.created_at <= end_date
             )
         )
         
-        total_revenue = await db.scalar(func.sum(Booking.total_amount).select().select_from(revenue_query.subquery())) or 0.0
-        total_orders = await db.scalar(func.count(Booking.id).select().select_from(revenue_query.subquery())) or 0
+        total_revenue = await db.scalar(func.sum(total_amount_expr).select().select_from(revenue_query.subquery())) or 0.0
+        total_orders = await db.scalar(func.count(Order.id).select().select_from(revenue_query.subquery())) or 0
+        
+        logger.info("Filtered data results", 
+                   total_revenue=total_revenue,
+                   total_orders=total_orders)
+        
+        # If no data in date range but data exists all-time, use all-time data
+        if total_orders == 0 and total_orders_all_time > 0:
+            logger.warning("No data in date range, falling back to all-time data")
+            total_revenue = total_revenue_all_time
+            total_orders = total_orders_all_time
         
         # Calculate average order value
         avg_order_value = round(total_revenue / total_orders) if total_orders > 0 else 0
@@ -128,7 +159,7 @@ async def get_analytics_overview(
         # Calculate monthly growth
         current_month_start = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         current_month_revenue = await db.scalar(
-            func.sum(Booking.total_amount).filter(
+            func.sum(final_amount_expr).filter(
                 and_(
                     Booking.payment_status == PaymentStatus.PAID,
                     Booking.created_at >= current_month_start
@@ -139,7 +170,7 @@ async def get_analytics_overview(
         previous_month_start = (current_month_start - timedelta(days=1)).replace(day=1)
         previous_month_end = current_month_start - timedelta(seconds=1)
         previous_month_revenue = await db.scalar(
-            func.sum(Booking.total_amount).filter(
+            func.sum(final_amount_expr).filter(
                 and_(
                     Booking.payment_status == PaymentStatus.PAID,
                     Booking.created_at >= previous_month_start,
@@ -157,7 +188,7 @@ async def get_analytics_overview(
             SELECT 
                 sc.id as category_id,
                 sc.name as category_name,
-                SUM(b.total_amount) as total_revenue,
+                SUM(GREATEST(0, b.subtotal_amount + b.tax_amount - b.discount_amount)) as total_revenue,
                 COUNT(b.id) as total_orders
             FROM service_categories sc
             LEFT JOIN services s ON sc.id = s.category_id
@@ -187,7 +218,7 @@ async def get_analytics_overview(
                 SELECT 
                     ssc.id as subcategory_id,
                     ssc.name as subcategory_name,
-                    COALESCE(SUM(b.total_amount), 0) as revenue,
+                    COALESCE(SUM(GREATEST(0, b.subtotal_amount + b.tax_amount - b.discount_amount)), 0) as revenue,
                     COUNT(b.id) as orders
                 FROM service_subcategories ssc
                 LEFT JOIN services s ON ssc.id = s.subcategory_id
@@ -241,7 +272,7 @@ async def get_analytics_overview(
             time_series_query = text("""
                 SELECT 
                     DATE(b.created_at) as date,
-                    SUM(b.total_amount) as revenue,
+                    SUM(GREATEST(0, b.subtotal_amount + b.tax_amount - b.discount_amount)) as revenue,
                     COUNT(b.id) as orders
                 FROM bookings b
                 WHERE b.payment_status = 'paid'
@@ -255,7 +286,7 @@ async def get_analytics_overview(
             time_series_query = text("""
                 SELECT 
                     DATE_TRUNC('week', b.created_at) as date,
-                    SUM(b.total_amount) as revenue,
+                    SUM(GREATEST(0, b.subtotal_amount + b.tax_amount - b.discount_amount)) as revenue,
                     COUNT(b.id) as orders
                 FROM bookings b
                 WHERE b.payment_status = 'paid'
@@ -269,7 +300,7 @@ async def get_analytics_overview(
             time_series_query = text("""
                 SELECT 
                     DATE_TRUNC('month', b.created_at) as date,
-                    SUM(b.total_amount) as revenue,
+                    SUM(GREATEST(0, b.subtotal_amount + b.tax_amount - b.discount_amount)) as revenue,
                     COUNT(b.id) as orders
                 FROM bookings b
                 WHERE b.payment_status = 'paid'
@@ -371,8 +402,8 @@ async def export_analytics_data(
                 ssc.name as subcategory,
                 s.name as service,
                 COUNT(b.id) as total_bookings,
-                SUM(CASE WHEN b.payment_status = 'paid' THEN b.total_amount ELSE 0 END) as revenue,
-                AVG(CASE WHEN b.payment_status = 'paid' THEN b.total_amount ELSE NULL END) as avg_booking_value,
+                SUM(CASE WHEN b.payment_status = 'paid' THEN GREATEST(0, b.subtotal_amount + b.tax_amount - b.discount_amount) ELSE 0 END) as revenue,
+                AVG(CASE WHEN b.payment_status = 'paid' THEN GREATEST(0, b.subtotal_amount + b.tax_amount - b.discount_amount) ELSE NULL END) as avg_booking_value,
                 COUNT(CASE WHEN b.status = 'completed' THEN 1 END) as completed_bookings,
                 COUNT(CASE WHEN b.status = 'cancelled' THEN 1 END) as cancelled_bookings
             FROM service_categories sc

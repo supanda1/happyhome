@@ -135,7 +135,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onCategoryChange, onContactChan
         },
         { 
           id: 'employees', 
-          name: 'Employees', 
+          name: 'Engineers', 
           color: 'amber', 
           component: EmployeesManagement,
           icon: (
@@ -146,7 +146,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onCategoryChange, onContactChan
         },
         { 
           id: 'workload', 
-          name: 'Employee Workload', 
+          name: 'Engineers Workload', 
           color: 'emerald', 
           component: EngineersWorkloadDashboard,
           icon: (

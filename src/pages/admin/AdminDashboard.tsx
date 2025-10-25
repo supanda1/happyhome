@@ -9,12 +9,12 @@ import { Button, Card, CardHeader, CardContent, Badge } from '../../components/u
  * Admin Dashboard - Backend API Integration
  * 
  * SECURITY: Fully integrated with backend API - NO mock data
- * - Fetches real-time dashboard statistics from /api/admin/dashboard/stats
+ * - Fetches real-time dashboard statistics from /api/dashboard/stats
  * - Uses HTTP-only cookies for secure authentication
  * - Proper error handling with user-friendly fallbacks
  * - Loading states and retry functionality
  * 
- * API Endpoint: GET /api/admin/dashboard/stats
+ * API Endpoint: GET /api/dashboard/stats
  * Returns: DashboardStats (totalBookings, totalRevenue, totalServices, totalCustomers, recentBookings, topServices, monthlyRevenue)
  */
 import type { DashboardStats, Booking } from '../../types';
@@ -30,7 +30,7 @@ const AdminDashboard: React.FC = () => {
   // Fetch dashboard statistics from backend API
   const fetchDashboardStats = async (): Promise<DashboardStats> => {
     try {
-      const response = await fetch('/api/admin/dashboard/stats', {
+      const response = await fetch('/api/dashboard/stats', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -48,9 +48,9 @@ const AdminDashboard: React.FC = () => {
         throw new Error(`Dashboard API error: ${response.status} ${response.statusText}`);
       }
 
-      const data = await response.json();
-      console.log('✅ Dashboard stats loaded from backend API');
-      return data;
+      const responseData = await response.json();
+      console.log('✅ Dashboard stats loaded from backend API:', responseData);
+      return responseData.data;
     } catch (fetchError) {
       console.error('🚫 Dashboard API fetch failed:', fetchError);
       throw fetchError;

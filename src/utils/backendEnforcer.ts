@@ -10,7 +10,7 @@ const BLOCKED_LOCALSTORAGE_KEYS = [
   'happyhomes_subcategories',   // Subcategories should come from backend API
   'happyhomes_services',        // Services should come from backend API
   'happyhomes_orders',         // Orders should use backend API
-  'happyhomes_employees',      // Employees should come from backend API
+  'happyhomes_engineers',      // Engineers should come from backend API
   'happyhomes_coupons',        // Coupons should come from backend API
   'happyhomes_addresses',      // Addresses should use backend API
 ];

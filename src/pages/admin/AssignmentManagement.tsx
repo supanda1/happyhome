@@ -3,20 +3,20 @@ import { Badge, Modal } from '../../components/ui';
 import { Loading } from '../../components/ui';
 import { 
   getOrders, 
-  getEmployees, 
-  getEmployeesByExpertise, 
-  assignEmployeeToOrder,
+  getEngineers, 
+  getEngineersByExpertise, 
+  assignEngineerToOrder,
   updateOrderStatus,
   CATEGORY_EXPERTISE_MAP 
 } from '../../utils/adminDataManager';
 
 // Types for assignment system
-interface Employee {
-  employeeId: string;
-  employeeName: string;
-  employeeEmail: string;
-  employeePhone: string;
-  employeeLocation: string;
+interface Engineer {
+  engineerId: string;
+  engineerName: string;
+  engineerEmail: string;
+  engineerPhone: string;
+  engineerLocation: string;
   expertiseAreas: string[];
   rating: number;
   completedJobs: number;
@@ -57,19 +57,19 @@ interface Booking {
 interface AssignmentResult {
   success: boolean;
   assignment?: {
-    employeeId: string;
-    employeeName: string;
-    employeePhone: string;
-    employeeLocation: string;
+    engineerId: string;
+    engineerName: string;
+    engineerPhone: string;
+    engineerLocation: string;
     assignmentScore: number;
     assignmentReason: string;
     strategy: string;
     distanceKm?: number;
     expertise: string[];
   };
-  alternativeEmployees?: Array<{
-    employeeId: string;
-    employeeName: string;
+  alternativeEngineers?: Array<{
+    engineerId: string;
+    engineerName: string;
     score: number;
     distanceKm?: number;
   }>;
@@ -86,27 +86,27 @@ const DEFAULT_ASSIGNMENT_STRATEGIES = {
   },
   location_only: {
     name: "Location Priority", 
-    description: "Assign based on closest available employee",
+    description: "Assign based on closest available engineer",
     factors: ["Location proximity", "Availability"]
   },
   availability_only: {
     name: "Availability First",
-    description: "Assign to most available employee regardless of location",
+    description: "Assign to most available engineer regardless of location",
     factors: ["Availability", "Workload balance"]
   },
   location_and_availability: {
     name: "Location + Availability",
-    description: "Balance between proximity and employee availability", 
+    description: "Balance between proximity and engineer availability", 
     factors: ["Location proximity", "Availability", "Workload balance"]
   },
   round_robin: {
     name: "Round Robin",
-    description: "Distribute work evenly among all available employees",
+    description: "Distribute work evenly among all available engineers",
     factors: ["Workload balance", "Fair distribution"]
   },
   manual: {
     name: "Manual Assignment", 
-    description: "Admin selects employee manually from eligible list",
+    description: "Admin selects engineer manually from eligible list",
     factors: ["Admin choice", "Custom selection"]
   }
 };
@@ -115,7 +115,7 @@ const AssignmentManagement: React.FC = () => {
   // State management
   const [unassignedBookings, setUnassignedBookings] = useState<Booking[]>([]);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
-  const [eligibleEmployees, setEligibleEmployees] = useState<Employee[]>([]);
+  const [eligibleEngineers, setEligibleEngineers] = useState<Engineer[]>([]);
   const [assignmentConfigs, setAssignmentConfigs] = useState<{ strategies: typeof DEFAULT_ASSIGNMENT_STRATEGIES } | null>(null);
   const [selectedStrategy, setSelectedStrategy] = useState('best_fit');
   const [customWeights, setCustomWeights] = useState({
@@ -141,7 +141,7 @@ const AssignmentManagement: React.FC = () => {
     };
     performanceMetrics: {
       autoAssignmentRate: number;
-      averageAssignmentsPerEmployee: number;
+      averageAssignmentsPerEngineer: number;
     };
   } | null>(null);
   const [assignmentStatus, setAssignmentStatus] = useState<string>('');
@@ -188,7 +188,7 @@ const AssignmentManagement: React.FC = () => {
     }
   };
 
-  const loadEligibleEmployees = useCallback(async (bookingId: string) => {
+  const loadEligibleEngineers = useCallback(async (bookingId: string) => {
     try {
       setIsLoading(true);
       setAssignmentError('');
@@ -202,8 +202,8 @@ const AssignmentManagement: React.FC = () => {
       // Get required expertise for this service category
       const requiredExpertise = CATEGORY_EXPERTISE_MAP[booking.serviceCategory] || 'General Services';
       
-      // Load employees with matching expertise or all employees if no specific expertise required
-      let employees: Array<{
+      // Load engineers with matching expertise or all engineers if no specific expertise required
+      let engineers: Array<{
         id: string;
         name: string;
         email: string;
@@ -215,20 +215,20 @@ const AssignmentManagement: React.FC = () => {
         is_active: boolean;
       }> = [];
       if (requireExpertise && requiredExpertise !== 'General Services') {
-        employees = await getEmployeesByExpertise(requiredExpertise);
+        engineers = await getEngineersByExpertise(requiredExpertise);
       } else {
-        employees = await getEmployees();
+        engineers = await getEngineers();
       }
       
-      // Filter active employees and add assignment metrics
-      const eligibleEmployees = employees
+      // Filter active engineers and add assignment metrics
+      const eligibleEngineers = engineers
         .filter(emp => emp.is_active)
         .map(emp => ({
-          employeeId: emp.id,
-          employeeName: emp.name,
-          employeeEmail: emp.email,
-          employeePhone: emp.phone,
-          employeeLocation: emp.location || 'Location not specified',
+          engineerId: emp.id,
+          engineerName: emp.name,
+          engineerEmail: emp.email,
+          engineerPhone: emp.phone,
+          engineerLocation: emp.location || 'Location not specified',
           expertiseAreas: emp.expertise_areas || [],
           rating: emp.rating || 4.0,
           completedJobs: emp.completed_jobs || 0,
@@ -252,12 +252,12 @@ const AssignmentManagement: React.FC = () => {
         }))
         .sort((a, b) => b.scores.total - a.scores.total); // Sort by total score
       
-      setEligibleEmployees(eligibleEmployees);
-      console.log(`✅ Found ${eligibleEmployees.length} eligible employees for ${requiredExpertise}`);
+      setEligibleEngineers(eligibleEngineers);
+      console.log(`✅ Found ${eligibleEngineers.length} eligible engineers for ${requiredExpertise}`);
     } catch (error) {
-      console.error('Failed to load eligible employees:', error);
-      setAssignmentError(`Failed to load employees: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      setEligibleEmployees([]);
+      console.error('Failed to load eligible engineers:', error);
+      setAssignmentError(`Failed to load engineers: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setEligibleEngineers([]);
     } finally {
       setIsLoading(false);
     }
@@ -267,7 +267,7 @@ const AssignmentManagement: React.FC = () => {
     try {
       // Calculate analytics from existing data
       const allOrders = await getOrders();
-      const employees = await getEmployees();
+      const engineers = await getEngineers();
       
       const last30Days = new Date();
       last30Days.setDate(last30Days.getDate() - 30);
@@ -288,7 +288,7 @@ const AssignmentManagement: React.FC = () => {
         },
         performanceMetrics: {
           autoAssignmentRate: 80, // 80% auto-assignment rate
-          averageAssignmentsPerEmployee: employees.length > 0 ? Math.round(assignedOrders.length / employees.length) : 0
+          averageAssignmentsPerEngineer: engineers.length > 0 ? Math.round(assignedOrders.length / engineers.length) : 0
         }
       };
       
@@ -299,7 +299,7 @@ const AssignmentManagement: React.FC = () => {
       // Set default analytics if calculation fails
       setAnalytics({
         assignmentStats: { totalAssignments: 0, autoAssignments: 0, completedAssignments: 0, completionRate: 0 },
-        performanceMetrics: { autoAssignmentRate: 0, averageAssignmentsPerEmployee: 0 }
+        performanceMetrics: { autoAssignmentRate: 0, averageAssignmentsPerEngineer: 0 }
       });
     }
   };
@@ -307,10 +307,10 @@ const AssignmentManagement: React.FC = () => {
   const handleBookingSelect = useCallback(async (booking: Booking) => {
     setSelectedBooking(booking);
     setShowAssignmentModal(true);
-    await loadEligibleEmployees(booking.id);
-  }, [loadEligibleEmployees]);
+    await loadEligibleEngineers(booking.id);
+  }, [loadEligibleEngineers]);
 
-  const handleAutoAssignment = async (manualEmployeeId?: string) => {
+  const handleAutoAssignment = async (manualEngineerId?: string) => {
     if (!selectedBooking) {
       setAssignmentError('No booking selected');
       return;
@@ -322,55 +322,55 @@ const AssignmentManagement: React.FC = () => {
       setAssignmentStatus('Processing assignment...');
       
       // Validate inputs
-      if (!manualEmployeeId && eligibleEmployees.length === 0) {
-        throw new Error('No eligible employees available for assignment');
+      if (!manualEngineerId && eligibleEngineers.length === 0) {
+        throw new Error('No eligible engineers available for assignment');
       }
       
-      let selectedEmployee;
+      let selectedEngineer;
       
-      if (manualEmployeeId) {
+      if (manualEngineerId) {
         // Manual assignment
-        selectedEmployee = eligibleEmployees.find(emp => emp.employeeId === manualEmployeeId);
-        if (!selectedEmployee) {
-          throw new Error('Selected employee not found in eligible list');
+        selectedEngineer = eligibleEngineers.find(emp => emp.engineerId === manualEngineerId);
+        if (!selectedEngineer) {
+          throw new Error('Selected engineer not found in eligible list');
         }
-        setAssignmentStatus('Assigning selected employee...');
+        setAssignmentStatus('Assigning selected engineer...');
       } else {
         // Auto assignment based on strategy
         setAssignmentStatus(`Applying ${selectedStrategy.replace('_', ' ')} strategy...`);
         
         switch (selectedStrategy) {
           case 'best_fit':
-            selectedEmployee = eligibleEmployees[0]; // Already sorted by total score
+            selectedEngineer = eligibleEngineers[0]; // Already sorted by total score
             break;
           case 'location_only':
-            selectedEmployee = eligibleEmployees.sort((a, b) => b.scores.location - a.scores.location)[0];
+            selectedEngineer = eligibleEngineers.sort((a, b) => b.scores.location - a.scores.location)[0];
             break;
           case 'availability_only':
-            selectedEmployee = eligibleEmployees.sort((a, b) => b.scores.availability - a.scores.availability)[0];
+            selectedEngineer = eligibleEngineers.sort((a, b) => b.scores.availability - a.scores.availability)[0];
             break;
           case 'location_and_availability':
-            selectedEmployee = eligibleEmployees.sort((a, b) => 
+            selectedEngineer = eligibleEngineers.sort((a, b) => 
               (b.scores.location + b.scores.availability) - (a.scores.location + a.scores.availability)
             )[0];
             break;
           case 'round_robin':
-            // Simple round robin - pick employee with lowest current workload
-            selectedEmployee = eligibleEmployees.sort((a, b) => a.metrics.currentWorkload - b.metrics.currentWorkload)[0];
+            // Simple round robin - pick engineer with lowest current workload
+            selectedEngineer = eligibleEngineers.sort((a, b) => a.metrics.currentWorkload - b.metrics.currentWorkload)[0];
             break;
           default:
-            selectedEmployee = eligibleEmployees[0];
+            selectedEngineer = eligibleEngineers[0];
         }
       }
       
-      if (!selectedEmployee) {
-        throw new Error('No suitable employee found for assignment');
+      if (!selectedEngineer) {
+        throw new Error('No suitable engineer found for assignment');
       }
       
       setAssignmentStatus('Updating order in database...');
       
-      // Assign employee to order using adminDataManager
-      const assignmentResult = await assignEmployeeToOrder(selectedBooking.id, selectedEmployee.employeeId);
+      // Assign engineer to order using adminDataManager
+      const assignmentResult = await assignEngineerToOrder(selectedBooking.id, selectedEngineer.engineerId);
       
       if (!assignmentResult) {
         throw new Error('Failed to update order in database');
@@ -378,23 +378,23 @@ const AssignmentManagement: React.FC = () => {
       
       // Update order status to 'confirmed' 
       await updateOrderStatus(selectedBooking.id, 'confirmed', 
-        `Assigned to ${selectedEmployee.employeeName} via ${manualEmployeeId ? 'manual' : selectedStrategy} strategy`);
+        `Assigned to ${selectedEngineer.engineerName} via ${manualEngineerId ? 'manual' : selectedStrategy} strategy`);
       
       // Set success result
       setAssignmentResult({
         success: true,
         assignment: {
-          employeeId: selectedEmployee.employeeId,
-          employeeName: selectedEmployee.employeeName,
-          employeePhone: selectedEmployee.employeePhone,
-          employeeLocation: selectedEmployee.employeeLocation,
-          assignmentScore: selectedEmployee.scores.total,
-          assignmentReason: manualEmployeeId 
+          engineerId: selectedEngineer.engineerId,
+          engineerName: selectedEngineer.engineerName,
+          engineerPhone: selectedEngineer.engineerPhone,
+          engineerLocation: selectedEngineer.engineerLocation,
+          assignmentScore: selectedEngineer.scores.total,
+          assignmentReason: manualEngineerId 
             ? 'Manually selected by admin' 
             : `Auto-assigned using ${selectedStrategy.replace('_', ' ')} strategy`,
-          strategy: manualEmployeeId ? 'manual' : selectedStrategy,
-          distanceKm: selectedEmployee.metrics.distanceKm,
-          expertise: selectedEmployee.expertiseAreas
+          strategy: manualEngineerId ? 'manual' : selectedStrategy,
+          distanceKm: selectedEngineer.metrics.distanceKm,
+          expertise: selectedEngineer.expertiseAreas
         }
       });
       
@@ -435,12 +435,12 @@ const AssignmentManagement: React.FC = () => {
       let failCount = 0;
       const results = [];
       
-      // Get all employees for assignment
-      const allEmployees = await getEmployees();
-      const activeEmployees = allEmployees.filter(emp => emp.is_active);
+      // Get all engineers for assignment
+      const allEngineers = await getEngineers();
+      const activeEngineers = allEngineers.filter(emp => emp.is_active);
       
-      if (activeEmployees.length === 0) {
-        throw new Error('No active employees available for assignment');
+      if (activeEngineers.length === 0) {
+        throw new Error('No active engineers available for assignment');
       }
       
       // Process each booking
@@ -456,44 +456,44 @@ const AssignmentManagement: React.FC = () => {
             continue;
           }
           
-          // Get required expertise and find suitable employee
+          // Get required expertise and find suitable engineer
           const requiredExpertise = CATEGORY_EXPERTISE_MAP[booking.serviceCategory] || 'General Services';
-          let suitableEmployees = activeEmployees;
+          let suitableEngineers = activeEngineers;
           
           if (requireExpertise && requiredExpertise !== 'General Services') {
-            suitableEmployees = activeEmployees.filter(emp => 
+            suitableEngineers = activeEngineers.filter(emp => 
               emp.expertise_areas?.includes(requiredExpertise)
             );
           }
           
-          if (suitableEmployees.length === 0) {
+          if (suitableEngineers.length === 0) {
             failCount++;
-            results.push({ bookingId, success: false, error: 'No suitable employees found' });
+            results.push({ bookingId, success: false, error: 'No suitable engineers found' });
             continue;
           }
           
-          // Select employee based on strategy (simplified for bulk)
-          let selectedEmployee;
+          // Select engineer based on strategy (simplified for bulk)
+          let selectedEngineer;
           switch (selectedStrategy) {
             case 'round_robin':
-              selectedEmployee = suitableEmployees[i % suitableEmployees.length];
+              selectedEngineer = suitableEngineers[i % suitableEngineers.length];
               break;
             default:
               // Use random selection for bulk to distribute load
-              selectedEmployee = suitableEmployees[Math.floor(Math.random() * suitableEmployees.length)];
+              selectedEngineer = suitableEngineers[Math.floor(Math.random() * suitableEngineers.length)];
           }
           
-          // Assign employee
-          const assignmentResult = await assignEmployeeToOrder(bookingId, selectedEmployee.id);
+          // Assign engineer
+          const assignmentResult = await assignEngineerToOrder(bookingId, selectedEngineer.id);
           
           if (assignmentResult) {
             await updateOrderStatus(bookingId, 'confirmed', 
-              `Bulk assigned to ${selectedEmployee.name} via ${selectedStrategy} strategy`);
+              `Bulk assigned to ${selectedEngineer.name} via ${selectedStrategy} strategy`);
             successCount++;
             results.push({ 
               bookingId, 
               success: true, 
-              employeeName: selectedEmployee.name 
+              engineerName: selectedEngineer.name 
             });
           } else {
             failCount++;
@@ -552,7 +552,7 @@ const AssignmentManagement: React.FC = () => {
         {/* Welcome Section - Match Dashboard Style */}
         <div className="bg-gradient-to-r from-blue-600 to-purple-700 rounded-xl p-6 text-white mb-6">
           <h1 className="text-2xl font-bold mb-2">Assignment Management</h1>
-          <p className="text-blue-100">Intelligent employee assignment with location, availability, and expertise matching</p>
+          <p className="text-blue-100">Intelligent engineer assignment with location, availability, and expertise matching</p>
         </div>
 
         {/* Header Actions */}
@@ -634,11 +634,11 @@ const AssignmentManagement: React.FC = () => {
               </div>
             </div>
 
-            {/* Average per Employee */}
+            {/* Average per Engineer */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg p-4 text-center">
-                <p className="text-sm font-medium text-orange-100 mb-2">Avg per Employee</p>
-                <p className="text-3xl font-bold text-white">{analytics.performanceMetrics?.averageAssignmentsPerEmployee || 0}</p>
+                <p className="text-sm font-medium text-orange-100 mb-2">Avg per Engineer</p>
+                <p className="text-3xl font-bold text-white">{analytics.performanceMetrics?.averageAssignmentsPerEngineer || 0}</p>
                 <p className="text-xs text-orange-200 mt-2">Workload balance</p>
               </div>
             </div>
@@ -701,7 +701,7 @@ const AssignmentManagement: React.FC = () => {
             <h3 className="text-lg font-semibold text-gray-900">
               Unassigned Bookings ({unassignedBookings.length})
             </h3>
-            <p className="text-gray-600 text-sm mt-1">Click on a booking to assign an employee</p>
+            <p className="text-gray-600 text-sm mt-1">Click on a booking to assign an engineer</p>
           </div>
           <div className="p-6">
             {isLoading ? (
@@ -774,10 +774,10 @@ const AssignmentManagement: React.FC = () => {
           onClose={() => {
             setShowAssignmentModal(false);
             setSelectedBooking(null);
-            setEligibleEmployees([]);
+            setEligibleEngineers([]);
             setAssignmentResult(null);
           }}
-          title="Employee Assignment"
+          title="Engineer Assignment"
           size="xl"
         >
           {selectedBooking && (
@@ -813,9 +813,9 @@ const AssignmentManagement: React.FC = () => {
                     <div>
                       <h4 className="font-semibold text-green-900 mb-2">Assignment Successful!</h4>
                       <div className="text-sm space-y-1 text-green-800">
-                        <div><strong>Employee:</strong> {assignmentResult.assignment?.employeeName}</div>
-                        <div><strong>Phone:</strong> {assignmentResult.assignment?.employeePhone}</div>
-                        <div><strong>Location:</strong> {assignmentResult.assignment?.employeeLocation}</div>
+                        <div><strong>Engineer:</strong> {assignmentResult.assignment?.engineerName}</div>
+                        <div><strong>Phone:</strong> {assignmentResult.assignment?.engineerPhone}</div>
+                        <div><strong>Location:</strong> {assignmentResult.assignment?.engineerLocation}</div>
                         <div><strong>Score:</strong> {assignmentResult.assignment?.assignmentScore?.toFixed(2)}</div>
                         <div><strong>Distance:</strong> {assignmentResult.assignment?.distanceKm ? `${assignmentResult.assignment.distanceKm.toFixed(1)}km` : 'N/A'}</div>
                         <div><strong>Reason:</strong> {assignmentResult.assignment?.assignmentReason}</div>
@@ -830,21 +830,21 @@ const AssignmentManagement: React.FC = () => {
                 </div>
               )}
 
-              {/* Eligible Employees */}
-              {eligibleEmployees.length > 0 && (
+              {/* Eligible Engineers */}
+              {eligibleEngineers.length > 0 && (
                 <div>
-                  <h3 className="font-semibold text-gray-900 mb-4">Eligible Employees ({eligibleEmployees.length})</h3>
+                  <h3 className="font-semibold text-gray-900 mb-4">Eligible Engineers ({eligibleEngineers.length})</h3>
                   <div className="space-y-3 max-h-96 overflow-y-auto">
-                    {eligibleEmployees.map((employee) => (
-                      <div key={employee.employeeId} className="border rounded-lg p-4">
+                    {eligibleEngineers.map((engineer) => (
+                      <div key={engineer.engineerId} className="border rounded-lg p-4">
                         <div className="flex justify-between items-start mb-3">
                           <div>
-                            <div className="font-semibold text-gray-900">{employee.employeeName}</div>
-                            <div className="text-sm text-gray-600">{employee.employeeLocation}</div>
-                            <div className="text-sm text-gray-600">Phone: {employee.employeePhone}</div>
+                            <div className="font-semibold text-gray-900">{engineer.engineerName}</div>
+                            <div className="text-sm text-gray-600">{engineer.engineerLocation}</div>
+                            <div className="text-sm text-gray-600">Phone: {engineer.engineerPhone}</div>
                           </div>
                           <div className="text-right">
-                            <div className="text-lg font-bold text-purple-600">{Math.round(employee.scores.total * 100)}%</div>
+                            <div className="text-lg font-bold text-purple-600">{Math.round(engineer.scores.total * 100)}%</div>
                             <div className="text-xs text-gray-500">Match Score</div>
                           </div>
                         </div>
@@ -853,32 +853,32 @@ const AssignmentManagement: React.FC = () => {
                         <div className="grid grid-cols-2 gap-3 mb-3">
                           <div>
                             <div className="text-xs text-gray-600 mb-1">Location</div>
-                            {formatScoreBar(employee.scores.location, 'blue')}
+                            {formatScoreBar(engineer.scores.location, 'blue')}
                           </div>
                           <div>
                             <div className="text-xs text-gray-600 mb-1">Availability</div>
-                            {formatScoreBar(employee.scores.availability, 'green')}
+                            {formatScoreBar(engineer.scores.availability, 'green')}
                           </div>
                           <div>
                             <div className="text-xs text-gray-600 mb-1">Expertise</div>
-                            {formatScoreBar(employee.scores.expertise, 'purple')}
+                            {formatScoreBar(engineer.scores.expertise, 'purple')}
                           </div>
                           <div>
                             <div className="text-xs text-gray-600 mb-1">Rating</div>
-                            {formatScoreBar(employee.scores.rating, 'yellow')}
+                            {formatScoreBar(engineer.scores.rating, 'yellow')}
                           </div>
                         </div>
 
-                        {/* Employee Details */}
+                        {/* Engineer Details */}
                         <div className="flex justify-between items-center">
                           <div className="text-xs text-gray-600">
-                            Rating: {employee.rating.toFixed(1)} | 
-                            Distance: {employee.metrics.distanceKm ? `${employee.metrics.distanceKm.toFixed(1)}km` : 'N/A'} | 
-                            Workload: {employee.metrics.currentWorkload} jobs today
+                            Rating: {engineer.rating.toFixed(1)} | 
+                            Distance: {engineer.metrics.distanceKm ? `${engineer.metrics.distanceKm.toFixed(1)}km` : 'N/A'} | 
+                            Workload: {engineer.metrics.currentWorkload} jobs today
                           </div>
                           
                           <button
-                            onClick={() => handleAutoAssignment(employee.employeeId)}
+                            onClick={() => handleAutoAssignment(engineer.engineerId)}
                             disabled={isLoading}
                             className="px-3 py-1 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg transition-all transform hover:scale-105 shadow-md font-bold text-xs tracking-wide disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                           >
@@ -935,7 +935,7 @@ const AssignmentManagement: React.FC = () => {
             {/* Daily Assignment Limit */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Max Daily Assignments per Employee
+                Max Daily Assignments per Engineer
               </label>
               <input
                 type="number"

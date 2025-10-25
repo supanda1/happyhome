@@ -21,7 +21,7 @@ from .review import Review, ReviewPhoto, ReviewHelpfulness
 from .booking import Booking, CartItem, BookingStatus, PaymentStatus
 from .order import Order, OrderItem, OrderStatus, OrderPriority, ItemStatus
 from .coupon import Coupon, CouponUsage, CouponType, CouponStatus
-from .employee import Employee
+from .engineer import Engineer, Employee  # Employee is alias for backward compatibility
 from .notification import (
     Notification, 
     NotificationTemplate, 
@@ -85,7 +85,8 @@ __all__ = [
     "CouponType",
     "CouponStatus",
     
-    # Employee models
+    # Engineer models (Employee is alias for backward compatibility)
+    "Engineer",
     "Employee",
     
     # Notification models

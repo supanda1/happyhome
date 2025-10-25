@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useServices } from '../../contexts/ServiceContext';
 import type { Service } from '../../types';
-import { applyCouponToCart, addToCart } from '../../utils/adminDataManager';
+import { addToCart } from '../../utils/adminDataManager';
 import { formatPrice } from '../../utils/priceFormatter';
 import { Card, CardContent, CardHeader, Button } from '../../components/ui';
 
@@ -17,6 +17,7 @@ interface OfferPlan {
   terms_conditions: string[];
   is_active: boolean;
   is_featured?: boolean;
+  coupon_code: string; // Default coupon for this plan
 }
 
 interface OfferPageProps {
@@ -47,7 +48,8 @@ const OfferPage: React.FC<OfferPageProps> = ({
       benefits: ['Monthly priority booking', 'Basic maintenance tips', '24/7 support'],
       terms_conditions: ['Valid for 3 months from purchase', 'Non-transferable', 'Cannot be combined with other offers'],
       is_active: true,
-      is_featured: false
+      is_featured: false,
+      coupon_code: 'STARTER20'
     },
     {
       id: '6-month-plan',
@@ -60,7 +62,8 @@ const OfferPage: React.FC<OfferPageProps> = ({
       benefits: ['Dedicated coordinator', 'Free emergency calls', 'Monthly inspections'],
       terms_conditions: ['Valid for 6 months from purchase', 'Transferable within family', 'Priority customer support'],
       is_active: true,
-      is_featured: true
+      is_featured: true,
+      coupon_code: 'PREMIUM25'
     },
     {
       id: '12-month-plan',
@@ -73,7 +76,8 @@ const OfferPage: React.FC<OfferPageProps> = ({
       benefits: ['Personal care manager', 'Unlimited emergency calls', 'Free minor repairs'],
       terms_conditions: ['Valid for 12 months from purchase', 'Transferable within family', 'Premium customer care'],
       is_active: true,
-      is_featured: false
+      is_featured: false,
+      coupon_code: 'ELITE30'
     }
   ]);
   const [selectedPlan, setSelectedPlan] = useState<OfferPlan | null>(null);
@@ -223,20 +227,17 @@ const OfferPage: React.FC<OfferPageProps> = ({
         }
       }
 
-      // Apply the appropriate offer coupon based on selected plan
-      const offerCouponCode = `OFFER${Math.round(selectedPlan.discount_percentage)}`;
+      // Store the selected plan info for checkout to apply the specific coupon
+      // The checkout page will automatically apply the plan coupon and disable other coupon options
+      localStorage.setItem('selectedOfferPlan', JSON.stringify({
+        id: selectedPlan.id,
+        title: selectedPlan.title,
+        coupon_code: selectedPlan.coupon_code,
+        discount_percentage: selectedPlan.discount_percentage,
+        duration_months: selectedPlan.duration_months
+      }));
       
-      try {
-        console.log(`🎫 Applying coupon: ${offerCouponCode}`);
-        // Auto-apply the plan-specific coupon
-        await applyCouponToCart(offerCouponCode);
-        
-        console.log(`✅ ${selectedPlan.title} plan with ${selectedPlan.discount_percentage}% discount added to cart!`);
-        
-      } catch (couponError) {
-        console.warn('Coupon application failed:', couponError);
-        console.log('Services added to cart! Coupon can be applied manually.');
-      }
+      console.log(`✅ Services added to cart. Checkout will apply ${selectedPlan.title} coupon: ${selectedPlan.coupon_code} (${selectedPlan.discount_percentage}%)`);
       
       // Navigate to cart to show added items with discount
       console.log('🧭 Navigating to cart for checkout...');
@@ -500,7 +501,10 @@ const OfferPage: React.FC<OfferPageProps> = ({
                         <div className="text-sm font-medium text-orange-800 mb-1">Selected Plan</div>
                         <div className="font-semibold text-purple-900">{selectedPlan.title}</div>
                         <div className="text-sm text-purple-700 mt-1">
-                          {selectedPlan.duration_months} months • {selectedPlan.discount_percentage}% discount
+                          {selectedPlan.duration_months} months • {selectedPlan.discount_percentage}% discount at checkout
+                        </div>
+                        <div className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full mt-2 inline-block">
+                          🎯 Discount applied during checkout
                         </div>
                       </div>
 
@@ -520,17 +524,18 @@ const OfferPage: React.FC<OfferPageProps> = ({
                       {totals && Object.keys(selectedServices).length > 0 && (
                         <div className="space-y-3 mb-6">
                           <div className="flex justify-between">
-                            <span className="text-gray-600">Original Amount</span>
+                            <span className="text-gray-600">Services Subtotal</span>
                             <span className="font-medium">{formatPrice(totals.originalAmount)}</span>
                           </div>
-                          <div className="flex justify-between text-green-600">
-                            <span>Discount ({selectedPlan.discount_percentage}%)</span>
-                            <span className="font-medium">-{formatPrice(totals.discountAmount)}</span>
-                          </div>
-                          <hr />
-                          <div className="flex justify-between text-lg font-bold">
-                            <span>Total Amount</span>
-                            <span className="text-purple-600">{formatPrice(totals.finalAmount)}</span>
+                          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                            <div className="text-sm text-yellow-800">
+                              <span className="font-semibold">💰 {selectedPlan.discount_percentage}% Discount</span>
+                              <br />
+                              <span className="text-xs">Applied automatically at checkout with {selectedPlan.coupon_code}</span>
+                            </div>
+                            <div className="text-lg font-bold text-green-600 mt-2">
+                              Final Amount: {formatPrice(totals.finalAmount)}
+                            </div>
                           </div>
                         </div>
                       )}
@@ -562,7 +567,7 @@ const OfferPage: React.FC<OfferPageProps> = ({
                             ? '🔄 Adding to Cart...'
                             : Object.keys(selectedServices).length === 0 
                             ? '🛒 Select Services First'
-                            : `🛒 Buy Plan + Services`
+                            : `🛒 Proceed to Checkout (${selectedPlan.discount_percentage}% discount applied)`
                           }
                         </Button>
 
@@ -579,9 +584,11 @@ const OfferPage: React.FC<OfferPageProps> = ({
 
                       {/* Terms */}
                       <div className="mt-4 text-xs text-gray-500">
-                        <div className="font-medium mb-1">Terms & Conditions:</div>
+                        <div className="font-medium mb-1">Plan Details:</div>
                         <div className="space-y-1">
-                          {selectedPlan.terms_conditions.slice(0, 2).map((term, index) => (
+                          <div className="text-blue-700 font-medium">• {selectedPlan.discount_percentage}% discount applied at checkout using code {selectedPlan.coupon_code}</div>
+                          <div className="text-orange-700 font-medium">• No other coupons can be combined with offer plans</div>
+                          {selectedPlan.terms_conditions.slice(0, 1).map((term, index) => (
                             <div key={index}>• {term}</div>
                           ))}
                         </div>

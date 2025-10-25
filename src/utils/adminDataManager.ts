@@ -12,7 +12,7 @@
  * - Subcategories: PostgreSQL via /api/subcategories  
  * - Services: PostgreSQL via /api/services
  * - Coupons: PostgreSQL via /api/coupons
- * - Employees: PostgreSQL via /api/employees
+ * - Engineers: PostgreSQL via /api/engineers
  * - Orders: PostgreSQL via /api/orders
  */
 
@@ -20,12 +20,12 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 // ============================================================================
-// CATEGORY EXPERTISE MAPPING - For Employee Assignment
+// CATEGORY EXPERTISE MAPPING - For Engineer Assignment
 // ============================================================================
 
 /**
- * Maps service category IDs to employee expertise areas
- * Used for filtering employees by their skills when assigning orders
+ * Maps service category IDs to engineer expertise areas
+ * Used for filtering engineers by their skills when assigning orders
  */
 export const CATEGORY_EXPERTISE_MAP: Record<string, string> = {
   // Main service categories
@@ -200,7 +200,7 @@ interface Service {
   updated_at: string;
 }
 
-interface Employee {
+interface Engineer {
   id: string;
   name: string;
   email: string;
@@ -1013,10 +1013,10 @@ export const validateCouponForCart = async (code: string, cartItems: CartItem[])
 /**
  * Get all employees from PostgreSQL database
  */
-export const getEmployees = async (): Promise<Employee[]> => {
+export const getEngineers = async (): Promise<Engineer[]> => {
   try {
-    const employees = await apiCall('/employees');
-    console.log('✅ Employees loaded from PostgreSQL database:', employees.length);
+    const employees = await apiCall('/engineers');
+    console.log('✅ Engineers loaded from PostgreSQL database:', employees.length);
     return employees;
   } catch (error) {
     console.error('❌ Failed to load employees from database:', error);
@@ -1027,10 +1027,10 @@ export const getEmployees = async (): Promise<Employee[]> => {
 /**
  * Get employees by expertise area from PostgreSQL database
  */
-export const getEmployeesByExpertise = async (expertiseArea: string): Promise<Employee[]> => {
+export const getEngineersByExpertise = async (expertiseArea: string): Promise<Engineer[]> => {
   try {
-    const employees = await apiCall(`/employees?expertise=${encodeURIComponent(expertiseArea)}`);
-    console.log(`✅ Employees with ${expertiseArea} expertise loaded from database:`, employees.length);
+    const employees = await apiCall(`/engineers?expertise=${encodeURIComponent(expertiseArea)}`);
+    console.log(`✅ Engineers with ${expertiseArea} expertise loaded from database:`, employees.length);
     return employees;
   } catch (error) {
     console.error(`❌ Failed to load employees with ${expertiseArea} expertise:`, error);
@@ -1041,14 +1041,14 @@ export const getEmployeesByExpertise = async (expertiseArea: string): Promise<Em
 /**
  * Create new employee in PostgreSQL database
  */
-export const createEmployee = async (employeeData: Omit<Employee, 'id' | 'created_at' | 'updated_at'>): Promise<Employee> => {
+export const createEngineer = async (employeeData: Omit<Engineer, 'id' | 'created_at' | 'updated_at'>): Promise<Engineer> => {
   try {
-    const newEmployee = await apiCall('/employees', {
+    const newEngineer = await apiCall('/engineers', {
       method: 'POST',
       body: JSON.stringify(employeeData),
     });
-    console.log('✅ Employee created in database:', newEmployee);
-    return newEmployee;
+    console.log('✅ Engineer created in database:', newEngineer);
+    return newEngineer;
   } catch (error) {
     console.error('❌ Failed to create employee:', error);
     throw error;
@@ -1058,14 +1058,14 @@ export const createEmployee = async (employeeData: Omit<Employee, 'id' | 'create
 /**
  * Update employee in PostgreSQL database
  */
-export const updateEmployee = async (employeeId: string, updates: Partial<Employee>): Promise<Employee> => {
+export const updateEngineer = async (engineerId: string, updates: Partial<Engineer>): Promise<Engineer> => {
   try {
-    const updatedEmployee = await apiCall(`/employees/${employeeId}`, {
+    const updatedEngineer = await apiCall(`/engineers/${engineerId}`, {
       method: 'PUT',
       body: JSON.stringify(updates),
     });
-    console.log('✅ Employee updated in database:', updatedEmployee);
-    return updatedEmployee;
+    console.log('✅ Engineer updated in database:', updatedEngineer);
+    return updatedEngineer;
   } catch (error) {
     console.error('❌ Failed to update employee:', error);
     throw error;
@@ -1075,12 +1075,12 @@ export const updateEmployee = async (employeeId: string, updates: Partial<Employ
 /**
  * Delete employee from PostgreSQL database
  */
-export const deleteEmployee = async (employeeId: string): Promise<boolean> => {
+export const deleteEngineer = async (engineerId: string): Promise<boolean> => {
   try {
-    await apiCall(`/employees/${employeeId}`, {
+    await apiCall(`/engineers/${engineerId}`, {
       method: 'DELETE',
     });
-    console.log('✅ Employee deleted from database:', employeeId);
+    console.log('✅ Engineer deleted from database:', engineerId);
     return true;
   } catch (error) {
     console.error('❌ Failed to delete employee:', error);
@@ -1325,13 +1325,13 @@ export const updateOrderStatus = async (orderId: string, status: string, notes?:
 /**
  * Assign employee to order in PostgreSQL database
  */
-export const assignEmployeeToOrder = async (orderId: string, employeeId: string): Promise<Order | null> => {
+export const assignEngineerToOrder = async (orderId: string, engineerId: string): Promise<Order | null> => {
   try {
     const updatedOrder = await apiCall(`/orders/${orderId}/assign`, {
       method: 'PATCH',
-      body: JSON.stringify({ employee_id: employeeId }),
+      body: JSON.stringify({ employee_id: engineerId }),
     });
-    console.log('✅ Employee assigned to order in database:', updatedOrder);
+    console.log('✅ Engineer assigned to order in database:', updatedOrder);
     return updatedOrder;
   } catch (error) {
     console.error('❌ Failed to assign employee to order:', error);
@@ -1409,7 +1409,7 @@ export const globalSearch = async (query: string): Promise<{
   categories: Category[];
   subcategories: Subcategory[];
   services: Service[];
-  employees: Employee[];
+  employees: Engineer[];
 }> => {
   try {
     const results = await apiCall(`/search?q=${encodeURIComponent(query)}`);
@@ -1428,7 +1428,7 @@ export const bulkImportData = async (data: {
   categories?: Category[];
   subcategories?: Subcategory[];
   services?: Service[];
-  employees?: Employee[];
+  employees?: Engineer[];
 }): Promise<{ success: boolean; imported: number; errors: Error[] }> => {
   try {
     const result = await apiCall('/bulk-import', {
@@ -1450,7 +1450,7 @@ export const exportAllData = async (): Promise<{
   categories: Category[];
   subcategories: Subcategory[];
   services: Service[];
-  employees: Employee[];
+  employees: Engineer[];
   coupons: Coupon[];
 }> => {
   try {
@@ -1892,7 +1892,7 @@ export const forceRefreshAdminData = async (): Promise<boolean> => {
       getSubcategories().catch(() => []),
       getServicesFromAPI().catch(() => []),
       getCoupons().catch(() => []),
-      getEmployees().catch(() => [])
+      getEngineers().catch(() => [])
     ]);
     
     console.log('✅ Admin data force refreshed successfully:', {
@@ -2037,7 +2037,7 @@ export type {
   Category,
   Subcategory,
   Service,
-  Employee,
+  Engineer,
   Coupon
 };
 

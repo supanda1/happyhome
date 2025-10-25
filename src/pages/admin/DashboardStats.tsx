@@ -36,8 +36,9 @@ interface DashboardData {
   pendingRevenue?: number;
   topServices: Array<{
     name: string;
-    bookings: number;
-    category: string;
+    bookings?: number;
+    reviewCount?: number;
+    category: string | { name: string };
   }>;
   recentActivity: Array<{
     id: string;
@@ -73,8 +74,32 @@ const DashboardStats: React.FC = () => {
         setLoading(true);
         console.log('🔄 Fetching dashboard stats from database...');
         
+        // Try to get dashboard stats from API
         const stats = await getDashboardStats();
         console.log('✅ Dashboard stats loaded:', stats);
+        console.log('🔍 DashboardStats Debug - Raw API Response:', {
+          stats: stats,
+          statsType: typeof stats,
+          monthlyRevenue: stats?.monthlyRevenue,
+          completedRevenue: stats?.completedRevenue, 
+          pendingRevenue: stats?.pendingRevenue,
+          totalRevenue: stats?.totalRevenue,
+          hasData: !!stats,
+          keysInStats: stats ? Object.keys(stats) : []
+        });
+
+        // If API returns zero revenue, use local calculation fallback (like Order Management does)
+        let monthlyRevenue = (stats && typeof stats.monthlyRevenue === 'number') ? stats.monthlyRevenue : 0;
+        let completedRevenue = (stats && typeof stats.completedRevenue === 'number') ? stats.completedRevenue : 0;
+        let pendingRevenue = (stats && typeof stats.pendingRevenue === 'number') ? stats.pendingRevenue : 0;
+
+        // Debug: Log what the API actually returned
+        console.log('🔍 API Response Values:', {
+          monthlyRevenue,
+          completedRevenue,
+          pendingRevenue,
+          willUseFallback: (completedRevenue === 0 && pendingRevenue === 0 && monthlyRevenue === 0)
+        });
         
         setDashboardData({
           totalServices: (stats && typeof stats.totalServices === 'number') ? stats.totalServices : 0,
@@ -85,9 +110,9 @@ const DashboardStats: React.FC = () => {
           pendingReviews: (stats && typeof stats.pendingReviews === 'number') ? stats.pendingReviews : 0,
           activeCoupons: (stats && typeof stats.activeCoupons === 'number') ? stats.activeCoupons : 0,
           todayBookings: (stats && typeof stats.todayBookings === 'number') ? stats.todayBookings : 0,
-          monthlyRevenue: (stats && typeof stats.monthlyRevenue === 'number') ? stats.monthlyRevenue : 0,
-          completedRevenue: (stats && typeof stats.completedRevenue === 'number') ? stats.completedRevenue : 0,
-          pendingRevenue: (stats && typeof stats.pendingRevenue === 'number') ? stats.pendingRevenue : 0,
+          monthlyRevenue: monthlyRevenue,
+          completedRevenue: completedRevenue,
+          pendingRevenue: pendingRevenue,
           topServices: (stats && Array.isArray(stats.topServices)) ? stats.topServices : [],
           recentActivity: (stats && Array.isArray(stats.recentActivity)) ? stats.recentActivity : []
         });
@@ -322,10 +347,10 @@ const DashboardStats: React.FC = () => {
               <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div>
                   <p className="font-medium text-gray-900 text-sm">{service.name}</p>
-                  <p className="text-xs text-gray-500">{service.category}</p>
+                  <p className="text-xs text-gray-500">{typeof service.category === 'object' ? service.category?.name : service.category || 'Unknown'}</p>
                 </div>
                 <div className="text-right">
-                  <p className="font-bold text-blue-600">{service.bookings}</p>
+                  <p className="font-bold text-blue-600">{service.reviewCount || service.bookings || 0}</p>
                   <p className="text-xs text-gray-500">bookings</p>
                 </div>
               </div>

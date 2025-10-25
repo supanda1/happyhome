@@ -181,7 +181,8 @@ export {
   type UpdateOrderRequest, 
   type UpdateOrderItemRequest, 
   type AssignEngineerRequest, 
-  type Employee,
+  type Engineer,
+  type Employee, // Keep for backward compatibility
   type CartToOrderMapper,
   type CategoryExpertiseMapping 
 } from './api';

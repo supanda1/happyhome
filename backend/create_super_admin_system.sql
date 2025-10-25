@@ -61,7 +61,7 @@ INSERT INTO admin_permissions (permission_key, permission_name, permission_descr
 
 -- Business Management  
 ('coupons.manage', 'Coupon Management', 'Create and manage discount coupons', 'page'),
-('employees.manage', 'Employee Management', 'Manage service engineers', 'page'),
+('engineers.manage', 'Engineers Management', 'Manage service engineers', 'page'),
 ('reviews.manage', 'Reviews Management', 'Moderate customer reviews', 'page'),
 
 -- System Configuration

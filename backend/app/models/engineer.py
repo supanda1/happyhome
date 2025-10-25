@@ -1,5 +1,5 @@
 """
-Employee model for service technicians and staff management.
+Engineer model for service technicians and staff management.
 """
 
 from typing import Dict, List, Optional
@@ -11,15 +11,15 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .base import Base
 
 
-class Employee(Base):
+class Engineer(Base):
     """
-    Employee model for service technicians and staff.
+    Engineer model for service technicians and staff.
     
-    Manages information about employees who perform services,
+    Manages information about engineers who perform services,
     including their expertise, ratings, and availability.
     """
     
-    __tablename__ = "employees"
+    __tablename__ = "engineers"
     
     # Basic information
     name: Mapped[str] = mapped_column(
@@ -90,7 +90,7 @@ class Employee(Base):
     )
     
     # Professional details
-    employee_id: Mapped[Optional[str]] = mapped_column(
+    engineer_id: Mapped[Optional[str]] = mapped_column(
         String(50),
         unique=True,
         nullable=True,
@@ -156,16 +156,16 @@ class Employee(Base):
     )
     
     # Relationships
-    # TODO: Add bookings relationship when assigned_employee_id is added to Booking model
+    # TODO: Add bookings relationship when assigned_engineer_id is added to Booking model
     # bookings: Mapped[List["Booking"]] = relationship(
     #     "Booking",
-    #     back_populates="assigned_employee",
+    #     back_populates="assigned_engineer",
     #     lazy="select"
     # )
     
     @property
     def full_name(self) -> str:
-        """Get employee's full name."""
+        """Get engineer's full name."""
         return self.name
     
     @property
@@ -180,30 +180,30 @@ class Employee(Base):
     
     @property
     def is_qualified_for_service(self) -> bool:
-        """Check if employee has any expertise areas defined."""
+        """Check if engineer has any expertise areas defined."""
         return len(self.expertise_areas) > 0
     
     def is_expert_in(self, area: str) -> bool:
         """
-        Check if employee has expertise in a specific area.
+        Check if engineer has expertise in a specific area.
         
         Args:
             area: Expertise area to check
             
         Returns:
-            True if employee has expertise in the area
+            True if engineer has expertise in the area
         """
         return area.lower() in [expertise.lower() for expertise in self.expertise_areas]
     
     def can_serve_area(self, area: str) -> bool:
         """
-        Check if employee can serve a specific area.
+        Check if engineer can serve a specific area.
         
         Args:
             area: Service area to check
             
         Returns:
-            True if employee can serve the area
+            True if engineer can serve the area
         """
         if not self.service_areas:
             return True  # If no specific areas set, assume can serve anywhere
@@ -212,7 +212,7 @@ class Employee(Base):
     
     def update_rating(self, new_rating: float, job_count_increment: int = 1) -> None:
         """
-        Update employee rating with new feedback.
+        Update engineer rating with new feedback.
         
         Args:
             new_rating: New rating to incorporate
@@ -229,7 +229,7 @@ class Employee(Base):
     
     def dict_for_response(self, exclude: set = None, include_admin_fields: bool = False) -> Dict[str, any]:
         """
-        Get employee data for API responses.
+        Get engineer data for API responses.
         
         Args:
             exclude: Fields to exclude
@@ -259,7 +259,7 @@ class Employee(Base):
         
         if include_admin_fields:
             result.update({
-                "employeeId": data["employee_id"],
+                "engineerId": data["engineer_id"],
                 "department": data["department"],
                 "position": data["position"],
                 "emergencyContactName": data["emergency_contact_name"],
@@ -273,3 +273,7 @@ class Employee(Base):
             })
         
         return result
+
+
+# Backward compatibility alias
+Employee = Engineer

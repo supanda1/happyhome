@@ -20,7 +20,7 @@ from ..database.connection import get_db_session
 from ..core.logging import get_logger
 from ..models.service import Service, ServiceCategory, ServiceSubcategory
 from ..models.coupon import Coupon
-from ..models.employee import Employee
+from ..models.engineer import Engineer
 from ..models.booking import Booking
 from ..models.order import Order
 from ..models.user import User
@@ -825,185 +825,185 @@ async def delete_admin_coupon(
 
 
 # ============================================================================
-# EMPLOYEES - Admin Management
+# ENGINEERS - Admin Management
 # ============================================================================
 
-@router.get("/employees")
-async def get_admin_employees(
+@router.get("/engineers")
+async def get_admin_engineers(
     expertise: Optional[str] = Query(None),
     include_inactive: bool = Query(False),
     current_user: User = Depends(get_current_admin_user),
     db: AsyncSession = Depends(get_db_session)
 ):
-    """Get all employees for admin management."""
-    logger.info("Admin employees request", admin_id=str(current_user.id))
+    """Get all engineers for admin management."""
+    logger.info("Admin engineers request", admin_id=str(current_user.id))
     
     try:
-        query = select(Employee)
+        query = select(Engineer)
         
         if not include_inactive:
-            query = query.where(Employee.is_active == True)
+            query = query.where(Engineer.is_active == True)
         
         if expertise:
             # Filter by expertise area (JSON array contains)
-            query = query.where(Employee.expertise_areas.op('?')(expertise))
+            query = query.where(Engineer.expertise_areas.op('?')(expertise))
         
-        query = query.order_by(Employee.name)
+        query = query.order_by(Engineer.name)
         
         result = await db.execute(query)
         employees = result.scalars().all()
         
-        employees_data = [employee.dict_for_response(include_admin_fields=True) for employee in employees]
+        engineers_data = [engineer.dict_for_response(include_admin_fields=True) for engineer in employees]
         
         return {
             "success": True,
-            "message": "Employees retrieved successfully",
-            "data": employees_data
+            "message": "Engineers retrieved successfully",
+            "data": engineers_data
         }
         
     except Exception as e:
-        logger.error("Failed to get admin employees", error=str(e))
+        logger.error("Failed to get admin engineers", error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve employees"
+            detail="Failed to retrieve engineers"
         )
 
 
-@router.post("/employees")
-async def create_admin_employee(
-    employee_data: dict,
+@router.post("/engineers")
+async def create_admin_engineer(
+    engineer_data: dict,
     current_user: User = Depends(get_current_admin_user),
     db: AsyncSession = Depends(get_db_session)
 ):
-    """Create new employee."""
-    logger.info("Creating admin employee", admin_id=str(current_user.id))
+    """Create new engineer."""
+    logger.info("Creating admin engineer", admin_id=str(current_user.id))
     
     try:
-        # Check for existing employee with same email
+        # Check for existing engineer with same email
         existing = await db.scalar(
-            select(Employee).where(Employee.email == employee_data["email"])
+            select(Engineer).where(Engineer.email == engineer_data["email"])
         )
         if existing:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Employee with this email already exists"
+                detail="Engineer with this email already exists"
             )
         
-        # Create employee
-        employee = Employee(
-            name=employee_data["name"],
-            email=employee_data["email"],
-            phone=employee_data["phone"],
-            expertise_areas=employee_data.get("expertise_areas", []),
-            rating=employee_data.get("rating", 0.0),
-            completed_jobs=employee_data.get("completed_jobs", 0),
-            is_active=employee_data.get("is_active", True),
-            is_available=employee_data.get("is_available", True),
-            location=employee_data.get("location", ""),
-            service_areas=employee_data.get("service_areas", []),
-            employee_id=employee_data.get("employee_id"),
-            department=employee_data.get("department"),
-            position=employee_data.get("position")
+        # Create engineer
+        engineer = Engineer(
+            name=engineer_data["name"],
+            email=engineer_data["email"],
+            phone=engineer_data["phone"],
+            expertise_areas=engineer_data.get("expertise_areas", []),
+            rating=engineer_data.get("rating", 0.0),
+            completed_jobs=engineer_data.get("completed_jobs", 0),
+            is_active=engineer_data.get("is_active", True),
+            is_available=engineer_data.get("is_available", True),
+            location=engineer_data.get("location", ""),
+            service_areas=engineer_data.get("service_areas", []),
+            engineer_id=engineer_data.get("engineer_id"),
+            department=engineer_data.get("department"),
+            position=engineer_data.get("position")
         )
         
-        db.add(employee)
+        db.add(engineer)
         await db.commit()
-        await db.refresh(employee)
+        await db.refresh(engineer)
         
         return {
             "success": True,
-            "message": "Employee created successfully",
-            "data": employee.dict_for_response(include_admin_fields=True)
+            "message": "Engineer created successfully",
+            "data": engineer.dict_for_response(include_admin_fields=True)
         }
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Failed to create employee", error=str(e))
+        logger.error("Failed to create engineer", error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create employee"
+            detail="Failed to create engineer"
         )
 
 
-@router.put("/employees/{employee_id}")
-async def update_admin_employee(
-    employee_id: str,
+@router.put("/engineers/{engineer_id}")
+async def update_admin_engineer(
+    engineer_id: str,
     updates: dict,
     current_user: User = Depends(get_current_admin_user),
     db: AsyncSession = Depends(get_db_session)
 ):
-    """Update employee."""
-    logger.info("Updating admin employee", employee_id=employee_id, admin_id=str(current_user.id))
+    """Update engineer."""
+    logger.info("Updating admin engineer", engineer_id=engineer_id, admin_id=str(current_user.id))
     
     try:
-        employee = await db.scalar(
-            select(Employee).where(Employee.id == UUID(employee_id))
+        engineer = await db.scalar(
+            select(Engineer).where(Engineer.id == UUID(engineer_id))
         )
-        if not employee:
+        if not engineer:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Employee not found"
+                detail="Engineer not found"
             )
         
         # Update fields
         for field, value in updates.items():
-            if hasattr(employee, field):
-                setattr(employee, field, value)
+            if hasattr(engineer, field):
+                setattr(engineer, field, value)
         
         await db.commit()
-        await db.refresh(employee)
+        await db.refresh(engineer)
         
         return {
             "success": True,
-            "message": "Employee updated successfully",
-            "data": employee.dict_for_response(include_admin_fields=True)
+            "message": "Engineer updated successfully",
+            "data": engineer.dict_for_response(include_admin_fields=True)
         }
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Failed to update employee", error=str(e))
+        logger.error("Failed to update engineer", error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update employee"
+            detail="Failed to update engineer"
         )
 
 
-@router.delete("/employees/{employee_id}")
-async def delete_admin_employee(
-    employee_id: str,
+@router.delete("/engineers/{engineer_id}")
+async def delete_admin_engineer(
+    engineer_id: str,
     current_user: User = Depends(get_current_admin_user),
     db: AsyncSession = Depends(get_db_session)
 ):
-    """Delete employee."""
-    logger.info("Deleting admin employee", employee_id=employee_id, admin_id=str(current_user.id))
+    """Delete engineer."""
+    logger.info("Deleting admin engineer", engineer_id=engineer_id, admin_id=str(current_user.id))
     
     try:
-        employee = await db.scalar(
-            select(Employee).where(Employee.id == UUID(employee_id))
+        engineer = await db.scalar(
+            select(Engineer).where(Engineer.id == UUID(engineer_id))
         )
-        if not employee:
+        if not engineer:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Employee not found"
+                detail="Engineer not found"
             )
         
-        await db.delete(employee)
+        await db.delete(engineer)
         await db.commit()
         
         return {
             "success": True,
-            "message": "Employee deleted successfully"
+            "message": "Engineer deleted successfully"
         }
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Failed to delete employee", error=str(e))
+        logger.error("Failed to delete engineer", error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete employee"
+            detail="Failed to delete engineer"
         )
 
 
@@ -1217,13 +1217,13 @@ async def assign_employee_to_admin_order(
         
         # Verify employee exists
         employee_id = assignment_data.get("employee_id")
-        employee = await db.scalar(
-            select(Employee).where(Employee.id == UUID(employee_id))
+        engineer = await db.scalar(
+            select(Engineer).where(Engineer.id == UUID(employee_id))
         )
-        if not employee:
+        if not engineer:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Employee not found"
+                detail="Engineer not found"
             )
         
         # Assign employee
@@ -1264,31 +1264,59 @@ async def get_admin_dashboard_stats(
     logger.info("Admin dashboard stats request", admin_id=str(current_user.id))
     
     try:
+        from ..models.order import OrderStatus
+        from datetime import datetime, timedelta
+        
         # Basic counts
         total_services = await db.scalar(select(func.count(Service.id)))
         total_categories = await db.scalar(select(func.count(ServiceCategory.id)))
-        total_employees = await db.scalar(select(func.count(Employee.id)))
+        total_engineers = await db.scalar(select(func.count(Engineer.id)))
         total_coupons = await db.scalar(select(func.count(Coupon.id)))
         
-        # Try to get order/booking counts
-        try:
-            total_orders = await db.scalar(select(func.count(Order.id)))
-        except Exception:
-            total_orders = await db.scalar(select(func.count(Booking.id))) or 0
+        # Order counts and stats
+        total_orders = await db.scalar(select(func.count(Order.id))) or 0
+        
+        # Order status counts  
+        pending_orders = await db.scalar(
+            select(func.count(Order.id)).where(Order.status == OrderStatus.PENDING)
+        ) or 0
+        
+        completed_orders = await db.scalar(
+            select(func.count(Order.id)).where(Order.status == OrderStatus.COMPLETED)
+        ) or 0
+        
+        # Revenue calculations
+        total_revenue = await db.scalar(
+            select(func.sum(Order.total_amount)).where(Order.status == OrderStatus.COMPLETED)
+        ) or 0.0
+        
+        # Current month revenue
+        current_month_start = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        monthly_revenue = await db.scalar(
+            select(func.sum(Order.total_amount)).where(
+                and_(
+                    Order.status == OrderStatus.COMPLETED,
+                    Order.created_at >= current_month_start
+                )
+            )
+        ) or 0.0
         
         total_customers = await db.scalar(select(func.count(User.id))) or 0
         
         stats_data = {
             "totalServices": total_services or 0,
             "totalCategories": total_categories or 0,
-            "totalEmployees": total_employees or 0,
+            "totalEngineers": total_engineers or 0,
             "totalCoupons": total_coupons or 0,
-            "totalOrders": total_orders or 0,
-            "totalCustomers": total_customers or 0,
-            "totalRevenue": 0.0,  # Would calculate from orders/bookings
-            "monthlyRevenue": 0.0,
+            "totalBookings": total_orders,  # Frontend expects totalBookings
+            "totalOrders": total_orders,
+            "totalCustomers": total_customers,
+            "totalRevenue": float(total_revenue),
+            "monthlyRevenue": float(monthly_revenue),
+            "pendingOrders": pending_orders,
+            "completedOrders": completed_orders,
             "activeServices": await db.scalar(select(func.count(Service.id)).where(Service.is_active == True)) or 0,
-            "activeEmployees": await db.scalar(select(func.count(Employee.id)).where(Employee.is_active == True)) or 0,
+            "activeEngineers": await db.scalar(select(func.count(Engineer.id)).where(Engineer.is_active == True)) or 0,
             "activeCoupons": await db.scalar(select(func.count(Coupon.id)).where(Coupon.is_active == True)) or 0,
         }
         
@@ -1353,13 +1381,13 @@ async def admin_global_search(
             ).limit(10)
         )
         
-        # Search employees
-        employees = await db.scalars(
-            select(Employee).where(
+        # Search engineers
+        engineers = await db.scalars(
+            select(Engineer).where(
                 or_(
-                    Employee.name.ilike(search_term),
-                    Employee.email.ilike(search_term),
-                    Employee.location.ilike(search_term)
+                    Engineer.name.ilike(search_term),
+                    Engineer.email.ilike(search_term),
+                    Engineer.location.ilike(search_term)
                 )
             ).limit(10)
         )
@@ -1368,7 +1396,7 @@ async def admin_global_search(
             "categories": [cat.dict_for_response() for cat in categories],
             "subcategories": [subcat.dict_for_response() for subcat in subcategories],
             "services": [svc.dict_for_response() for svc in services],
-            "employees": [emp.dict_for_response() for emp in employees],
+            "engineers": [eng.dict_for_response() for eng in engineers],
         }
         
         return {
@@ -2546,32 +2574,32 @@ async def get_assignment_analytics(
             if total_assignments and total_assignments > 0 else 0
         )
         
-        # Employee workload distribution
-        employee_workloads = await db.execute(
+        # Engineer workload distribution
+        engineer_workloads = await db.execute(
             select(
-                Employee.name,
-                Employee.location,
+                Engineer.name,
+                Engineer.location,
                 func.count(Booking.id).label('assignment_count')
             )
-            .outerjoin(Booking, Employee.id == Booking.assigned_technician_id)
+            .outerjoin(Booking, Engineer.id == Booking.assigned_technician_id)
             .where(
                 or_(
                     Booking.created_at.is_(None),
                     Booking.created_at >= start_date
                 )
             )
-            .group_by(Employee.id, Employee.name, Employee.location)
+            .group_by(Engineer.id, Engineer.name, Engineer.location)
             .order_by(func.count(Booking.id).desc())
             .limit(10)
         )
         
         workload_data = [
             {
-                "employeeName": row.name,
-                "employeeLocation": row.location,
+                "engineerName": row.name,
+                "engineerLocation": row.location,
                 "assignmentCount": row.assignment_count
             }
-            for row in employee_workloads
+            for row in engineer_workloads
         ]
         
         analytics = {
@@ -2592,12 +2620,12 @@ async def get_assignment_analytics(
                     (auto_assignments / total_assignments * 100) 
                     if total_assignments and total_assignments > 0 else 0, 2
                 ),
-                "averageAssignmentsPerEmployee": round(
+                "averageAssignmentsPerEngineer": round(
                     total_assignments / len(workload_data) 
                     if workload_data and total_assignments else 0, 2
                 )
             },
-            "employeeWorkloads": workload_data
+            "engineerWorkloads": workload_data
         }
         
         return {

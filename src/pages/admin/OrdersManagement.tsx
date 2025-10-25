@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { 
   getOrders,
   updateOrderStatus,
-  getEmployees,
+  getEngineers,
   getOrderHistory,
   getEffectiveOrderStatus,
   getStatusDisplayName,
-  getStatusColor
+  getStatusColor,
+  getDashboardStats
 } from '../../utils/adminDataManager';
 import { ordersAPI } from '../../services/api';
 import type { OrderHistory, OrderItem, Order } from '../../types/api';
@@ -16,6 +17,7 @@ import type { OrderHistory, OrderItem, Order } from '../../types/api';
 const OrdersManagement: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dashboardStats, setDashboardStats] = useState<any>(null);
   const [statusFilter, setStatusFilter] = useState<Order['status'] | 'all'>('all');
   const [showDetailsInline, setShowDetailsInline] = useState<string | null>(null);
   const [notification, setNotification] = useState<{type: 'success' | 'error' | 'info', message: string} | null>(null);
@@ -23,8 +25,8 @@ const OrdersManagement: React.FC = () => {
   const [showCallOptions, setShowCallOptions] = useState<string | null>(null);
   const [showAssignModal, setShowAssignModal] = useState<{orderId: string, itemId: string, serviceName: string} | null>(null);
   // const [showScheduleModal, setShowScheduleModal] = useState<{orderId: string, itemId: string, serviceName: string} | null>(null); // Removed - using inline scheduling
-  const [employees, setEmployees] = useState<any[]>([]);
-  const [selectedEmployee, setSelectedEmployee] = useState<string>('');
+  const [engineers, setEngineers] = useState<any[]>([]);
+  const [selectedEngineer, setSelectedEngineer] = useState<string>('');
   const [assignmentLoading, setAssignmentLoading] = useState(false);
   // const [scheduleLoading, setScheduleLoading] = useState(false); // Removed - using inline scheduling
   // const [scheduledDate, setScheduledDate] = useState<string>(''); // Removed - using inline scheduling  
@@ -110,13 +112,13 @@ const OrdersManagement: React.FC = () => {
       
       // Clear any existing errors
       clearOrderError(orderId);
-      setNotification({type: 'success', message: `✅ ${serviceName} completed successfully! Checking if all tasks are done...`});
+      setNotification({type: 'success', message: `✅ ${serviceName} task completed successfully!`});
       
       // Refresh data from backend
       await fetchData();
       
-      // Check if all tasks are now completed and auto-complete order
-      await checkAndCompleteOrder(orderId);
+      // Note: Individual task completion does not automatically complete the entire order
+      // The order status must be changed manually by the admin when appropriate
       
     } catch (error) {
       console.error('❌ Failed to complete task:', error);
@@ -239,24 +241,40 @@ const OrdersManagement: React.FC = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      console.log('🔄 Fetching orders data...');
+      console.log('🔄 Fetching orders data and dashboard stats...');
       
-      const ordersData = await getOrders();
+      // Fetch both orders and dashboard stats in parallel
+      const [ordersData, statsData] = await Promise.allSettled([
+        getOrders(),
+        getDashboardStats()
+      ]);
+      
+      // Handle dashboard stats
+      if (statsData.status === 'fulfilled') {
+        setDashboardStats(statsData.value);
+        console.log('✅ Dashboard stats loaded:', statsData.value);
+      } else {
+        console.warn('⚠️ Failed to load dashboard stats:', statsData.reason);
+        setDashboardStats(null);
+      }
+      
+      // Handle orders data
+      const actualOrdersData = ordersData.status === 'fulfilled' ? ordersData.value : null;
       console.log('📊 Raw orders data received:', {
-        type: typeof ordersData,
-        isArray: Array.isArray(ordersData),
-        length: ordersData?.length || 0,
-        sample: ordersData?.[0]
+        type: typeof actualOrdersData,
+        isArray: Array.isArray(actualOrdersData),
+        length: actualOrdersData?.length || 0,
+        sample: actualOrdersData?.[0]
       });
       
-      if (!ordersData || !Array.isArray(ordersData)) {
-        console.warn('⚠️ Invalid orders data received:', ordersData);
+      if (!actualOrdersData || !Array.isArray(actualOrdersData)) {
+        console.warn('⚠️ Invalid orders data received:', actualOrdersData);
         setOrders([]);
         return;
       }
       
       // Process orders to fix pricing and status synchronization
-      const processedOrders = ordersData.map((order: any) => {
+      const processedOrders = actualOrdersData.map((order: any) => {
         try {
           const processedItems = (order.items || []).map((item: any) => {
             // Fix price mapping: use total_price or unit_price as fallback
@@ -319,18 +337,18 @@ const OrdersManagement: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-    fetchEmployees();
+    fetchEngineers();
   }, []);
 
-  // Fetch available employees
-  const fetchEmployees = async () => {
+  // Fetch available engineers
+  const fetchEngineers = async () => {
     try {
-      const employeesData = await getEmployees();
-      setEmployees(employeesData || []);
-      console.log('✅ Employees loaded:', employeesData?.length || 0);
+      const engineersData = await getEngineers();
+      setEngineers(engineersData || []);
+      console.log('✅ Engineers loaded:', engineersData?.length || 0);
     } catch (error) {
-      console.error('❌ Failed to load employees:', error);
-      setEmployees([]);
+      console.error('❌ Failed to load engineers:', error);
+      setEngineers([]);
     }
   };
 
@@ -437,7 +455,7 @@ const OrdersManagement: React.FC = () => {
             return {
               ...order,
               status: newStatus,
-              // Update item statuses for cancelled, completed, and confirmed orders
+              // Update item statuses for cancelled and completed orders only
               items: (newStatus === 'cancelled') ? order.items.map(item => ({
                 ...item,
                 status: 'cancelled',
@@ -446,10 +464,6 @@ const OrdersManagement: React.FC = () => {
                 ...item,
                 status: 'completed',
                 item_status: 'completed'
-              })) : (newStatus === 'confirmed') ? order.items.map(item => ({
-                ...item,
-                status: 'confirmed',
-                item_status: 'confirmed'
               })) : order.items
             };
           }
@@ -474,22 +488,22 @@ const OrdersManagement: React.FC = () => {
     }
   };
 
-  // Handle employee assignment to order item
-  const handleAssignEmployee = async (orderId: string, itemId: string, employeeId: string) => {
+  // Handle engineer assignment to order item
+  const handleAssignEngineer = async (orderId: string, itemId: string, engineerId: string) => {
     try {
       console.log('🎯 Manual Assignment Started:', {
         orderId,
         itemId, 
-        employeeId,
-        selectedEmployee,
+        engineerId,
+        selectedEngineer,
         showAssignModal
       });
       
       setAssignmentLoading(true);
       
-      // Find the selected employee details
-      const selectedEmp = employees.find(emp => emp.id === employeeId || emp.employee_id === employeeId);
-      console.log('👤 Selected Employee:', selectedEmp);
+      // Find the selected engineer details
+      const selectedEng = engineers.find(eng => eng.id === engineerId || eng.engineer_id === engineerId);
+      console.log('👤 Selected Engineer:', selectedEng);
       
       const response = await fetch(`/api/orders/${orderId}/items/${itemId}/assign`, {
         method: 'POST',
@@ -498,7 +512,7 @@ const OrdersManagement: React.FC = () => {
         },
         credentials: 'include',
         body: JSON.stringify({
-          engineer_id: employeeId,
+          engineer_id: engineerId,
           scheduled_date: new Date().toISOString(),
           notes: 'Manually assigned by admin'
         }),
@@ -527,10 +541,10 @@ const OrdersManagement: React.FC = () => {
       }
 
       const result = await response.json();
-      console.log('✅ Employee assigned successfully:', result);
+      console.log('✅ Engineer assigned successfully:', result);
       
       // Note: Task status remains 'pending' after assignment - admins can manually change status as needed
-      console.log('✅ Employee assigned successfully - task remains in pending state for admin review');
+      console.log('✅ Engineer assigned successfully - task remains in pending state for admin review');
       
       await fetchData(); // Refresh orders data
       
@@ -565,23 +579,23 @@ const OrdersManagement: React.FC = () => {
       }
       
       console.log('🎉 Assignment successful - setting success notification');
-      setNotification({type: 'success', message: 'Employee assigned successfully! Task remains in pending state for admin approval.'});
+      setNotification({type: 'success', message: 'Engineer assigned successfully! Task remains in pending state for admin approval.'});
       setShowAssignModal(null);
-      setSelectedEmployee('');
+      setSelectedEngineer('');
       console.log('✅ Assignment completed successfully');
     } catch (error) {
-      console.error('❌ Failed to assign employee:', error);
+      console.error('❌ Failed to assign engineer:', error);
       console.error('❌ Error details:', {
         message: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined,
         orderId,
         itemId,
-        employeeId
+        engineerId
       });
       
       setNotification({
         type: 'error', 
-        message: `Failed to assign employee: ${error instanceof Error ? error.message : 'Unknown error'}`
+        message: `Failed to assign engineer: ${error instanceof Error ? error.message : 'Unknown error'}`
       });
     } finally {
       setAssignmentLoading(false);
@@ -766,7 +780,7 @@ const OrdersManagement: React.FC = () => {
     }
   };
 
-  // Handle starting scheduled order with validation
+  // Handle starting scheduled order with validation - using same logic as individual task starting
   const handleStartScheduledOrder = async (orderId: string) => {
     try {
       const order = orders.find(o => o.id === orderId);
@@ -796,42 +810,85 @@ const OrdersManagement: React.FC = () => {
         return;
       }
 
-      // All tasks are scheduled, proceed to start
+      // All tasks are scheduled, proceed to start each task individually
       clearOrderError(orderId); // Clear any previous errors
-      await handleOrderStatusUpdate(orderId, 'in_progress');
       
-      // Update all task statuses from scheduled to in_progress
-      try {
-        const updatePromises = order.items.map(async (item) => {
-          try {
-            const statusResponse = await fetch(`/api/orders/${orderId}/items/${item.id}`, {
-              method: 'PUT',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              credentials: 'include',
-              body: JSON.stringify({
-                item_status: 'in_progress',
-                item_notes: `Task moved from scheduled to in_progress when order started`
-              }),
-            });
-            
-            if (statusResponse.ok) {
-              console.log(`✅ Task "${item.service_name}" status: scheduled → in_progress`);
-            } else {
-              console.warn(`⚠️ Failed to update status for ${item.service_name}`);
-            }
-          } catch (itemError) {
-            console.warn(`⚠️ Status update failed for ${item.service_name}:`, itemError);
+      console.log('🚀 Starting all scheduled tasks for order:', orderId);
+      
+      // Start all tasks individually (same logic as individual task button)
+      const startPromises = order.items.map(async (item) => {
+        try {
+          console.log(`🚀 Starting scheduled task: ${item.service_name}`);
+          
+          const response = await fetch(`/api/orders/${orderId}/items/${item.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              item_status: 'in_progress',
+              item_notes: `Task started at ${new Date().toLocaleString()} - moved from scheduled to in_progress via order start`
+            }),
+          });
+          
+          if (response.ok) {
+            console.log(`✅ Task "${item.service_name}" status: scheduled → in_progress`);
+            return { success: true, itemName: item.service_name };
+          } else {
+            const errorData = await response.json();
+            console.warn(`⚠️ Failed to start task ${item.service_name}:`, errorData);
+            return { success: false, itemName: item.service_name, error: errorData.error };
           }
-        });
-        
-        await Promise.allSettled(updatePromises);
-      } catch (taskStatusError) {
-        console.warn('⚠️ Order started but some task status updates failed:', taskStatusError);
+        } catch (itemError) {
+          console.warn(`⚠️ Task start failed for ${item.service_name}:`, itemError);
+          return { success: false, itemName: item.service_name, error: itemError instanceof Error ? itemError.message : 'Unknown error' };
+        }
+      });
+      
+      const results = await Promise.allSettled(startPromises);
+      const successfulStarts = results.filter(result => result.status === 'fulfilled' && result.value.success).length;
+      const totalTasks = order.items.length;
+      
+      // Refresh data to get updated statuses
+      await fetchData();
+      
+      // Check if all tasks are now in progress and update order status
+      setTimeout(async () => {
+        try {
+          const orderResponse = await fetch(`/api/orders/${orderId}`, {
+            credentials: 'include'
+          });
+          if (orderResponse.ok) {
+            const orderData = await orderResponse.json();
+            const allTasksStarted = orderData.data?.items?.every((orderItem: any) => 
+              orderItem.item_status === 'in_progress' || orderItem.item_status === 'completed'
+            );
+            
+            if (allTasksStarted && orderData.data?.status === 'scheduled') {
+              // Update order status to in_progress
+              await fetch(`/api/orders/${orderId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                  status: 'in_progress'
+                }),
+              });
+              console.log('✅ Order status updated to in_progress');
+            }
+          }
+        } catch (statusError) {
+          console.warn('Failed to update order status:', statusError);
+        }
+      }, 100);
+      
+      if (successfulStarts === totalTasks) {
+        setNotification({type: 'success', message: 'Order started successfully! All tasks are now in progress.'});
+      } else if (successfulStarts > 0) {
+        setNotification({type: 'info', message: `Started ${successfulStarts} of ${totalTasks} tasks. Check individual task statuses.`});
+      } else {
+        setNotification({type: 'error', message: 'Failed to start any tasks. Please try again.'});
       }
       
-      setNotification({type: 'success', message: 'Order started successfully! All tasks are now in progress.'});
     } catch (error) {
       console.error('❌ Failed to start scheduled order:', error);
       setNotification({type: 'error', message: 'Failed to start order. Please try again.'});
@@ -1071,15 +1128,16 @@ const OrdersManagement: React.FC = () => {
     );
   }
 
-  // Calculate order statistics
+  // Calculate order statistics - use backend dashboard stats for accurate revenue
   const orderStats = {
     total: orders.length,
     pending: orders.filter(o => getEffectiveOrderStatus(o) === 'pending').length,
     scheduled: orders.filter(o => getEffectiveOrderStatus(o) === 'scheduled').length,
     inProgress: orders.filter(o => getEffectiveOrderStatus(o) === 'in_progress').length,
     completed: orders.filter(o => getEffectiveOrderStatus(o) === 'completed').length,
-    totalRevenue: Math.round(orders
-      .filter(o => getEffectiveOrderStatus(o) === 'completed') // Only count completed orders for revenue
+    // Use backend dashboard stats for accurate revenue (includes only paid orders)
+    totalRevenue: dashboardStats?.data?.totalRevenue || Math.round(orders
+      .filter(o => getEffectiveOrderStatus(o) === 'completed')
       .reduce((sum, order) => sum + (Number(order.final_amount) || Number(order.total_amount) || 0), 0))
   };
 
@@ -1419,8 +1477,8 @@ const OrdersManagement: React.FC = () => {
                       </span>
                       
                       {/* Inline Action Buttons - Conditional based on order status */}
-                      {/* Status button for orders that can have status changes (not completed, cancelled, confirmed, or scheduled) */}
-                      {!['completed', 'cancelled', 'confirmed', 'scheduled'].includes(getEffectiveOrderStatus(order)) && (
+                      {/* Status button for orders that can have status changes (not completed, cancelled, confirmed, scheduled, postponed, or in_progress) */}
+                      {!['completed', 'cancelled', 'confirmed', 'scheduled', 'postponed', 'in_progress'].includes(getEffectiveOrderStatus(order)) && (
                         <button
                           onClick={() => setShowStatusModal({
                             orderId: order.id,
@@ -1774,14 +1832,11 @@ const OrdersManagement: React.FC = () => {
                   {/* Postponed Order Alert */}
                   {getEffectiveOrderStatus(order) === 'postponed' && (
                     <div className="bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-200 text-orange-800 px-4 py-3 rounded-xl text-sm font-medium mb-4 shadow-md transform perspective-1000 rotateX-6">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                          <svg className="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.346 15.5c-.77.833.192 2.5 1.732 2.5z" />
-                          </svg>
-                          <span>⏸️ Order Postponed - Use Resume button to restart workflow</span>
-                        </div>
-                        <span className="text-xs bg-orange-200 px-2 py-1 rounded-full font-bold">Paused</span>
+                      <div className="flex items-center space-x-2">
+                        <svg className="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.346 15.5c-.77.833.192 2.5 1.732 2.5z" />
+                        </svg>
+                        <span>⏸️ Order Postponed - Use Resume button to restart workflow</span>
                       </div>
                     </div>
                   )}
@@ -1920,10 +1975,10 @@ const OrdersManagement: React.FC = () => {
                                                     itemId: item.id,
                                                     serviceName: item.service_name,
                                                     newEngineerId,
-                                                    availableEmployees: employees.map(emp => ({ id: emp.id, name: emp.name }))
+                                                    availableEngineers: engineers.map(eng => ({ id: eng.id, name: eng.name }))
                                                   });
                                                   
-                                                  const selectedEngineer = employees.find(emp => emp.id === newEngineerId);
+                                                  const selectedEngineer = engineers.find(eng => eng.id === newEngineerId);
                                                   console.log('👤 Selected Engineer for inline assignment:', selectedEngineer);
                                                   
                                                   if (!selectedEngineer) {
@@ -1975,7 +2030,7 @@ const OrdersManagement: React.FC = () => {
                                                 className="w-full text-xs p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                               >
                                                 <option value="">Select Engineer</option>
-                                                {employees.map((engineer) => (
+                                                {engineers.map((engineer) => (
                                                   <option key={engineer.id} value={engineer.id}>
                                                     {engineer.name} {engineer.is_active ? '' : '(Inactive)'}
                                                   </option>
@@ -2257,7 +2312,7 @@ const OrdersManagement: React.FC = () => {
                                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h1m4 0h1m2-7V6a2 2 0 00-2-2H7a2 2 0 00-2 2v1m2 0V6a2 2 0 012-2h6a2 2 0 012 2v1m2 0V9a2 2 0 00-2 2v8a2 2 0 01-2 2H7a2 2 0 01-2-2v-8a2 2 0 00-2-2V7" />
                                                   </svg>
-                                                  <span>Scheduled</span>
+                                                  <span>Start Work</span>
                                                 </button>
                                               </div>
                                             )}
@@ -2297,7 +2352,7 @@ const OrdersManagement: React.FC = () => {
           )}
         </div>
 
-        {/* Employee Assignment Modal */}
+        {/* Engineer Assignment Modal */}
         {showAssignModal && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
             <div className="bg-white/95 backdrop-blur-sm rounded-3xl max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-white/50 animate-bounce-in">
@@ -2309,49 +2364,49 @@ const OrdersManagement: React.FC = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
                   </div>
-                  <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">Assign Employee</h3>
-                  <p className="text-gray-700 font-medium">Select an employee to assign to <span className="font-bold text-purple-600">{showAssignModal.serviceName}</span></p>
+                  <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">Assign Engineer</h3>
+                  <p className="text-gray-700 font-medium">Select an engineer to assign to <span className="font-bold text-purple-600">{showAssignModal.serviceName}</span></p>
                 </div>
 
                 <div className="space-y-4 mb-6 bg-white/90 backdrop-blur-sm rounded-2xl p-4 border border-white/50 shadow-lg">
                   <div>
-                    <label className="block text-base font-bold text-gray-800 mb-3">Available Employees ({employees.length})</label>
-                    {employees.length === 0 ? (
+                    <label className="block text-base font-bold text-gray-800 mb-3">Available Engineers ({engineers.length})</label>
+                    {engineers.length === 0 ? (
                       <div className="text-center p-6 bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl border border-gray-200">
-                        <p className="text-gray-600 font-medium">No employees available. Please add employees first.</p>
+                        <p className="text-gray-600 font-medium">No engineers available. Please add engineers first.</p>
                       </div>
                     ) : (
                       <div className="space-y-2 max-h-64 overflow-y-auto">
-                        {employees.map((employee) => (
-                          <label key={employee.id} className="group flex items-center p-4 bg-white/80 backdrop-blur-sm border border-white/50 rounded-xl hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 cursor-pointer transition-all duration-300 shadow-sm hover:shadow-lg transform hover:scale-[1.02]">
+                        {engineers.map((engineer) => (
+                          <label key={engineer.id} className="group flex items-center p-4 bg-white/80 backdrop-blur-sm border border-white/50 rounded-xl hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 cursor-pointer transition-all duration-300 shadow-sm hover:shadow-lg transform hover:scale-[1.02]">
                             <input
                               type="radio"
-                              name="employee"
-                              value={employee.id}
-                              checked={selectedEmployee === employee.id}
-                              onChange={(e) => setSelectedEmployee(e.target.value)}
+                              name="engineer"
+                              value={engineer.id}
+                              checked={selectedEngineer === engineer.id}
+                              onChange={(e) => setSelectedEngineer(e.target.value)}
                               className="mr-4 text-blue-600 focus:ring-blue-500 scale-125"
                             />
                             <div className="flex-1">
-                              <div className="font-semibold text-gray-800">{employee.name}</div>
+                              <div className="font-semibold text-gray-800">{engineer.name}</div>
                               <div className="text-sm text-gray-600">
-                                📧 {employee.email} • 📞 {employee.phone}
+                                📧 {engineer.email} • 📞 {engineer.phone}
                               </div>
-                              {employee.expertise_areas && employee.expertise_areas.length > 0 && (
+                              {engineer.expertise_areas && engineer.expertise_areas.length > 0 && (
                                 <div className="text-xs text-blue-600 mt-1">
-                                  🛠️ Skills: {employee.expertise_areas.join(', ')}
+                                  🛠️ Skills: {engineer.expertise_areas.join(', ')}
                                 </div>
                               )}
                               <div className="text-xs text-gray-500 mt-1">
-                                ⭐ Rating: {employee.rating || 'N/A'} • ✅ Jobs: {employee.completed_jobs || 0}
+                                ⭐ Rating: {engineer.rating || 'N/A'} • ✅ Jobs: {engineer.completed_jobs || 0}
                               </div>
                             </div>
                             <div className={`px-2 py-1 rounded-full text-xs font-bold ${
-                              employee.is_active 
+                              engineer.is_active 
                                 ? 'bg-green-100 text-green-800' 
                                 : 'bg-red-100 text-red-800'
                             }`}>
-                              {employee.is_active ? 'Active' : 'Inactive'}
+                              {engineer.is_active ? 'Active' : 'Inactive'}
                             </div>
                           </label>
                         ))}
@@ -2364,7 +2419,7 @@ const OrdersManagement: React.FC = () => {
                   <button
                     onClick={() => {
                       setShowAssignModal(null);
-                      setSelectedEmployee('');
+                      setSelectedEngineer('');
                     }}
                     className="group relative flex-1 bg-gradient-to-r from-gray-100 to-gray-200 hover:from-gray-200 hover:to-gray-300 text-gray-700 font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl overflow-hidden"
                   >
@@ -2373,15 +2428,15 @@ const OrdersManagement: React.FC = () => {
                   </button>
                   <button
                     onClick={() => {
-                      if (selectedEmployee && showAssignModal) {
-                        handleAssignEmployee(showAssignModal.orderId, showAssignModal.itemId, selectedEmployee);
+                      if (selectedEngineer && showAssignModal) {
+                        handleAssignEngineer(showAssignModal.orderId, showAssignModal.itemId, selectedEngineer);
                       }
                     }}
-                    disabled={!selectedEmployee || assignmentLoading}
+                    disabled={!selectedEngineer || assignmentLoading}
                     className="group relative flex-1 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl overflow-hidden"
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
-                    <span className="relative z-10">{assignmentLoading ? 'Assigning...' : 'Assign Employee'}</span>
+                    <span className="relative z-10">{assignmentLoading ? 'Assigning...' : 'Assign Engineer'}</span>
                   </button>
                 </div>
               </div>

@@ -125,10 +125,10 @@ const EmployeesManagement: React.FC = () => {
         if (response.success) {
           await fetchEmployees();
           resetForm();
-          alert('Employee updated successfully!');
+          alert('Engineer updated successfully!');
         } else {
           console.error('❌ Update failed:', response.error);
-          alert(`Error updating employee: ${response.error}`);
+          alert(`Error updating engineer: ${response.error}`);
         }
       } else {
         // Create new employee
@@ -137,10 +137,10 @@ const EmployeesManagement: React.FC = () => {
         if (response.success) {
           await fetchEmployees();
           resetForm();
-          alert('Employee created successfully!');
+          alert('Engineer created successfully!');
         } else {
           console.error('❌ Create failed:', response.error);
-          alert(`Error creating employee: ${response.error}`);
+          alert(`Error creating engineer: ${response.error}`);
         }
       }
     } catch (error) {
@@ -159,13 +159,13 @@ const EmployeesManagement: React.FC = () => {
       const response = await employeesAPI.delete(employeeId);
       if (response.success) {
         await fetchEmployees();
-        alert('Employee deleted successfully!');
+        alert('Engineer deleted successfully!');
       } else {
-        alert(`Error deleting employee: ${response.error}`);
+        alert(`Error deleting engineer: ${response.error}`);
       }
     } catch (error) {
       console.error('Error deleting employee:', error);
-      alert(`Error deleting employee: ${handleAPIError(error)}`);
+      alert(`Error deleting engineer: ${handleAPIError(error)}`);
     }
   };
 
@@ -178,13 +178,13 @@ const EmployeesManagement: React.FC = () => {
       
       if (response.success) {
         await fetchEmployees();
-        alert(`Employee ${!employee.is_active ? 'activated' : 'deactivated'} successfully!`);
+        alert(`Engineer ${!employee.is_active ? 'activated' : 'deactivated'} successfully!`);
       } else {
-        alert(`Error updating employee status: ${response.error}`);
+        alert(`Error updating engineer status: ${response.error}`);
       }
     } catch (error) {
       console.error('Error updating employee status:', error);
-      alert(`Error updating employee status: ${handleAPIError(error)}`);
+      alert(`Error updating engineer status: ${handleAPIError(error)}`);
     }
   };
 
@@ -303,7 +303,7 @@ const EmployeesManagement: React.FC = () => {
                         </svg>
                       </div>
                       <div>
-                        <h1 className="text-4xl font-bold text-white">Employee Management</h1>
+                        <h1 className="text-4xl font-bold text-white">Engineer Management</h1>
                         <p className="text-indigo-100 text-lg">Manage workforce, track expertise, and optimize performance</p>
                       </div>
                     </div>
