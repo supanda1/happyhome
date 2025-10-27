@@ -34,7 +34,7 @@ interface ServiceContextType extends ServiceState {
   deleteService: (serviceId: string) => Promise<boolean>;
   applyFilters: (filters: Partial<ServiceFilters>) => void;
   clearFilters: () => void;
-  getServiceById: (id: string) => Service | undefined;
+  getServiceById: (id: string) => Promise<Service | undefined>;
   getCategoryById: (id: string) => ServiceCategory | undefined;
   addReview: (serviceId: string, review: Omit<Review, 'id' | 'createdAt' | 'updatedAt'>) => Promise<boolean>;
 }
@@ -386,10 +386,73 @@ export const ServiceProvider: React.FC<ServiceProviderProps> = ({ children }) =>
     dispatch({ type: 'SET_FILTERS', payload: initialFilters });
   };
 
-  // Get service by ID
-  const getServiceById = (id: string): Service | undefined => {
-    return state.services.find(service => service.id === id);
-  };
+  // Get service by ID - fetch from API if not in loaded services
+  const getServiceById = useCallback(async (id: string): Promise<Service | undefined> => {
+    // First check if service is already loaded
+    const cachedService = state.services.find(service => service.id === id);
+    if (cachedService) {
+      return cachedService;
+    }
+
+    // If not found, fetch from API
+    try {
+      const { getServiceById: fetchServiceById } = await import('../utils/adminDataManager');
+      const backendService = await fetchServiceById(id);
+      
+      if (!backendService) return undefined;
+
+      // Transform backend service to frontend format
+      const service: Service = {
+        id: backendService.id,
+        name: backendService.name,
+        description: backendService.description,
+        shortDescription: backendService.short_description || '',
+        categoryId: backendService.category_id,
+        category: {
+          id: backendService.category_id,
+          name: (backendService as any).category_name || '',
+          description: (backendService as any).category_description || '',
+          icon: (backendService as any).category_icon || '',
+          isActive: true,
+          sortOrder: 0,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        },
+        basePrice: backendService.base_price,
+        discountedPrice: backendService.discounted_price,
+        duration: backendService.duration || 60,
+        inclusions: backendService.inclusions || [],
+        exclusions: backendService.exclusions || [],
+        requirements: backendService.requirements || [],
+        tags: backendService.tags || [],
+        photos: (backendService.image_paths || []).map((url: string, index: number) => ({
+          id: `${backendService.id}-photo-${index}`,
+          serviceId: backendService.id,
+          url: url,
+          altText: `${backendService.name} photo ${index + 1}`,
+          isPrimary: index === 0,
+          sortOrder: index
+        })),
+        availability: {
+          isAvailable: backendService.is_active,
+          timeSlots: [],
+          blackoutDates: []
+        },
+        isActive: backendService.is_active,
+        isFeatured: backendService.is_featured,
+        rating: backendService.rating || 0,
+        reviewCount: backendService.review_count || 0,
+        createdAt: new Date(backendService.created_at || Date.now()),
+        updatedAt: new Date(backendService.updated_at || Date.now()),
+        reviews: []
+      };
+
+      return service;
+    } catch (error) {
+      console.error('Failed to fetch service by ID:', error);
+      return undefined;
+    }
+  }, [state.services]);
 
   // Get category by ID
   const getCategoryById = (id: string): ServiceCategory | undefined => {

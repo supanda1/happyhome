@@ -236,8 +236,7 @@ export const createService = async (req: Request, res: Response) => {
       is_featured = false,
       is_combo_eligible = true,
       gst_percentage = 18,
-      service_charge = 79,
-      notes = ''
+      service_charge = 79
     } = req.body;
     
     // Handle legacy 'images' field name from frontend
@@ -277,16 +276,16 @@ export const createService = async (req: Request, res: Response) => {
         name, description, short_description, base_price, discounted_price, 
         duration, category_id, subcategory_id, inclusions, exclusions, 
         requirements, tags, image_paths, is_active, is_featured, 
-        is_combo_eligible, gst_percentage, service_charge, notes,
+        is_combo_eligible, gst_percentage, service_charge,
         rating, review_count, booking_count, created_at, updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7::uuid, $8::uuid, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, 0.0, 0, 0, NOW(), NOW())
+      VALUES ($1, $2, $3, $4, $5, $6, $7::uuid, $8::uuid, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, 0.0, 0, 0, NOW(), NOW())
       RETURNING *
     `, [
       name, description, short_description, base_price, discounted_price,
       duration, category_id, subcategory_id, JSON.stringify(safeInclusions), JSON.stringify(safeExclusions),
       JSON.stringify(safeRequirements), JSON.stringify(safeTags), JSON.stringify(safeImagePaths), is_active, is_featured, 
-      is_combo_eligible, gst_percentage, service_charge, notes
+      is_combo_eligible, gst_percentage, service_charge
     ]);
     
     res.status(201).json({

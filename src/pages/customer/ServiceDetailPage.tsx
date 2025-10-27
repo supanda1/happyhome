@@ -1,32 +1,62 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useServices } from '../../contexts/ServiceContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { Card, CardContent, CardHeader, Button, Badge } from '../../components/ui';
 import { formatPriceWithDiscount } from '../../utils/priceFormatter';
 import WhatsAppButton from '../../components/ui/WhatsAppButton';
 import FacebookButton from '../../components/ui/FacebookButton';
+import type { Service } from '../../types';
 
 interface ServiceDetailPageProps {
   serviceId?: string;
+  onNavigateHome?: () => void;
+  onNavigateLogin?: () => void;
+  onNavigateBooking?: (serviceId: string) => void;
 }
 
-const ServiceDetailPage: React.FC<ServiceDetailPageProps> = ({ serviceId }) => {
-  const { id: routeId } = useParams<{ id: string }>();
-  const navigate = useNavigate();
+const ServiceDetailPage: React.FC<ServiceDetailPageProps> = ({ 
+  serviceId, 
+  onNavigateHome, 
+  onNavigateLogin, 
+  onNavigateBooking 
+}) => {
   const { getServiceById, loadServices } = useServices();
   const { isAuthenticated } = useAuth();
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [showAllInclusions, setShowAllInclusions] = useState(false);
   const [showAllExclusions, setShowAllExclusions] = useState(false);
+  const [service, setService] = useState<Service | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Use serviceId prop if provided, otherwise try route params
-  const actualServiceId = serviceId || routeId;
-  const service = actualServiceId ? getServiceById(actualServiceId) : null;
+  // Use serviceId prop
+  const actualServiceId = serviceId;
 
   useEffect(() => {
     loadServices();
   }, [loadServices]);
+
+  // Load service details
+  useEffect(() => {
+    const fetchService = async () => {
+      if (actualServiceId) {
+        setLoading(true);
+        try {
+          const serviceData = await getServiceById(actualServiceId);
+          setService(serviceData || null);
+        } catch (error) {
+          console.error('Error fetching service:', error);
+          setService(null);
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        setService(null);
+        setLoading(false);
+      }
+    };
+
+    fetchService();
+  }, [actualServiceId, getServiceById]);
 
   // Debug logging
   useEffect(() => {
@@ -43,11 +73,24 @@ const ServiceDetailPage: React.FC<ServiceDetailPageProps> = ({ serviceId }) => {
 
   const handleBookService = () => {
     if (!isAuthenticated) {
-      navigate('/login', { state: { from: `/services/${actualServiceId}` } });
+      onNavigateLogin?.();
       return;
     }
-    navigate(`/booking/${actualServiceId}`);
+    if (actualServiceId) {
+      onNavigateBooking?.(actualServiceId);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mb-4"></div>
+          <p className="text-gray-600">Loading service details...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!service) {
     return (
@@ -55,9 +98,7 @@ const ServiceDetailPage: React.FC<ServiceDetailPageProps> = ({ serviceId }) => {
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Service Not Found</h2>
           <p className="text-gray-600 mb-4">The service you're looking for doesn't exist.</p>
-          <Link to="/services">
-            <Button>Browse All Services</Button>
-          </Link>
+          <Button onClick={onNavigateHome}>Browse All Services</Button>
         </div>
       </div>
     );
@@ -79,13 +120,13 @@ const ServiceDetailPage: React.FC<ServiceDetailPageProps> = ({ serviceId }) => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Breadcrumb */}
         <nav className="flex items-center space-x-2 text-sm text-gray-600 mb-8">
-          <Link to="/" className="hover:text-primary-600">Home</Link>
+          <button onClick={onNavigateHome} className="hover:text-primary-600">Home</button>
           <span>›</span>
-          <Link to="/services" className="hover:text-primary-600">Services</Link>
+          <button onClick={onNavigateHome} className="hover:text-primary-600">Services</button>
           <span>›</span>
-          <Link to={`/services?category=${service.category.id}`} className="hover:text-primary-600">
+          <button onClick={onNavigateHome} className="hover:text-primary-600">
             {service.category.name}
-          </Link>
+          </button>
           <span>›</span>
           <span className="text-gray-900">{service.name}</span>
         </nav>

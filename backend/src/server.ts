@@ -29,6 +29,10 @@ import configRoutes from './routes/config';
 // Load environment variables
 dotenv.config();
 
+// CRITICAL: Set timezone to UTC for consistent timestamp handling
+// This ensures all database timestamps are stored as proper UTC time
+process.env.TZ = 'UTC';
+
 const app = express();
 const PORT = process.env.PORT || 8001;
 
@@ -128,7 +132,7 @@ app.use('/api/coupons', couponsRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/orders', ordersRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/employees', employeesRoutes);
+app.use('/api/engineers', employeesRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/banners', bannersRoutes);
@@ -158,7 +162,7 @@ app.get('/', (req, res) => {
       cart: '/api/cart',
       orders: '/api/orders',
       users: '/api/users',
-      employees: '/api/employees',
+      engineers: '/api/engineers',
       dashboard: '/api/dashboard',
       analytics: '/api/analytics',
       banners: '/api/banners',

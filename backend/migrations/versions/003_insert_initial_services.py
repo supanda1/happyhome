@@ -24,7 +24,7 @@ def upgrade() -> None:
             id, name, category_id, subcategory_id, description, short_description,
             base_price, discounted_price, duration, inclusions, exclusions, requirements,
             rating, review_count, booking_count, is_active, is_featured, tags, 
-            availability_settings, created_at, updated_at
+            availability_settings, image_paths, created_at, updated_at
         ) VALUES
         
         -- Plumbing Services
@@ -48,6 +48,7 @@ def upgrade() -> None:
             true,
             '["plumbing", "bathroom", "installation", "fittings"]'::jsonb,
             '{}'::jsonb,
+            '[]'::jsonb,
             NOW(),
             NOW()
         ),
@@ -72,6 +73,7 @@ def upgrade() -> None:
             false,
             '["plumbing", "basin", "installation", "sink"]'::jsonb,
             '{}'::jsonb,
+            '[]'::jsonb,
             NOW(),
             NOW()
         ),
@@ -96,6 +98,7 @@ def upgrade() -> None:
             true,
             '["plumbing", "toilet", "installation", "repair"]'::jsonb,
             '{}'::jsonb,
+            '[]'::jsonb,
             NOW(),
             NOW()
         ),
@@ -121,6 +124,7 @@ def upgrade() -> None:
             true,
             '["electrical", "wiring", "installation", "safety"]'::jsonb,
             '{}'::jsonb,
+            '[]'::jsonb,
             NOW(),
             NOW()
         ),
@@ -145,6 +149,7 @@ def upgrade() -> None:
             false,
             '["electrical", "repair", "appliance", "maintenance"]'::jsonb,
             '{}'::jsonb,
+            '[]'::jsonb,
             NOW(),
             NOW()
         ),
@@ -169,6 +174,7 @@ def upgrade() -> None:
             true,
             '["electrical", "fan", "installation", "mounting"]'::jsonb,
             '{}'::jsonb,
+            '[]'::jsonb,
             NOW(),
             NOW()
         ),
@@ -194,6 +200,7 @@ def upgrade() -> None:
             true,
             '["cleaning", "bathroom", "deep-clean", "sanitization"]'::jsonb,
             '{}'::jsonb,
+            '[]'::jsonb,
             NOW(),
             NOW()
         ),
@@ -218,6 +225,7 @@ def upgrade() -> None:
             true,
             '["cleaning", "ac", "maintenance", "deep-clean"]'::jsonb,
             '{}'::jsonb,
+            '[]'::jsonb,
             NOW(),
             NOW()
         ),
@@ -242,6 +250,7 @@ def upgrade() -> None:
             false,
             '["cleaning", "water-tank", "disinfection", "health"]'::jsonb,
             '{}'::jsonb,
+            '[]'::jsonb,
             NOW(),
             NOW()
         ),
@@ -267,6 +276,7 @@ def upgrade() -> None:
             true,
             '["courier", "delivery", "logistics", "service"]'::jsonb,
             '{}'::jsonb,
+            '[]'::jsonb,
             NOW(),
             NOW()
         ),
@@ -291,6 +301,7 @@ def upgrade() -> None:
             false,
             '["cab", "taxi", "transportation", "booking"]'::jsonb,
             '{}'::jsonb,
+            '[]'::jsonb,
             NOW(),
             NOW()
         )

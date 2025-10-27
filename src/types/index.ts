@@ -10,10 +10,17 @@ export interface User {
   updatedAt: Date;
 }
 
+export interface SessionInfo {
+  type: string;
+  description: string;
+  lastActivity?: Date;
+}
+
 export interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  sessionInfo?: SessionInfo;
 }
 
 // Service Category Types
@@ -42,6 +49,7 @@ export interface Service {
   duration: number; // in minutes
   inclusions: string[];
   exclusions: string[];
+  requirements: string[];
   photos: ServicePhoto[];
   reviews: Review[];
   rating: number;
