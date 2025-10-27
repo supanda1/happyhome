@@ -400,7 +400,7 @@ const MyBookingsPage: React.FC = () => {
     const success = await bookAgain(booking);
     
     if (success) {
-      setNotification({type: 'success', message: `${booking.service.name} booked again successfully!`});
+      setNotification({type: 'success', message: `${booking.service.name} added to cart`});
       setTimeout(() => setNotification(null), 3000);
     } else {
       setNotification({type: 'error', message: 'Failed to book service again. Please try again.'});

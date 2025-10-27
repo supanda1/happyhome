@@ -2,10 +2,25 @@ import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { getContactSettings, type ContactSettings } from '../../utils/adminDataManager';
+import { useActivityTracker } from '../../hooks/useActivityTracker';
+import { useSessionManagerWithRouter } from '../../hooks/useSessionManagerWithRouter';
 
 const CustomerLayout: React.FC = () => {
   const { isAuthenticated, user, logout } = useAuth();
   const location = useLocation();
+  
+  // Initialize activity tracking for authenticated users
+  const { trackManualActivity } = useActivityTracker({
+    trackClicks: true,
+    trackScrolling: true,
+    trackNavigation: true,
+    trackForms: true,
+  });
+
+  // Initialize session management for dynamic session type updates
+  const { updateSessionForAction } = useSessionManagerWithRouter({
+    autoDetect: true
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All Services');
   const [showLocationModal, setShowLocationModal] = useState(false);
@@ -45,6 +60,10 @@ const CustomerLayout: React.FC = () => {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
+    // Track search activity for session extension
+    trackManualActivity('search');
+    // Update session type based on search activity
+    updateSessionForAction('search');
     // Handle search logic here
     console.log('Searching for:', searchQuery, 'in category:', selectedCategory);
   };
@@ -213,7 +232,13 @@ const CustomerLayout: React.FC = () => {
                         </Link>
                         <hr className="my-2 border-gray-100" />
                         <button 
-                          onClick={logout}
+                          onClick={async () => {
+                            try {
+                              await logout();
+                            } catch (error) {
+                              console.error('Logout error:', error);
+                            }
+                          }}
                           className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 font-medium"
                         >
                           🚪 Sign Out

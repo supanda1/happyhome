@@ -68,14 +68,13 @@ const DashboardStats: React.FC = () => {
 
   // No more mock data - fetched from database
 
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        setLoading(true);
-        console.log('🔄 Fetching dashboard stats from database...');
-        
-        // Try to get dashboard stats from API
-        const stats = await getDashboardStats();
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      console.log('🔄 Fetching dashboard stats from database...');
+      
+      // Try to get dashboard stats from API
+      const stats = await getDashboardStats();
         console.log('✅ Dashboard stats loaded:', stats);
         console.log('🔍 DashboardStats Debug - Raw API Response:', {
           stats: stats,
@@ -139,17 +138,63 @@ const DashboardStats: React.FC = () => {
       }
     };
 
+  useEffect(() => {
     fetchDashboardData();
   }, []);
+
+  // Auto-refresh dashboard data every 30 seconds to show real-time updates
+  useEffect(() => {
+    const interval = setInterval(() => {
+      console.log('🔄 Auto-refreshing dashboard data...');
+      fetchDashboardData();
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleManualRefresh = () => {
+    console.log('🔄 Manual refresh triggered');
+    fetchDashboardData();
+  };
 
 
   const getActivityColor = (type: string) => {
     switch (type) {
-      case 'booking': return 'bg-blue-100 text-blue-800';
-      case 'review': return 'bg-yellow-100 text-yellow-800';
-      case 'service': return 'bg-green-100 text-green-800';
-      case 'user': return 'bg-purple-100 text-purple-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'booking': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'update': return 'bg-orange-100 text-orange-800 border-orange-200';
+      case 'review': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'service': return 'bg-green-100 text-green-800 border-green-200';
+      case 'user': return 'bg-purple-100 text-purple-800 border-purple-200';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
+
+  const getActivityIcon = (type: string) => {
+    switch (type) {
+      case 'booking':
+        return (
+          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+          </svg>
+        );
+      case 'update':
+        return (
+          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+        );
+      case 'service':
+        return (
+          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+          </svg>
+        );
+      default:
+        return (
+          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        );
     }
   };
 
@@ -168,7 +213,7 @@ const DashboardStats: React.FC = () => {
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent -skew-x-12 animate-shimmer"></div>
               <div className="relative z-10">
                 <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-3">
-                  Loading Dashboard
+                  Loading Executive Summary
                 </h3>
                 <p className="text-gray-600 font-medium">Fetching analytics and dashboard statistics...</p>
                 <div className="flex items-center justify-center space-x-2 mt-4">
@@ -204,12 +249,27 @@ const DashboardStats: React.FC = () => {
                         </svg>
                       </div>
                       <div>
-                        <h1 className="text-4xl font-bold text-white tracking-tight">Dashboard Overview</h1>
+                        <h1 className="text-4xl font-bold text-white tracking-tight">Executive Summary</h1>
                         <p className="text-blue-100 text-lg">Real-time business insights and analytics</p>
                       </div>
                     </div>
                   </div>
-                  <div className="hidden md:block">
+                  <div className="hidden md:flex items-center space-x-4">
+                    <button
+                      onClick={handleManualRefresh}
+                      disabled={loading}
+                      className="bg-white/10 backdrop-blur-sm rounded-xl p-3 hover:bg-white/20 transition-colors disabled:opacity-50"
+                      title="Refresh Dashboard"
+                    >
+                      <svg 
+                        className={`w-5 h-5 text-white ${loading ? 'animate-spin' : ''}`} 
+                        fill="none" 
+                        stroke="currentColor" 
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                    </button>
                     <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4">
                       <div className="text-center">
                         <div className="text-2xl font-bold text-white">{dashboardData.totalBookings}</div>
@@ -360,21 +420,58 @@ const DashboardStats: React.FC = () => {
 
         {/* Recent Activity */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h3 className="text-xl font-semibold text-gray-900 mb-4">Recent Activity</h3>
-          <div className="space-y-4">
-            {dashboardData.recentActivity.map((activity) => (
-              <div key={activity.id} className="p-4 bg-gray-50 rounded-lg border-l-4 border-blue-500">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-900 font-medium">{activity.message}</p>
-                    <p className="text-xs text-gray-500 mt-1">{activity.timestamp}</p>
-                  </div>
-                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${getActivityColor(activity.type)}`}>
-                    {activity.type}
-                  </span>
-                </div>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xl font-semibold text-gray-900">Recent Activity</h3>
+            <button
+              onClick={handleManualRefresh}
+              disabled={loading}
+              className="p-2 text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
+              title="Refresh Activity"
+            >
+              <svg 
+                className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
+          </div>
+          <div className="space-y-3">
+            {dashboardData.recentActivity.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <p>No recent activity found</p>
+                <button 
+                  onClick={handleManualRefresh}
+                  className="mt-2 text-blue-600 hover:text-blue-700 text-sm"
+                >
+                  Refresh to check for updates
+                </button>
               </div>
-            ))}
+            ) : (
+              dashboardData.recentActivity.map((activity) => (
+                <div key={activity.id} className="p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
+                  <div className="flex items-start space-x-3">
+                    <div className={`p-2 rounded-full ${getActivityColor(activity.type)} border`}>
+                      {getActivityIcon(activity.type)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-gray-900 font-medium leading-relaxed">{activity.message}</p>
+                      <p className="text-xs text-gray-500 mt-1 flex items-center">
+                        <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                        </svg>
+                        {activity.timestamp}
+                      </p>
+                    </div>
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${getActivityColor(activity.type)}`}>
+                      {activity.type}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 

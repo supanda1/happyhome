@@ -1537,7 +1537,7 @@ const OrdersManagement: React.FC = () => {
                         className="bg-violet-500 hover:bg-violet-600 text-white font-medium py-1 px-3 rounded-full transition-colors duration-200 text-xs flex items-center space-x-1"
                       >
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 6 1 6 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                         </svg>
                         <span>
@@ -1921,17 +1921,44 @@ const OrdersManagement: React.FC = () => {
                                         </div>
                                         
                                         <div className="flex items-center space-x-2">
-                                          <div className={`px-2 py-1 text-xs font-bold rounded-lg border ${
-                                            (order.status === 'cancelled' || item.item_status === 'cancelled') ? 'bg-red-100 text-red-700 border-red-300' :
-                                            (getEffectiveOrderStatus(order) === 'completed' || item.item_status === 'completed') ? 'bg-emerald-100 text-emerald-700 border-emerald-300' :
-                                            item.item_status === 'in_progress' ? 'bg-blue-100 text-blue-700 border-blue-300' :
-                                            item.item_status === 'scheduled' ? 'bg-amber-100 text-amber-700 border-amber-300' :
-                                            'bg-gray-100 text-gray-700 border-gray-300'
-                                          }`}>
-                                            {order.status === 'cancelled' ? 'CANCELLED' : 
-                                             getEffectiveOrderStatus(order) === 'completed' ? 'COMPLETED' :
-                                             (item.item_status || 'pending').toUpperCase()}
-                                          </div>
+                                          {(() => {
+                                            // Get consistent item display status
+                                            const effectiveOrderStatus = getEffectiveOrderStatus(order);
+                                            let displayStatus = item.item_status || 'pending';
+                                            let displayText = displayStatus.toUpperCase();
+                                            
+                                            // Override logic for consistency
+                                            if (order.status === 'cancelled' || item.item_status === 'cancelled') {
+                                              displayStatus = 'cancelled';
+                                              displayText = 'CANCELLED';
+                                            } else if (effectiveOrderStatus === 'completed' || item.item_status === 'completed') {
+                                              displayStatus = 'completed';
+                                              displayText = 'COMPLETED';
+                                            } else if (effectiveOrderStatus === 'in_progress') {
+                                              // For in-progress orders, show unified status for all non-completed tasks
+                                              if ((item.item_status as string) === 'completed') {
+                                                displayStatus = 'completed';
+                                                displayText = 'COMPLETED';
+                                              } else {
+                                                // All non-completed tasks show as IN PROGRESS when order is in progress
+                                                displayStatus = 'in_progress';
+                                                displayText = 'IN PROGRESS';
+                                              }
+                                            }
+                                            
+                                            const statusStyle = 
+                                              displayStatus === 'cancelled' ? 'bg-red-100 text-red-700 border-red-300' :
+                                              displayStatus === 'completed' ? 'bg-emerald-100 text-emerald-700 border-emerald-300' :
+                                              displayStatus === 'in_progress' ? 'bg-blue-100 text-blue-700 border-blue-300' :
+                                              displayStatus === 'scheduled' ? 'bg-amber-100 text-amber-700 border-amber-300' :
+                                              'bg-gray-100 text-gray-700 border-gray-300';
+                                            
+                                            return (
+                                              <div className={`px-2 py-1 text-xs font-bold rounded-lg border ${statusStyle}`}>
+                                                {displayText}
+                                              </div>
+                                            );
+                                          })()}
                                           
                                           {/* Complete Task Button - Show for in_progress and scheduled tasks */}
                                           {(item.item_status === 'in_progress' || (item.item_status === 'scheduled' && getEffectiveOrderStatus(order) === 'in_progress')) && order.status !== 'cancelled' && getEffectiveOrderStatus(order) !== 'completed' && (

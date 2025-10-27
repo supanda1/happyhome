@@ -1370,19 +1370,6 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-purple-50 to-blue-50 relative" style={{backgroundImage: 'radial-gradient(circle at 15% 85%, rgba(139, 69, 199, 0.08) 0%, transparent 70%), radial-gradient(circle at 85% 15%, rgba(59, 130, 246, 0.06) 0%, transparent 70%), radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.04) 0%, transparent 60%), linear-gradient(45deg, rgba(236, 72, 153, 0.03) 0%, transparent 50%)'}}>
         
-        {/* DEBUG: Test Navigation Button */}
-        <div className="p-4 bg-red-100 text-center border-b-2 border-red-300">
-          <button 
-            onClick={() => {
-              console.log('🧪 TEST: About to call navigateToServiceDetail with Testing Service ID');
-              navigateToServiceDetail('5a2bbcd1-2b17-4a72-b9c6-8f3d4e5a6b7c');
-            }}
-            className="bg-red-500 text-white px-6 py-3 rounded-lg font-bold hover:bg-red-600"
-          >
-            🧪 TEST: Navigate to Testing Service Details (Click Me!)
-          </button>
-          <p className="text-red-700 mt-2 text-sm">This is a debug button to test service details navigation</p>
-        </div>
         
         {/* Dynamic Database Banners */}
         {bannersLoading ? (
@@ -2195,9 +2182,13 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                         </button>
                         <hr className="my-2 border-gray-100" />
                         <button 
-                          onClick={() => {
-                            logout();
-                            setCurrentPage('home');
+                          onClick={async () => {
+                            try {
+                              await logout();
+                              setCurrentPage('home');
+                            } catch (error) {
+                              console.error('Logout error:', error);
+                            }
                           }}
                           className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 font-medium"
                         >
@@ -2554,7 +2545,17 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
               {currentPage === 'profile' && <ProfilePage />}
               {currentPage === 'offers' && <OfferPage navigateHome={navigateToHome} navigateToLogin={navigateToLogin} navigateToCheckout={navigateToCheckout} navigateToCart={navigateToCart} />}
               {currentPage === 'service-detail' && selectedServiceId && (
-                <ServiceDetailPageRoute serviceId={selectedServiceId} />
+                <ServiceDetailPageRoute 
+                  serviceId={selectedServiceId} 
+                  onNavigateHome={navigateToHome}
+                  onNavigateLogin={navigateToLogin}
+                  onNavigateBooking={(serviceId: string) => {
+                    // Navigate to booking page - you can implement this as needed
+                    console.log('Navigate to booking for service:', serviceId);
+                    // For now, redirect to checkout or implement booking page
+                    navigateToCheckout();
+                  }}
+                />
               )}
               {currentPage === 'admin' && (
                 <AdminPanel 
