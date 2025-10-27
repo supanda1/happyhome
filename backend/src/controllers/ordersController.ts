@@ -706,6 +706,82 @@ export class OrdersController {
         };
         return res.status(404).json(response);
       }
+
+      // Check if we need to update overall order status when item status changes
+      if (updates.item_status) {
+        const client = await pool.connect();
+        try {
+          await client.query('BEGIN');
+          
+          // Get all items in the order to check overall completion status
+          const orderItemsResult = await client.query(`
+            SELECT 
+              COUNT(*) as total_items,
+              COUNT(CASE WHEN item_status = 'completed' THEN 1 END) as completed_items,
+              COUNT(CASE WHEN item_status = 'in_progress' THEN 1 END) as in_progress_items,
+              COUNT(CASE WHEN item_status = 'scheduled' THEN 1 END) as scheduled_items,
+              COUNT(CASE WHEN item_status = 'cancelled' THEN 1 END) as cancelled_items
+            FROM order_items 
+            WHERE order_id = $1
+          `, [orderId]);
+          
+          const stats = orderItemsResult.rows[0];
+          const totalItems = parseInt(stats.total_items);
+          const completedItems = parseInt(stats.completed_items);
+          const inProgressItems = parseInt(stats.in_progress_items);
+          const scheduledItems = parseInt(stats.scheduled_items);
+          const cancelledItems = parseInt(stats.cancelled_items);
+          
+          let newOrderStatus = null;
+          let statusMessage = '';
+          
+          // Determine new order status based on item statuses
+          if (completedItems === totalItems) {
+            // All items completed - mark order as completed
+            newOrderStatus = 'completed';
+            statusMessage = `All ${totalItems} items completed - Order completed`;
+          } else if (inProgressItems > 0) {
+            // At least one item is in progress - mark order as in_progress
+            newOrderStatus = 'in_progress';
+            statusMessage = `${inProgressItems} items in progress - Order in progress`;
+          } else if (scheduledItems > 0) {
+            // Items are scheduled but none in progress - keep as scheduled
+            newOrderStatus = 'scheduled';
+            statusMessage = `${scheduledItems} items scheduled - Order scheduled`;
+          } else if (cancelledItems === totalItems) {
+            // All items cancelled - mark order as cancelled
+            newOrderStatus = 'cancelled';
+            statusMessage = `All ${totalItems} items cancelled - Order cancelled`;
+          }
+          
+          // Update order status if it changed
+          if (newOrderStatus) {
+            const currentOrderResult = await client.query('SELECT status FROM orders WHERE id = $1', [orderId]);
+            const currentStatus = currentOrderResult.rows[0]?.status;
+            
+            if (currentStatus !== newOrderStatus) {
+              const orderNote = `\n[${new Date().toISOString().substring(0, 10)}] ${statusMessage}`;
+              
+              await client.query(`
+                UPDATE orders 
+                SET status = $1, 
+                    special_instructions = COALESCE(special_instructions, '') || $2,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = $3
+              `, [newOrderStatus, orderNote, orderId]);
+              
+              console.log(`✅ Order ${orderId} status automatically updated from '${currentStatus}' to '${newOrderStatus}' - ${statusMessage}`);
+            }
+          }
+          
+          await client.query('COMMIT');
+        } catch (error) {
+          await client.query('ROLLBACK');
+          console.error('Error updating order status:', error);
+        } finally {
+          client.release();
+        }
+      }
       
       const response: ApiResponse<OrderItem> = {
         success: true,
@@ -921,7 +997,7 @@ export class OrdersController {
         // All items are assigned, update order status
         const orderNote = `\n[${new Date().toISOString().substring(0, 10)}] All items assigned - Order scheduled`;
         await client.query(
-          'UPDATE orders SET status = $1, special_instructions = COALESCE(special_instructions, \'\') || $2 WHERE id = $3',
+          'UPDATE orders SET status = $1, special_instructions = COALESCE(special_instructions, \'\') || $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3',
           ['scheduled', orderNote, orderId] // Set order status to scheduled when all items assigned
         );
       }
@@ -1461,7 +1537,7 @@ export class OrdersController {
           // All items are assigned, update order status to scheduled
           const orderNote = `\n[${new Date().toISOString().substring(0, 10)}] All items auto-assigned - Order scheduled`;
           await client.query(
-            'UPDATE orders SET status = $1, special_instructions = COALESCE(special_instructions, \'\') || $2 WHERE id = $3',
+            'UPDATE orders SET status = $1, special_instructions = COALESCE(special_instructions, \'\') || $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3',
             ['scheduled', orderNote, orderId]
           );
           

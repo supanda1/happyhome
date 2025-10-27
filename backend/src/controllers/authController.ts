@@ -1,7 +1,8 @@
 import { Request, Response } from 'express';
 import pool from '../config/database';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import jwt, { SignOptions } from 'jsonwebtoken';
+import { getSessionType, getCookieOptions, SessionTypeName } from '../config/sessionConfig';
 
 // JWT payload interfaces
 interface JWTPayload {
@@ -14,8 +15,14 @@ interface RefreshTokenPayload {
   userId: string;
 }
 
+// Ensure JWT secrets are properly typed and not undefined
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'your-refresh-secret';
+
+// Validate JWT secrets
+if (!JWT_SECRET || !JWT_REFRESH_SECRET) {
+  throw new Error('JWT_SECRET and JWT_REFRESH_SECRET environment variables are required');
+}
 
 // Register new user
 export const register = async (req: Request, res: Response) => {
@@ -55,23 +62,31 @@ export const register = async (req: Request, res: Response) => {
 
     const user = result.rows[0];
 
-    // Generate tokens
+    // Get session type for new user registration (browsing session by default)
+    const sessionType = getSessionType(user.role, 'login');
+    const cookieOptions = getCookieOptions(sessionType, process.env.NODE_ENV === 'production');
+
+    // Generate tokens with dynamic duration based on session type
+    const signOptions: SignOptions = { expiresIn: sessionType.accessTokenDuration as any };
+    const refreshSignOptions: SignOptions = { expiresIn: sessionType.refreshTokenDuration as any };
+    
     const accessToken = jwt.sign(
       { userId: user.id, email: user.email, role: user.role },
       JWT_SECRET,
-      { expiresIn: '1h' }
+      signOptions
     );
 
     const refreshToken = jwt.sign(
       { userId: user.id },
       JWT_REFRESH_SECRET,
-      { expiresIn: '7d' }
+      refreshSignOptions
     );
 
-    // Store refresh token in database
+    // Store refresh token in database with dynamic expiration
+    const refreshTokenDuration = sessionType.refreshTokenDuration;
     await pool.query(`
       INSERT INTO refresh_tokens (id, user_id, token, expires_at, is_revoked, created_at)
-      VALUES (gen_random_uuid(), $1, $2, NOW() + INTERVAL '7 days', false, NOW())
+      VALUES (gen_random_uuid(), $1, $2, NOW() + INTERVAL '${refreshTokenDuration}', false, NOW())
     `, [user.id, refreshToken]);
 
     // Format user response
@@ -87,12 +102,17 @@ export const register = async (req: Request, res: Response) => {
       createdAt: user.created_at
     };
 
+    // Set JWT tokens as HTTP-only cookies with dynamic session duration
+    res.setHeader('Set-Cookie', [
+      `access_token=${accessToken}; HttpOnly; SameSite=Lax; Max-Age=${cookieOptions.maxAge}; Path=/`,
+      `refresh_token=${refreshToken}; HttpOnly; SameSite=Lax; Max-Age=${cookieOptions.maxAge}; Path=/`
+    ]);
+
     res.status(201).json({
       success: true,
       data: {
         user: userResponse,
-        accessToken,
-        refreshToken
+        sessionType: sessionType.description
       },
       message: 'User registered successfully'
     });
@@ -151,23 +171,31 @@ export const login = async (req: Request, res: Response) => {
       });
     }
 
-    // Generate tokens
+    // Get session type for login operation
+    const sessionType = getSessionType(user.role, 'login');
+    const cookieOptions = getCookieOptions(sessionType, process.env.NODE_ENV === 'production');
+
+    // Generate tokens with dynamic duration based on session type
+    const signOptions: SignOptions = { expiresIn: sessionType.accessTokenDuration as any };
+    const refreshSignOptions: SignOptions = { expiresIn: sessionType.refreshTokenDuration as any };
+    
     const accessToken = jwt.sign(
       { userId: user.id, email: user.email, role: user.role },
       JWT_SECRET,
-      { expiresIn: '1h' }
+      signOptions
     );
 
     const refreshToken = jwt.sign(
       { userId: user.id },
       JWT_REFRESH_SECRET,
-      { expiresIn: '7d' }
+      refreshSignOptions
     );
 
-    // Store refresh token
+    // Store refresh token with dynamic expiration
+    const refreshTokenDuration = sessionType.refreshTokenDuration;
     await pool.query(`
       INSERT INTO refresh_tokens (id, user_id, token, expires_at, is_revoked, created_at)
-      VALUES (gen_random_uuid(), $1, $2, NOW() + INTERVAL '7 days', false, NOW())
+      VALUES (gen_random_uuid(), $1, $2, NOW() + INTERVAL '${refreshTokenDuration}', false, NOW())
     `, [user.id, refreshToken]);
 
     // Format user response
@@ -183,18 +211,17 @@ export const login = async (req: Request, res: Response) => {
       createdAt: user.created_at
     };
 
-    // Set JWT token as HTTP-only cookie for session-based authentication
+    // Set JWT tokens as HTTP-only cookies with dynamic session duration
     res.setHeader('Set-Cookie', [
-      `access_token=${accessToken}; HttpOnly; SameSite=Lax; Max-Age=${60 * 60}; Path=/`,
-      `refresh_token=${refreshToken}; HttpOnly; SameSite=Lax; Max-Age=${7 * 24 * 60 * 60}; Path=/`
+      `access_token=${accessToken}; HttpOnly; SameSite=Lax; Max-Age=${cookieOptions.maxAge}; Path=/`,
+      `refresh_token=${refreshToken}; HttpOnly; SameSite=Lax; Max-Age=${cookieOptions.maxAge}; Path=/`
     ]);
-
 
     res.json({
       success: true,
       data: {
-        user: userResponse
-        // Removed tokens from response - they're now in HTTP-only cookies
+        user: userResponse,
+        sessionType: sessionType.description
       },
       message: 'Login successful'
     });
@@ -612,24 +639,31 @@ export const refreshToken = async (req: Request, res: Response) => {
 
     const user = userResult.rows[0];
 
-    // Generate new tokens
+    // Get session type for refresh operation (keep current session level)
+    const sessionType = getSessionType(user.role, 'refresh');
+
+    // Generate new tokens with dynamic duration
+    const signOptions: SignOptions = { expiresIn: sessionType.accessTokenDuration as any };
+    const refreshSignOptions: SignOptions = { expiresIn: sessionType.refreshTokenDuration as any };
+    
     const newAccessToken = jwt.sign(
       { userId: user.id, email: user.email, role: user.role },
       JWT_SECRET,
-      { expiresIn: '1h' }
+      signOptions
     );
 
     const newRefreshToken = jwt.sign(
       { userId: user.id },
       JWT_REFRESH_SECRET,
-      { expiresIn: '7d' }
+      refreshSignOptions
     );
 
     // Replace old refresh token with new one
     await pool.query('DELETE FROM refresh_tokens WHERE token = $1', [refresh_token]);
+    const refreshTokenDuration = sessionType.refreshTokenDuration;
     await pool.query(`
       INSERT INTO refresh_tokens (id, user_id, token, expires_at, created_at)
-      VALUES (gen_random_uuid(), $1, $2, NOW() + INTERVAL '7 days', NOW())
+      VALUES (gen_random_uuid(), $1, $2, NOW() + INTERVAL '${refreshTokenDuration}', NOW())
     `, [user.id, newRefreshToken]);
 
     res.json({
@@ -769,6 +803,150 @@ export const changePassword = async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'Failed to change password'
+    });
+  }
+};
+
+// Update session type based on user activity
+export const updateSessionType = async (req: Request, res: Response) => {
+  try {
+    
+    // Simple cookie parser helper
+    const parseCookies = (req: Request): Record<string, string> => {
+      const cookies: Record<string, string> = {};
+      const cookieHeader = req.headers.cookie;
+      
+      if (cookieHeader) {
+        cookieHeader.split(';').forEach(cookie => {
+          const [name, ...rest] = cookie.split('=');
+          const value = rest.join('=').trim();
+          if (name && value) {
+            cookies[name.trim()] = decodeURIComponent(value);
+          }
+        });
+      }
+      
+      return cookies;
+    };
+
+    // Get cookies from request
+    const cookies = parseCookies(req);
+    
+    // Try to get token from cookie first, then fallback to Authorization header
+    let token = cookies.access_token;
+    if (!token) {
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7);
+      }
+    }
+    
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authorization token required'
+      });
+    }
+
+    const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
+    const userId = decoded.userId;
+
+    const { sessionType: requestedSessionType, operation = 'manual', currentRoute } = req.body;
+
+    if (!requestedSessionType) {
+      return res.status(400).json({
+        success: false,
+        error: 'Session type is required'
+      });
+    }
+
+    // Map frontend session type names to backend session types
+    const sessionTypeMap: Record<string, string> = {
+      'BROWSING': 'browse',
+      'BOOKING': 'booking', 
+      'PROFILE_VIEW': 'profile_view',
+      'PROFILE_EDIT': 'profile_edit',
+      'ADMIN_READ': 'admin_read',
+      'ADMIN_WRITE': 'admin_write', 
+      'ADMIN_SENSITIVE': 'admin_sensitive'
+    };
+
+    const mappedOperation = sessionTypeMap[requestedSessionType] || 'browse';
+
+    // Get user information for session type calculation
+    const userResult = await pool.query(
+      'SELECT id, role FROM users WHERE id = $1 AND is_active = true',
+      [userId]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    const user = userResult.rows[0];
+
+    // Determine if this is a sensitive operation
+    const isSensitiveOperation = mappedOperation.includes('sensitive') || mappedOperation.includes('password') || mappedOperation.includes('user_management');
+    const isWriteOperation = mappedOperation.includes('write') || mappedOperation.includes('edit') || mappedOperation.includes('update');
+
+    // Get appropriate session type based on user role and operation
+    const sessionType = getSessionType(user.role, mappedOperation, isWriteOperation, isSensitiveOperation);
+    const cookieOptions = getCookieOptions(sessionType, process.env.NODE_ENV === 'production');
+
+    // Generate new tokens with updated session duration
+    const signOptions: SignOptions = { expiresIn: sessionType.accessTokenDuration as any };
+    const refreshSignOptions: SignOptions = { expiresIn: sessionType.refreshTokenDuration as any };
+    
+    const newAccessToken = jwt.sign(
+      { userId: user.id, email: decoded.email, role: user.role },
+      JWT_SECRET,
+      signOptions
+    );
+
+    const newRefreshToken = jwt.sign(
+      { userId: user.id },
+      JWT_REFRESH_SECRET,
+      refreshSignOptions
+    );
+
+    // Update refresh token in database
+    await pool.query('DELETE FROM refresh_tokens WHERE user_id = $1', [userId]);
+    const refreshTokenDuration = sessionType.refreshTokenDuration;
+    await pool.query(`
+      INSERT INTO refresh_tokens (id, user_id, token, expires_at, created_at)
+      VALUES (gen_random_uuid(), $1, $2, NOW() + INTERVAL '${refreshTokenDuration}', NOW())
+    `, [user.id, newRefreshToken]);
+
+    // Set updated JWT tokens as HTTP-only cookies
+    res.setHeader('Set-Cookie', [
+      `access_token=${newAccessToken}; HttpOnly; SameSite=Lax; Max-Age=${cookieOptions.maxAge}; Path=/`,
+      `refresh_token=${newRefreshToken}; HttpOnly; SameSite=Lax; Max-Age=${cookieOptions.maxAge}; Path=/`
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        sessionType: sessionType.description,
+        operation: mappedOperation,
+        route: currentRoute,
+        expiresIn: sessionType.accessTokenDuration
+      },
+      message: `Session updated for ${operation}`
+    });
+  } catch (error) {
+    console.error('Error updating session type:', error);
+    if (error instanceof jwt.JsonWebTokenError) {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid token'
+      });
+    }
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update session type'
     });
   }
 };

@@ -72,6 +72,18 @@ class DataSeeder:
         
         users_data = [
             {
+                "email": "superadmin@happyhomes.com",
+                "password": "superadmin123",
+                "first_name": "Super",
+                "last_name": "Admin",
+                "phone": "+919876543200",
+                "role": UserRole.SUPER_ADMIN,
+                "is_verified": True,
+                "profile_completed": True,
+                "is_active": True,
+                "failed_login_attempts": 0,
+            },
+            {
                 "email": "admin@happyhomes.com",
                 "password": "admin123",
                 "first_name": "Admin",
@@ -80,6 +92,8 @@ class DataSeeder:
                 "role": UserRole.ADMIN,
                 "is_verified": True,
                 "profile_completed": True,
+                "is_active": True,
+                "failed_login_attempts": 0,
             },
             {
                 "email": "customer@example.com",
@@ -90,6 +104,8 @@ class DataSeeder:
                 "role": UserRole.CUSTOMER,
                 "is_verified": True,
                 "profile_completed": True,
+                "is_active": True,
+                "failed_login_attempts": 0,
             },
             {
                 "email": "jane.smith@example.com",
@@ -100,6 +116,8 @@ class DataSeeder:
                 "role": UserRole.CUSTOMER,
                 "is_verified": True,
                 "profile_completed": True,
+                "is_active": True,
+                "failed_login_attempts": 0,
             },
         ]
         
@@ -107,7 +125,7 @@ class DataSeeder:
             password = user_data.pop("password")
             user = User(
                 **user_data,
-                password_hash=get_password_hash(password)
+                password=get_password_hash(password)
             )
             session.add(user)
             await session.flush()  # Get the user ID

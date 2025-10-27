@@ -515,12 +515,31 @@ async def create_admin_service(
         }
         
     except HTTPException:
+        await db.rollback()
         raise
+    except ValueError as e:
+        await db.rollback()
+        logger.error("Invalid data for service creation", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid data provided: {str(e)}"
+        )
     except Exception as e:
-        logger.error("Failed to create service", error=str(e))
+        await db.rollback()
+        logger.error("Failed to create service", error=str(e), traceback=True)
+        error_message = "Failed to create service"
+        if "unique constraint" in str(e).lower():
+            error_message = "A service with this name already exists"
+        elif "foreign key" in str(e).lower():
+            error_message = "Invalid category or subcategory ID provided"
+        elif "not null" in str(e).lower():
+            error_message = "Required fields are missing"
+        else:
+            error_message = f"Service creation failed: {str(e)}"
+        
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create service"
+            detail=error_message
         )
 
 

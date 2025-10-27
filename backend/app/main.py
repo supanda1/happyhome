@@ -23,13 +23,16 @@ from .middleware import (
 )
 from .routes import (
     admin_router,
+    aliases_router,
     analytics_router,
     auth_router,
+    banners_router,
     bookings_router,
     cart_router,
     configuration_router,
     coupons_router,
     dashboard_router,
+    engineers_router,
     health_router,
     images_router,
     notifications_router,
@@ -146,6 +149,25 @@ def create_app() -> FastAPI:
     
     # SMS Configuration routes (using /api prefix to match frontend expectations)
     app.include_router(sms_config_router, prefix="/api/sms-config", tags=["SMS Configuration"])
+    
+    # Banner routes (using /api prefix to match frontend expectations)
+    app.include_router(banners_router, prefix="/api", tags=["Banners"])
+    
+    # Engineers routes (using /api prefix to match frontend expectations)
+    app.include_router(engineers_router, prefix="", tags=["Engineers"])
+    
+    # Services routes (using /api prefix to match frontend expectations)
+    app.include_router(services_router, prefix="/api", tags=["Services Frontend"])
+    
+    # Route aliases for frontend compatibility
+    # Dashboard routes alias (frontend calls /api/dashboard/stats instead of /api/v1/dashboard/stats)
+    app.include_router(dashboard_router, prefix="/api", tags=["Dashboard Frontend"])
+    
+    # Route aliases for missing endpoints (categories, services, coupons, contact-settings)
+    app.include_router(aliases_router, prefix="/api", tags=["Route Aliases"])
+    
+    # Root level aliases for health and admin endpoints (no /api prefix)
+    app.include_router(aliases_router, prefix="", tags=["Root Aliases"])
     
     return app
 

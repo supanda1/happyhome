@@ -7,7 +7,8 @@ import {
   updateProfile,
   getCurrentUser,
   refreshToken,
-  changePassword
+  changePassword,
+  updateSessionType
 } from '../controllers/authController';
 
 const router = express.Router();
@@ -35,5 +36,8 @@ router.post('/refresh', refreshToken);
 
 // POST /api/auth/change-password - Change user password
 router.post('/change-password', changePassword);
+
+// POST /api/auth/update-session - Update session type based on user activity
+router.post('/update-session', updateSessionType);
 
 export default router;

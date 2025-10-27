@@ -102,7 +102,7 @@ async def register_user(
         # Create user
         user = User(
             email=user_data.email,
-            password_hash=password_hash,
+            password=password_hash,
             first_name=user_data.first_name,
             last_name=user_data.last_name,
             phone=user_data.phone,
@@ -215,7 +215,7 @@ async def login_user(
             )
         
         # Verify password
-        if not verify_password(credentials.password, user.password_hash):
+        if not verify_password(credentials.password, user.password):
             logger.warning("Failed login attempt", user_id=str(user.id))
             
             # Update failed login attempts
@@ -618,7 +618,7 @@ async def change_password(
             )
         
         # Verify current password
-        if not verify_password(password_data.current_password, user.password_hash):
+        if not verify_password(password_data.current_password, user.password):
             logger.warning("Incorrect current password", user_id=str(user.id))
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -640,7 +640,7 @@ async def change_password(
         
         # Update password
         new_password_hash = get_password_hash(password_data.new_password)
-        user.password_hash = new_password_hash
+        user.password = new_password_hash
         user.updated_at = datetime.utcnow()
         
         # Revoke all refresh tokens to force re-login on other devices
@@ -772,7 +772,7 @@ async def reset_password(
         
         # Update password
         new_password_hash = get_password_hash(request.password)
-        user.password_hash = new_password_hash
+        user.password = new_password_hash
         user.failed_login_attempts = 0
         user.locked_until = None
         user.updated_at = datetime.utcnow()

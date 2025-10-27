@@ -394,6 +394,8 @@ async def create_service(
 # - DELETE /photos/{photo_id} - Delete service photo (admin only)
 
 
+# Routes with path parameters must be defined LAST to avoid conflicts with static routes
+
 @router.get("/{service_id}", response_model=BaseResponse[ServiceResponse])
 async def get_service(
     service_id: str,

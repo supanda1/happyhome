@@ -75,15 +75,18 @@ export const getDashboardStats = async (req: Request, res: Response) => {
       FROM orders
     `);
 
-    // Get top services by booking count (simplified for now)
+    // Get top services by actual booking count
     const topServicesResult = await pool.query(`
       SELECT 
         s.name,
-        'Unknown' as category,
-        0 as bookings
+        COALESCE(sc.name, 'Unknown') as category,
+        COUNT(oi.id) as bookings
       FROM services s
+      LEFT JOIN service_categories sc ON s.category_id = sc.id
+      LEFT JOIN order_items oi ON s.id = oi.service_id
       WHERE s.is_active = true
-      ORDER BY s.name
+      GROUP BY s.id, s.name, sc.name
+      ORDER BY COUNT(oi.id) DESC, s.name ASC
       LIMIT 5
     `);
 
@@ -101,6 +104,30 @@ export const getDashboardStats = async (req: Request, res: Response) => {
       FROM orders o
       ORDER BY o.created_at DESC
       LIMIT 5
+    `);
+
+    // Get recent activity - real orders and state changes (show orders created OR updated recently)
+    const recentActivityResult = await pool.query(`
+      SELECT 
+        o.id,
+        o.order_number,
+        o.status,
+        o.customer_name,
+        o.total_amount,
+        o.created_at,
+        o.updated_at,
+        'order' as activity_type,
+        CASE 
+          WHEN o.updated_at > o.created_at + INTERVAL '1 minute' THEN 'status_change'
+          ELSE 'new_order'
+        END as action_type
+      FROM orders o
+      WHERE (o.created_at >= (CURRENT_DATE AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date
+             OR o.updated_at >= (CURRENT_DATE AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date
+             OR o.created_at >= NOW() - INTERVAL '6 hours'
+             OR o.updated_at >= NOW() - INTERVAL '6 hours')
+      ORDER BY GREATEST(o.created_at, o.updated_at) DESC
+      LIMIT 10
     `);
 
     // Get monthly revenue data for chart (last 6 months)
@@ -161,49 +188,49 @@ export const getDashboardStats = async (req: Request, res: Response) => {
         month: String(row.month),
         revenue: parseFloat(row.revenue) || 0
       })),
-      // Add recent activity (mock for now - can be enhanced later)
-      recentActivity: [
-        {
-          id: 'activity-1',
-          type: 'booking',
-          message: 'New order received - Order #HH00000014',
-          timestamp: new Date().toISOString()
-        },
-        {
-          id: 'activity-2', 
-          type: 'service',
-          message: 'Service updated - Plumbing Repair',
-          timestamp: new Date(Date.now() - 3600000).toISOString()
+      // Real recent activity from database
+      recentActivity: recentActivityResult.rows.map((row: any, index: number) => {
+        const isStatusChange = row.action_type === 'status_change';
+        const customerName = row.customer_name || 'Customer';
+        const amount = parseFloat(row.total_amount) || 0;
+        
+        let message = '';
+        let activityType = 'booking';
+        
+        if (isStatusChange) {
+          message = `Order ${row.order_number} status changed to ${row.status.charAt(0).toUpperCase() + row.status.slice(1)} - ${customerName} (₹${amount.toLocaleString()})`;
+          activityType = 'update';
+        } else {
+          message = `New order received - ${row.order_number} by ${customerName} (₹${amount.toLocaleString()})`;
+          activityType = 'booking';
         }
-      ]
+        
+        return {
+          id: `activity-${row.id || index}`,
+          type: activityType,
+          message: message,
+          timestamp: formatTimeAgo(isStatusChange ? row.updated_at : row.created_at)
+        };
+      })
     };
 
-    // Debug logging to see exact structure and financial data
-    console.log('🔍 Dashboard API Response Debug:', {
-      totalServices: dashboardData.totalServices,
-      totalBookings: dashboardData.totalBookings,
-      totalRevenue: dashboardData.totalRevenue,
-      monthlyRevenue: dashboardData.monthlyRevenue,
-      completedRevenue: dashboardData.completedRevenue,
-      pendingRevenue: dashboardData.pendingRevenue,
-      revenueFromDB: {
-        monthly_total_value: parseFloat(revenueResult.rows[0].monthly_total_value) || 0,
-        total_completed_revenue: parseFloat(revenueResult.rows[0].total_completed_revenue) || 0,
-        pending_revenue: parseFloat(revenueResult.rows[0].pending_revenue) || 0
-      },
-      revenueBusinessLogic: {
-        completedStatuses: 'completed, scheduled, in_progress, confirmed',
-        pendingStatuses: 'pending only',
-        note: 'Business rule: scheduled/in_progress orders count as completed revenue'
-      },
-      topServicesCount: dashboardData.topServices.length,
-      recentBookingsCount: dashboardData.recentBookings.length,
-      monthlyRevenueChartCount: dashboardData.monthlyRevenueChart.length
-    });
+    // Dashboard data is ready with proper section titles
 
     res.json({
       success: true,
-      data: dashboardData
+      data: {
+        ...dashboardData,
+        // Add professional section titles for frontend use
+        sectionTitles: {
+          overview: "Executive Summary",
+          statistics: "Key Metrics",
+          revenue: "Revenue Analytics", 
+          bookings: "Recent Bookings",
+          services: "Top Services",
+          activity: "Recent Activity",
+          charts: "Performance Charts"
+        }
+      }
     });
   } catch (error) {
     console.error('Error fetching dashboard stats:', error);
@@ -214,25 +241,56 @@ export const getDashboardStats = async (req: Request, res: Response) => {
   }
 };
 
-// Helper function to format timestamps
+// Helper function to format timestamps - properly handle UTC database timestamps for IST display
 function formatTimeAgo(timestamp: string): string {
-  const now = new Date();
-  const past = new Date(timestamp);
-  const diffInMilliseconds = now.getTime() - past.getTime();
+  // Database stores UTC timestamps, so parse them as UTC
+  const pastUTC = new Date(timestamp);
+  const nowUTC = new Date();
+  
+  // Calculate difference in UTC time (this is accurate regardless of timezone)
+  const diffInMilliseconds = nowUTC.getTime() - pastUTC.getTime();
   const diffInMinutes = Math.floor(diffInMilliseconds / (1000 * 60));
   const diffInHours = Math.floor(diffInMinutes / 60);
   const diffInDays = Math.floor(diffInHours / 24);
 
+  console.log('🕒 Timezone-aware time calculation:', {
+    dbTimestamp_UTC: timestamp,
+    dbTimestamp_parsed: pastUTC.toISOString(),
+    currentTime_UTC: nowUTC.toISOString(),
+    diffInMinutes,
+    diffInHours,
+    // Show what this looks like in IST for debugging
+    dbTime_IST: pastUTC.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+    currentTime_IST: nowUTC.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
+  });
+
+  // Time difference calculations (same logic as before, but now accurate)
   if (diffInMinutes < 1) {
     return 'Just now';
   } else if (diffInMinutes < 60) {
     return `${diffInMinutes} minute${diffInMinutes !== 1 ? 's' : ''} ago`;
   } else if (diffInHours < 24) {
-    return `${diffInHours} hour${diffInHours !== 1 ? 's' : ''} ago`;
+    // Show more precise hours for recent items
+    if (diffInMinutes < 90) {
+      return '1 hour ago';
+    } else if (diffInMinutes < 150) {
+      return '2 hours ago';
+    } else {
+      // For longer periods, be more precise by rounding to nearest hour
+      const preciseHours = Math.round(diffInMinutes / 60);
+      return `${preciseHours} hour${preciseHours !== 1 ? 's' : ''} ago`;
+    }
   } else if (diffInDays < 7) {
     return `${diffInDays} day${diffInDays !== 1 ? 's' : ''} ago`;
   } else {
-    return past.toLocaleDateString();
+    // Format date for display in IST timezone
+    const options: Intl.DateTimeFormatOptions = { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric',
+      timeZone: 'Asia/Kolkata'
+    };
+    return pastUTC.toLocaleDateString('en-IN', options);
   }
 }
 

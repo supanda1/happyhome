@@ -6,13 +6,16 @@ with the main FastAPI application.
 """
 
 from .admin import router as admin_router
+from .aliases import router as aliases_router
 from .analytics import router as analytics_router
 from .auth import router as auth_router
+from .banners import router as banners_router
 from .bookings import router as bookings_router  
 from .cart import router as cart_router
 from .configuration import router as configuration_router
 from .coupons import router as coupons_router
 from .dashboard import router as dashboard_router
+from .engineers import router as engineers_router
 from .health import router as health_router
 from .images import router as images_router
 from .notifications import router as notifications_router
@@ -23,13 +26,16 @@ from .sms_config import router as sms_config_router
 
 __all__ = [
     "admin_router",
+    "aliases_router",
     "analytics_router",
     "auth_router",
+    "banners_router",
     "bookings_router",
     "cart_router",
     "configuration_router",
     "coupons_router", 
     "dashboard_router",
+    "engineers_router",
     "health_router",
     "images_router",
     "notifications_router",

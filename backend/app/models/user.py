@@ -39,7 +39,7 @@ class User(Base):
         nullable=False,
         index=True
     )
-    password_hash: Mapped[str] = mapped_column(
+    password: Mapped[str] = mapped_column(
         String(255),
         nullable=False
     )
@@ -215,7 +215,7 @@ class User(Base):
         Returns:
             Dictionary with user data excluding sensitive fields
         """
-        default_exclude = {'password_hash', 'failed_login_attempts', 'locked_until'}
+        default_exclude = {'password', 'failed_login_attempts', 'locked_until'}
         if exclude:
             default_exclude.update(exclude)
         
