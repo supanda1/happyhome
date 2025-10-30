@@ -20,6 +20,7 @@ from .health import router as health_router
 from .images import router as images_router
 from .notifications import router as notifications_router
 from .orders import router as orders_router
+from .payments import router as payments_router
 from .reviews import router as reviews_router
 from .services import router as services_router
 from .sms_config import router as sms_config_router
@@ -40,6 +41,7 @@ __all__ = [
     "images_router",
     "notifications_router",
     "orders_router",
+    "payments_router",
     "reviews_router",
     "services_router",
     "sms_config_router",

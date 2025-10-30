@@ -87,6 +87,14 @@ class Settings(BaseSettings):
     GOOGLE_MAPS_API_KEY: Optional[str] = None
     PEXELS_API_KEY: Optional[str] = None
     
+    # ICICI Payment Gateway Configuration (Test/Sandbox)
+    ICICI_MERCHANT_ID: str = "2"  # Test merchant ID
+    ICICI_ACCESS_CODE: str = "AVHQ75AG13CF17QHQC"  # Test access code
+    ICICI_WORKING_KEY: str = "4A5E5C8DF26E4E5C930B4C7C5E5C5E1D"  # Test working key
+    ICICI_GATEWAY_URL: str = "https://test.ccavenue.com/transaction/transaction.do?command=initiateTransaction"
+    ICICI_REDIRECT_URL: str = "http://localhost:8000/api/v1/payments/callback"
+    ICICI_CANCEL_URL: str = "http://localhost:8000/api/v1/payments/callback/failed"
+    
     # Rate Limiting
     RATE_LIMIT_REQUESTS: int = 100
     RATE_LIMIT_WINDOW: int = 60  # seconds

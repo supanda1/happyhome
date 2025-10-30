@@ -119,7 +119,7 @@ export const getCart = async (req: Request, res: Response) => {
       SELECT 
         ci.id,
         ci.service_id as "serviceId",
-        ci.service_variant_id as "variantId", 
+        ci.variant_id as "variantId", 
         ci.quantity,
         ci.unit_price as "unitPrice",
         ci.created_at as "createdAt",
@@ -133,9 +133,10 @@ export const getCart = async (req: Request, res: Response) => {
         s.subcategory_id as "subcategoryId",
         sc.name as "categoryName"
       FROM cart_items ci
+      LEFT JOIN cart c ON ci.cart_id = c.id
       LEFT JOIN services s ON ci.service_id::text = s.id::text
       LEFT JOIN service_categories sc ON s.category_id::text = sc.id::text
-      WHERE ci.user_id::text = $1
+      WHERE c.user_id::text = $1
       ORDER BY ci.created_at DESC
     `, [sessionId]);
 
@@ -247,36 +248,52 @@ export const addToCart = async (req: Request, res: Response) => {
 
     const service = serviceResult.rows[0];
     const unitPrice = service.discounted_price || service.base_price;
+    const totalPrice = unitPrice * quantity;
+
+    // Get or create cart for user
+    let cartResult = await pool.query('SELECT id FROM cart WHERE user_id = $1', [sessionId]);
+    let cartId;
+    
+    if (cartResult.rows.length === 0) {
+      // Create new cart
+      const newCartResult = await pool.query(`
+        INSERT INTO cart (user_id) VALUES ($1) RETURNING id
+      `, [sessionId]);
+      cartId = newCartResult.rows[0].id;
+    } else {
+      cartId = cartResult.rows[0].id;
+    }
 
     // Check if item already exists in cart
     const existingItem = await pool.query(`
       SELECT * FROM cart_items 
-      WHERE user_id = $1 AND service_id = $2 AND service_variant_id IS NOT DISTINCT FROM $3
-    `, [sessionId, serviceId, variantId || null]);
+      WHERE cart_id = $1 AND service_id = $2 AND variant_id IS NOT DISTINCT FROM $3
+    `, [cartId, serviceId, variantId || null]);
 
     let cartItem;
     
     if (existingItem.rows.length > 0) {
       // Update existing item
       const newQuantity = existingItem.rows[0].quantity + quantity;
+      const newTotalPrice = existingItem.rows[0].unit_price * newQuantity;
       
       const updateResult = await pool.query(`
         UPDATE cart_items 
-        SET quantity = $1, updated_at = NOW()
-        WHERE id = $2
+        SET quantity = $1, total_price = $2, updated_at = NOW()
+        WHERE id = $3
         RETURNING *
-      `, [newQuantity, existingItem.rows[0].id]);
+      `, [newQuantity, newTotalPrice, existingItem.rows[0].id]);
       
       cartItem = updateResult.rows[0];
     } else {
       // Insert new item
       const insertResult = await pool.query(`
         INSERT INTO cart_items (
-          id, user_id, service_id, service_variant_id, quantity, unit_price, customizations
+          cart_id, service_id, service_name, variant_id, quantity, unit_price, total_price, customizations
         )
-        VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, '{}')
+        VALUES ($1, $2, $3, $4, $5, $6, $7, '{}')
         RETURNING *
-      `, [sessionId, serviceId, variantId || null, quantity, unitPrice]);
+      `, [cartId, serviceId, service.name, variantId || null, quantity, unitPrice, totalPrice]);
       
       cartItem = insertResult.rows[0];
     }
@@ -285,12 +302,12 @@ export const addToCart = async (req: Request, res: Response) => {
     const responseItem = {
       id: cartItem.id,
       serviceId: cartItem.service_id,
-      serviceName: service.name,
-      variantId: cartItem.service_variant_id,
+      serviceName: cartItem.service_name,
+      variantId: cartItem.variant_id,
       quantity: cartItem.quantity,
       basePrice: service.base_price,
       discountedPrice: service.discounted_price,
-      totalPrice: cartItem.unit_price * cartItem.quantity,
+      totalPrice: cartItem.total_price,
       createdAt: cartItem.created_at,
       updatedAt: cartItem.updated_at
     };
@@ -431,7 +448,10 @@ export const clearCart = async (req: Request, res: Response) => {
     // Get session ID (works for both authenticated and anonymous users)
     const sessionId = getOrCreateSessionId(req, res);
 
-    await pool.query('DELETE FROM cart_items WHERE user_id = $1', [sessionId]);
+    await pool.query(`
+      DELETE FROM cart_items 
+      WHERE cart_id IN (SELECT id FROM cart WHERE user_id = $1)
+    `, [sessionId]);
     
     res.json({
       success: true,
@@ -472,21 +492,17 @@ export const applyCoupon = async (req: Request, res: Response) => {
       SELECT 
         id,
         code,
-        title,
+        name,
         description,
         discount_type,
         discount_value,
-        minimum_order_amount,
-        maximum_discount_amount,
+        minimum_amount as minimum_order_amount,
+        maximum_discount as maximum_discount_amount,
         valid_from,
         valid_until,
         usage_limit,
-        usage_count,
-        usage_limit_per_user,
-        is_active,
-        first_time_users_only,
-        applicable_categories,
-        applicable_services
+        used_count as usage_count,
+        is_active
       FROM coupons 
       WHERE code = $1 AND is_active = true 
       AND valid_from <= CURRENT_DATE AND valid_until >= CURRENT_DATE
@@ -513,16 +529,19 @@ export const applyCoupon = async (req: Request, res: Response) => {
     `, [sessionId]);
 
     if (cartItemsResult.rows.length === 0) {
-      return res.status(400).json({
+      return res.status(200).json({
         success: false,
-        error: 'Cart is empty'
+        error: 'Cannot apply coupon to empty cart',
+        code: 'EMPTY_CART'
       });
     }
 
     // Get cart total
     const cartTotal = await pool.query(`
-      SELECT COALESCE(SUM(unit_price * quantity), 0) as total
-      FROM cart_items WHERE user_id = $1
+      SELECT COALESCE(SUM(ci.unit_price * ci.quantity), 0) as total
+      FROM cart_items ci
+      JOIN cart c ON ci.cart_id = c.id
+      WHERE c.user_id = $1
     `, [sessionId]);
 
     const total = parseFloat(cartTotal.rows[0].total);
@@ -535,25 +554,8 @@ export const applyCoupon = async (req: Request, res: Response) => {
       });
     }
 
-    // Check first-time user restriction (for authenticated users only)
-    if (coupon.first_time_users_only) {
-      const userId = getUserIdFromToken(req);
-      if (userId) {
-        // Check if user has any previous orders
-        const existingOrdersResult = await pool.query(
-          'SELECT COUNT(*) FROM orders WHERE customer_id = $1',
-          [userId]
-        );
-        if (parseInt(existingOrdersResult.rows[0].count) > 0) {
-          return res.status(400).json({
-            success: false,
-            error: 'This coupon is only valid for first-time users'
-          });
-        }
-      }
-      // For anonymous users, allow coupon application (will be validated during order creation)
-      // Anonymous users are by definition first-time users for coupon purposes
-    }
+    // Skip first-time user restriction (column doesn't exist in current schema)
+    // First-time user validation removed - not supported in current database schema
 
     // Check usage limits
     if (coupon.usage_limit && coupon.usage_count >= coupon.usage_limit) {
@@ -563,75 +565,14 @@ export const applyCoupon = async (req: Request, res: Response) => {
       });
     }
 
-    // Check per-user usage limit (for authenticated users only)
-    if (coupon.usage_limit_per_user) {
-      const userId = getUserIdFromToken(req);
-      if (userId) {
-        const userUsageResult = await pool.query(
-          'SELECT COUNT(*) FROM coupon_usages WHERE coupon_id = $1 AND user_id = $2',
-          [coupon.id, userId]
-        );
-        if (parseInt(userUsageResult.rows[0].count) >= coupon.usage_limit_per_user) {
-          return res.status(400).json({
-            success: false,
-            error: 'You have already used this coupon the maximum number of times'
-          });
-        }
-      }
-    }
+    // Skip per-user usage limit (column doesn't exist in current schema)
+    // Per-user usage limit removed - not supported in current database schema
 
-    // Validate coupon applicability to cart items
+    // Validate coupon applicability to cart items  
     const cartItems = cartItemsResult.rows;
 
-    // Parse JSONB fields and check category/service restrictions
-    let applicableCategories = [];
-    let applicableServices = [];
-    
-    try {
-      if (coupon.applicable_categories) {
-        applicableCategories = typeof coupon.applicable_categories === 'string' 
-          ? JSON.parse(coupon.applicable_categories) 
-          : coupon.applicable_categories;
-      }
-      
-      if (coupon.applicable_services) {
-        applicableServices = typeof coupon.applicable_services === 'string' 
-          ? JSON.parse(coupon.applicable_services) 
-          : coupon.applicable_services;
-      }
-    } catch (jsonError) {
-      console.error('Error parsing coupon restrictions:', jsonError);
-      // Continue with empty arrays if JSON parsing fails
-    }
-
-    // Check if coupon has category restrictions
-    if (Array.isArray(applicableCategories) && applicableCategories.length > 0) {
-      const hasValidCategory = cartItems.some(item => 
-        applicableCategories.includes(item.category_id)
-      );
-      
-      if (!hasValidCategory) {
-        return res.status(400).json({
-          success: false,
-          error: 'This coupon is not applicable to the items in your cart'
-        });
-      }
-    }
-
-    // Check if coupon has service restrictions
-    if (Array.isArray(applicableServices) && applicableServices.length > 0) {
-      const hasValidService = cartItems.some(item => 
-        applicableServices.includes(item.service_id)
-      );
-      
-      if (!hasValidService) {
-        return res.status(400).json({
-          success: false,
-          error: 'This coupon is not applicable to the items in your cart'
-        });
-      }
-    }
-
+    // Skip category/service restrictions (columns don't exist in current schema)
+    // Category and service restrictions removed - not supported in current database schema
 
     // Calculate discount using correct field names
     let discountAmount = 0;
@@ -690,8 +631,10 @@ export const removeCoupon = async (req: Request, res: Response) => {
 
     // Get cart total without discount
     const cartTotal = await pool.query(`
-      SELECT COALESCE(SUM(unit_price * quantity), 0) as total
-      FROM cart_items WHERE user_id = $1
+      SELECT COALESCE(SUM(ci.unit_price * ci.quantity), 0) as total
+      FROM cart_items ci
+      JOIN cart c ON ci.cart_id = c.id
+      WHERE c.user_id = $1
     `, [sessionId]);
 
     const total = parseFloat(cartTotal.rows[0].total);

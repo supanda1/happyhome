@@ -1,17 +1,16 @@
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import type { User, AuthState, SessionInfo } from '../types';
+import type { User, AuthState } from '../types';
 import { queryKeys } from '../utils/query-client';
 
 // Auth Actions
 type AuthAction =
   | { type: 'LOGIN_START' }
-  | { type: 'LOGIN_SUCCESS'; payload: User; sessionInfo?: SessionInfo }
+  | { type: 'LOGIN_SUCCESS'; payload: User }
   | { type: 'LOGIN_FAILURE' }
   | { type: 'LOGOUT' }
-  | { type: 'SET_USER'; payload: User | null }
-  | { type: 'UPDATE_SESSION'; payload: SessionInfo };
+  | { type: 'SET_USER'; payload: User | null };
 
 // Registration Request Type (matches backend)
 interface RegisterRequest {
@@ -32,7 +31,6 @@ interface AuthContextType extends AuthState {
   changePassword: (currentPassword: string, newPassword: string) => Promise<boolean>;
   refreshUser: () => Promise<void>;
   checkAuthStatus: () => Promise<void>;
-  trackActivity: (activityType: string) => void;
 }
 
 // Initial State
@@ -40,7 +38,6 @@ const initialState: AuthState = {
   user: null,
   isAuthenticated: false,
   isLoading: false,
-  sessionInfo: undefined,
 };
 
 // Auth Reducer
@@ -57,10 +54,6 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
         user: action.payload,
         isAuthenticated: true,
         isLoading: false,
-        sessionInfo: action.sessionInfo ? {
-          ...action.sessionInfo,
-          lastActivity: new Date()
-        } : state.sessionInfo,
       };
     case 'LOGIN_FAILURE':
       return {
@@ -68,7 +61,6 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
         user: null,
         isAuthenticated: false,
         isLoading: false,
-        sessionInfo: undefined,
       };
     case 'LOGOUT':
       return {
@@ -76,7 +68,6 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
         user: null,
         isAuthenticated: false,
         isLoading: false,
-        sessionInfo: undefined,
       };
     case 'SET_USER':
       return {
@@ -84,14 +75,6 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
         user: action.payload,
         isAuthenticated: !!action.payload,
         isLoading: false,
-      };
-    case 'UPDATE_SESSION':
-      return {
-        ...state,
-        sessionInfo: {
-          ...action.payload,
-          lastActivity: new Date()
-        }
       };
     default:
       return state;
@@ -147,7 +130,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Initialize auth state on mount
   useEffect(() => {
     initializeBackendAuth();
-    checkAuthStatus();
+    // DISABLED: Don't auto-check auth status for public users
+    // checkAuthStatus();
   }, [checkAuthStatus]);
 
   // Listen for session expiry events (from session refresh failures)
@@ -182,14 +166,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const data = await response.json();
       const user = data.success ? data.data.user : data.user; // Handle different response formats
       
-      // Extract session type information if available
-      const sessionInfo: SessionInfo | undefined = data.success && data.data.sessionType ? {
-        type: 'login',
-        description: data.data.sessionType,
-        lastActivity: new Date()
-      } : undefined;
-      
-      dispatch({ type: 'LOGIN_SUCCESS', payload: user, sessionInfo });
+      dispatch({ type: 'LOGIN_SUCCESS', payload: user });
       queryClient.setQueryData(queryKeys.auth.user, user);
       return true;
     } catch (error) {
@@ -202,74 +179,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Logout function - session-based
   const logout = async (): Promise<void> => {
     try {
-      console.log('🔓 Starting logout process...');
-      
       // SECURITY: Backend logout clears HTTP-only cookies
-      const response = await fetch(`/api/auth/logout`, {
+      await fetch(`/api/auth/logout`, {
         method: 'POST',
         credentials: 'include', // Include session cookies
         headers: { 'Content-Type': 'application/json' }
       });
-      
-      if (response.ok) {
-        console.log('✅ Backend logout successful');
-      } else {
-        console.warn('⚠️ Backend logout failed, continuing with client logout');
-      }
     } catch (error) {
-      console.warn('🚫 Logout API call failed:', error);
+      console.warn('Logout API call failed:', error);
     } finally {
-      // Always clear client-side state regardless of backend response
-      console.log('🧹 Clearing client authentication state...');
-      
-      // Clear authentication state
+      // No localStorage to clear - sessions managed by backend
       dispatch({ type: 'LOGOUT' });
-      
-      // Clear React Query cache
       queryClient.clear();
-      
-      // Clear any remaining localStorage auth tokens (if any)
-      try {
-        localStorage.removeItem('happyhomes_token');
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-      } catch (e) {
-        // Ignore localStorage errors
-      }
-      
-      console.log('✅ Logout completed successfully');
-      
-      // Show success notification
-      setTimeout(() => {
-        // Create a simple notification element
-        const notification = document.createElement('div');
-        notification.innerHTML = `
-          <div style="
-            position: fixed; 
-            top: 20px; 
-            right: 20px; 
-            background: #10B981; 
-            color: white; 
-            padding: 12px 20px; 
-            border-radius: 8px; 
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            z-index: 9999;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            font-weight: 500;
-          ">
-            ✅ Successfully logged out
-          </div>
-        `;
-        
-        document.body.appendChild(notification);
-        
-        // Remove notification after 3 seconds
-        setTimeout(() => {
-          if (notification.parentNode) {
-            notification.parentNode.removeChild(notification);
-          }
-        }, 3000);
-      }, 100);
     }
   };
 
@@ -293,14 +214,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const data = await response.json();
       const user = data.success ? data.data.user : data.user; // Handle different response formats
       
-      // Extract session type information if available
-      const sessionInfo: SessionInfo | undefined = data.success && data.data.sessionType ? {
-        type: 'register',
-        description: data.data.sessionType,
-        lastActivity: new Date()
-      } : undefined;
-      
-      dispatch({ type: 'LOGIN_SUCCESS', payload: user, sessionInfo });
+      dispatch({ type: 'LOGIN_SUCCESS', payload: user });
       queryClient.setQueryData(queryKeys.auth.user, user);
       return true;
     } catch (error) {
@@ -391,23 +305,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  // Track user activity for session extension
-  const trackActivity = useCallback((activityType: string) => {
-    if (state.isAuthenticated && state.sessionInfo) {
-      dispatch({ 
-        type: 'UPDATE_SESSION', 
-        payload: {
-          ...state.sessionInfo,
-          type: activityType,
-          lastActivity: new Date()
-        }
-      });
-      
-      // Log activity for debugging
-      console.log(`🎯 Activity tracked: ${activityType} at ${new Date().toISOString()}`);
-    }
-  }, [state.isAuthenticated, state.sessionInfo]);
-
   const value: AuthContextType = {
     ...state,
     login,
@@ -417,7 +314,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     changePassword,
     refreshUser,
     checkAuthStatus,
-    trackActivity,
   };
 
   return (

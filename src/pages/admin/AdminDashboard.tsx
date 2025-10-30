@@ -158,8 +158,8 @@ const AdminDashboard: React.FC = () => {
     return (
       <div>
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Executive Summary</h1>
-          <p className="text-gray-600 mt-2">Loading executive summary data...</p>
+          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-gray-600 mt-2">Loading dashboard data...</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {[1, 2, 3, 4].map((i) => (
@@ -182,7 +182,7 @@ const AdminDashboard: React.FC = () => {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         </div>
-        <h3 className="text-xl font-semibold text-gray-900 mb-2">Executive Summary Error</h3>
+        <h3 className="text-xl font-semibold text-gray-900 mb-2">Dashboard Error</h3>
         <p className="text-gray-600 mb-6">{error}</p>
         <button
           onClick={() => window.location.reload()}
@@ -202,8 +202,8 @@ const AdminDashboard: React.FC = () => {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
           </svg>
         </div>
-        <h3 className="text-xl font-semibold text-gray-900 mb-2">No Executive Summary Data</h3>
-        <p className="text-gray-600">Executive summary statistics are not available.</p>
+        <h3 className="text-xl font-semibold text-gray-900 mb-2">No Dashboard Data</h3>
+        <p className="text-gray-600">Dashboard statistics are not available.</p>
       </div>
     );
   }
@@ -212,7 +212,7 @@ const AdminDashboard: React.FC = () => {
     <div>
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Executive Summary</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
           <p className="text-gray-600 mt-2">
             Welcome back, {user?.firstName}! Here's what's happening with your services.
           </p>

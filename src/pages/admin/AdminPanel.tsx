@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { initializeAllAdminData } from '../../utils/adminDataManager';
-import { useActivityTracker } from '../../hooks/useActivityTracker';
-import { useSessionManager } from '../../hooks/useSessionManager';
 
 // Admin Management Components
 import CategoriesManagement from './CategoriesManagement';
@@ -53,20 +51,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onCategoryChange, onContactChan
   const [activeCategory, setActiveCategory] = useState('dashboard');
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
-
-  // Initialize activity tracking for admin users
-  const { trackManualActivity } = useActivityTracker({
-    trackClicks: true,
-    trackScrolling: true,
-    trackNavigation: true,
-    trackForms: true,
-  });
-
-  // Initialize session management for admin users
-  const { updateSessionForAction } = useSessionManager({
-    autoDetect: true,
-    currentPath: '/admin' // Default path for admin panel
-  });
 
   // Color class functions removed - unused
 
@@ -373,28 +357,11 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onCategoryChange, onContactChan
     if (category && category.items.length > 0) {
       setActiveTab(category.items[0].id);
     }
-    // Track admin dashboard navigation
-    trackManualActivity('dashboard_view');
   };
   
   // Handle tab switching within category
   const handleTabChange = (tabId: string) => {
     setActiveTab(tabId);
-    // Track specific admin activities
-    if (tabId.includes('form') || tabId.includes('edit') || tabId.includes('management')) {
-      trackManualActivity('form_edit');
-      updateSessionForAction('form_edit');
-    } else {
-      trackManualActivity('dashboard_view');
-      updateSessionForAction('dashboard_view');
-    }
-    
-    // Update session type for sensitive operations
-    if (tabId === 'user-management' || tabId === 'contact' || tabId === 'sms-config') {
-      updateSessionForAction('admin_sensitive');
-    } else if (tabId.includes('management') || tabId.includes('edit')) {
-      updateSessionForAction('admin_write');
-    }
   };
 
   const ActiveComponent = allMenuItems.find(item => item.id === activeTab)?.component || DashboardStats;
@@ -670,13 +637,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onCategoryChange, onContactChan
                 </div>
               </div>
               <button 
-                onClick={async () => {
-                  try {
-                    await logout();
-                  } catch (error) {
-                    console.error('Logout error:', error);
-                  }
-                }}
+                onClick={logout}
                 className="group relative px-4 py-2 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white rounded-xl transition-all duration-300 transform hover:scale-110 hover:-translate-y-1 shadow-lg hover:shadow-2xl font-bold text-sm tracking-wide overflow-hidden"
                 title="Logout"
               >
@@ -692,13 +653,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onCategoryChange, onContactChan
                 </svg>
               </div>
               <button 
-                onClick={async () => {
-                  try {
-                    await logout();
-                  } catch (error) {
-                    console.error('Logout error:', error);
-                  }
-                }}
+                onClick={logout}
                 className="group relative px-3 py-2 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white rounded-xl transition-all duration-300 transform hover:scale-110 hover:-translate-y-1 shadow-lg hover:shadow-2xl font-bold text-sm overflow-hidden"
                 title="Logout"
               >

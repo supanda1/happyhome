@@ -32,6 +32,7 @@ from .notification import (
     NotificationStatus, 
     NotificationPriority
 )
+from .payment import Payment, PaymentWebhook, PaymentMethod, PaymentStatus
 
 # Import database utilities
 from ..database.connection import (
@@ -98,6 +99,12 @@ __all__ = [
     "NotificationEvent",
     "NotificationStatus",
     "NotificationPriority",
+    
+    # Payment models
+    "Payment",
+    "PaymentWebhook",
+    "PaymentMethod",
+    "PaymentStatus",
     
     # Database utilities
     "Database",

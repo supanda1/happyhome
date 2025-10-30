@@ -238,6 +238,7 @@ export interface ApiResponse<T> {
   data?: T;
   message?: string;
   error?: string;
+  warning?: string;
 }
 
 // Request body types
@@ -256,6 +257,7 @@ export interface CreateOrderRequest {
   priority?: Order['priority'];
   notes?: string;
   coupon_code?: string;
+  payment_method?: 'credit_card' | 'debit_card' | 'net_banking' | 'upi' | 'wallet' | 'emi';
 }
 
 export interface UpdateOrderRequest {

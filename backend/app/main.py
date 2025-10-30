@@ -37,6 +37,7 @@ from .routes import (
     images_router,
     notifications_router,
     orders_router,
+    payments_router,
     reviews_router,
     services_router,
     sms_config_router,
@@ -124,6 +125,7 @@ def create_app() -> FastAPI:
     app.include_router(services_router, prefix="/api/v1", tags=["Services"])
     app.include_router(bookings_router, prefix="/api/v1", tags=["Bookings"])
     app.include_router(orders_router, prefix="/api/v1", tags=["Orders"])
+    app.include_router(payments_router, prefix="/api/v1", tags=["Payments"])
     app.include_router(notifications_router, prefix="/api/v1", tags=["Notifications"])
     app.include_router(reviews_router, prefix="/api/v1", tags=["Reviews"])
     app.include_router(coupons_router, prefix="/api/v1", tags=["Coupons"])

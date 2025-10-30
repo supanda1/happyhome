@@ -25,6 +25,7 @@ import smsProvidersRoutes from './routes/smsProviders';
 import smsConfigRoutes from './routes/smsConfig';
 import userManagementRoutes from './routes/userManagement';
 import configRoutes from './routes/config';
+import paymentsRoutes from './routes/payments';
 
 // Load environment variables
 dotenv.config();
@@ -131,6 +132,7 @@ app.use('/api/services', servicesRoutes);
 app.use('/api/coupons', couponsRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/orders', ordersRoutes);
+app.use('/api/payments', paymentsRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/engineers', employeesRoutes);
 app.use('/api/dashboard', dashboardRoutes);
@@ -143,6 +145,20 @@ app.use('/api/sms-providers', smsProvidersRoutes);
 app.use('/api/sms-config', smsConfigRoutes);
 app.use('/api/super-admin', userManagementRoutes);
 app.use('/api/config', configRoutes);
+
+// Admin API routes (same handlers, different prefix for frontend compatibility)
+app.use('/api/admin/categories', categoriesRoutes);
+app.use('/api/admin/subcategories', subcategoriesRoutes);
+app.use('/api/admin/services', servicesRoutes);
+app.use('/api/admin/coupons', couponsRoutes);
+app.use('/api/admin/orders', ordersRoutes);
+app.use('/api/admin/engineers', employeesRoutes);
+app.use('/api/admin/banners', bannersRoutes);
+app.use('/api/admin/contact-settings', contactSettingsRoutes);
+app.use('/api/admin/review-settings', reviewSettingsRoutes);
+app.use('/api/admin/offer-plans', offerPlansRoutes);
+app.use('/api/admin/analytics', analyticsRoutes);
+app.use('/api/admin/users', userRoutes);
 
 // Legacy v1 API routes for backward compatibility
 app.use('/v1/orders', ordersRoutes);
@@ -161,6 +177,7 @@ app.get('/', (req, res) => {
       coupons: '/api/coupons',
       cart: '/api/cart',
       orders: '/api/orders',
+      payments: '/api/payments',
       users: '/api/users',
       engineers: '/api/engineers',
       dashboard: '/api/dashboard',
@@ -173,6 +190,10 @@ app.get('/', (req, res) => {
       sms_config: '/api/sms-config',
       super_admin: '/api/super-admin',
       config: '/api/config',
+      admin_categories: '/api/admin/categories',
+      admin_services: '/api/admin/services',
+      admin_coupons: '/api/admin/coupons',
+      admin_orders: '/api/admin/orders',
       v1_orders: '/v1/orders',
       health: '/health',
       database_health: '/health/db'

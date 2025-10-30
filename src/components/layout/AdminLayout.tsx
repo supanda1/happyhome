@@ -12,7 +12,7 @@ const AdminLayout: React.FC = () => {
   };
 
   const navigation = [
-    { name: 'Executive Summary', href: '/admin', icon: '📊' },
+    { name: 'Dashboard', href: '/admin', icon: '📊' },
     { name: 'Services', href: '/admin/services', icon: '🔧' },
     { name: 'Bookings', href: '/admin/bookings', icon: '📅' },
     { name: 'Coupons', href: '/admin/coupons', icon: '🎟️' },
@@ -82,13 +82,7 @@ const AdminLayout: React.FC = () => {
               </div>
             </div>
             <button
-              onClick={async () => {
-                try {
-                  await logout();
-                } catch (error) {
-                  console.error('Logout error:', error);
-                }
-              }}
+              onClick={logout}
               className="w-full mt-3 px-3 py-2 text-sm text-red-700 bg-red-100 rounded-md hover:bg-red-200 transition-colors"
             >
               Sign Out

@@ -94,19 +94,19 @@ export const getUserAddresses = async (req: Request, res: Response) => {
     const result = await pool.query(`
       SELECT 
         ua.id,
-        ua.address_type,
-        ua.full_name,
-        ua.mobile_number,
-        ua.pincode,
-        ua.house_number,
-        ua.area,
+        ua.type,
+        ua.title,
+        ua.full_address,
         ua.landmark,
         ua.city,
         ua.state,
+        ua.postal_code,
         ua.is_default,
         ua.created_at,
-        ua.updated_at
+        ua.updated_at,
+        u.phone
       FROM user_addresses ua
+      JOIN users u ON ua.user_id = u.id
       WHERE ua.user_id = $1
       ORDER BY ua.is_default DESC, ua.created_at DESC
     `, [userId]);
@@ -114,12 +114,12 @@ export const getUserAddresses = async (req: Request, res: Response) => {
     // Transform database result to frontend format
     const addresses: UserAddress[] = result.rows.map(row => ({
       id: row.id,
-      addressType: row.address_type as 'home' | 'office' | 'other',
-      fullName: row.full_name,
-      mobileNumber: row.mobile_number,
-      pincode: row.pincode,
-      houseNumber: row.house_number,
-      area: row.area,
+      addressType: row.type as 'home' | 'office' | 'other',
+      fullName: row.title,
+      mobileNumber: row.phone,
+      pincode: row.postal_code,
+      houseNumber: '', // Extract from full_address if needed
+      area: row.full_address,
       landmark: row.landmark || '',
       city: row.city,
       state: row.state,
@@ -219,25 +219,24 @@ export const addUserAddress = async (req: Request, res: Response) => {
     const isFirstAddress = existingAddressesResult.rows[0].count === '0';
     const shouldBeDefault = isDefault || isFirstAddress;
     
-    // Insert new address into database - use actual database schema
+    // Insert new address into database - use correct database schema  
+    const title = `${user.first_name} ${user.last_name}`.trim();
+    
     const result = await pool.query(`
       INSERT INTO user_addresses (
-        user_id, address_type, full_name, mobile_number, pincode, house_number, 
-        area, landmark, city, state, is_default, created_at, updated_at
+        user_id, type, title, full_address, landmark, city, state, postal_code, is_default
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
     `, [
       userId,
-      addressType,
-      `${user.first_name} ${user.last_name}`.trim(), // full_name
-      user.phone || '', // mobile_number
-      actualPincode, // pincode
-      actualHouseNumber, // house_number
-      actualArea, // area
+      addressType, // maps to 'type' column
+      title, // maps to 'title' column  
+      fullAddress, // maps to 'full_address' column (defined on line 190)
       landmark || null, // landmark
       city,
       state,
+      actualPincode || zipCode, // maps to 'postal_code' column
       shouldBeDefault // is_default
     ]);
     
@@ -246,12 +245,12 @@ export const addUserAddress = async (req: Request, res: Response) => {
     // Format response to match frontend interface
     const responseAddress: UserAddress = {
       id: savedAddress.id,
-      addressType: savedAddress.address_type as 'home' | 'office' | 'other',
-      fullName: savedAddress.full_name,
-      mobileNumber: savedAddress.mobile_number,
-      pincode: savedAddress.pincode,
-      houseNumber: savedAddress.house_number,
-      area: savedAddress.area,
+      addressType: savedAddress.type as 'home' | 'office' | 'other',
+      fullName: savedAddress.title,
+      mobileNumber: user.phone, // Get from user data since not stored separately
+      pincode: savedAddress.postal_code,
+      houseNumber: actualHouseNumber || '',
+      area: actualArea || '',
       landmark: savedAddress.landmark || '',
       city: savedAddress.city,
       state: savedAddress.state,
@@ -359,19 +358,18 @@ export const updateUserAddress = async (req: Request, res: Response) => {
     let paramCount = 1;
     
     if (addressType) {
-      updates.push(`address_type = $${paramCount}`);
+      updates.push(`type = $${paramCount}`);
       values.push(addressType);
       paramCount++;
     }
     
-    if (houseNumber !== undefined) {
-      updates.push(`house_number = $${paramCount}`);
-      values.push(houseNumber || '');
+    if (houseNumber !== undefined && area) {
+      const newFullAddress = houseNumber ? `${houseNumber}, ${area}` : area;
+      updates.push(`full_address = $${paramCount}`);
+      values.push(newFullAddress);
       paramCount++;
-    }
-    
-    if (area) {
-      updates.push(`area = $${paramCount}`);
+    } else if (area) {
+      updates.push(`full_address = $${paramCount}`);
       values.push(area);
       paramCount++;
     }
@@ -395,7 +393,7 @@ export const updateUserAddress = async (req: Request, res: Response) => {
     }
     
     if (pincode) {
-      updates.push(`pincode = $${paramCount}`);
+      updates.push(`postal_code = $${paramCount}`);
       values.push(pincode);
       paramCount++;
     }
@@ -430,15 +428,22 @@ export const updateUserAddress = async (req: Request, res: Response) => {
     
     const updatedAddress = updateResult.rows[0];
     
+    // Get user phone for response
+    const userResult = await pool.query(
+      'SELECT phone FROM users WHERE id = $1',
+      [userId]
+    );
+    const userPhone = userResult.rows[0]?.phone || '';
+    
     // Format response to match frontend interface
     const responseAddress: UserAddress = {
       id: updatedAddress.id,
-      addressType: updatedAddress.address_type as 'home' | 'office' | 'other',
-      fullName: updatedAddress.full_name,
-      mobileNumber: updatedAddress.mobile_number,
-      pincode: updatedAddress.pincode,
-      houseNumber: updatedAddress.house_number,
-      area: updatedAddress.area,
+      addressType: updatedAddress.type as 'home' | 'office' | 'other',
+      fullName: updatedAddress.title,
+      mobileNumber: userPhone,
+      pincode: updatedAddress.postal_code,
+      houseNumber: houseNumber || '',
+      area: area || updatedAddress.full_address,
       landmark: updatedAddress.landmark || '',
       city: updatedAddress.city,
       state: updatedAddress.state,

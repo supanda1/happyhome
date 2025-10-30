@@ -680,6 +680,21 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
   // REMOVED: Massive hardcoded service data - now using backend PostgreSQL API
   // All service data now comes from adminDataManager.ts backend APIs
 
+  // Helper function to safely parse JSON arrays from backend
+  const parseJsonArray = (value: any): string[] => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [value]; // If not JSON, treat as single string
+      }
+    }
+    return [];
+  };
+
   // PRODUCTION-GRADE SERVICE DETAIL PAGE WITH ENHANCED STYLING
   const ServiceDetailPage = ({ categoryName, serviceName }: { categoryName: string; serviceName: string }) => {
     const [selectedTab, setSelectedTab] = useState('services');
@@ -744,13 +759,13 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
       warranty: adminService.warranty || "30 Days", 
       protection: "₹10,000", 
       verified: true,
-      services: adminService.requirements || adminService.services || [`Professional ${serviceName.toLowerCase()} service`, "Quality workmanship", "Timely completion"],
-      included: adminService.inclusions || ["Expert technician visit", "Standard tools and materials", "Service warranty", "Quality assurance"],
-      notes: adminService.notes ? [adminService.notes] : ["Service availability subject to location", "Additional charges may apply for complex work", "Customer satisfaction guaranteed"],
+      services: parseJsonArray(adminService.requirements || adminService.services).length > 0 ? parseJsonArray(adminService.requirements || adminService.services) : [`Professional ${serviceName.toLowerCase()} service`, "Quality workmanship", "Timely completion"],
+      included: parseJsonArray(adminService.inclusions).length > 0 ? parseJsonArray(adminService.inclusions) : ["Expert technician visit", "Standard tools and materials", "Service warranty", "Quality assurance"],
+      notes: parseJsonArray(adminService.notes).length > 0 ? parseJsonArray(adminService.notes) : ["Service availability subject to location", "Additional charges may apply for complex work", "Customer satisfaction guaranteed"],
       faq: adminService?.faq || [
-        { question: "What's included in this service?", answer: adminService.inclusions?.join(', ') || 'Professional service with expert technician and quality assurance.' },
-        { question: "What's excluded?", answer: adminService.exclusions?.join(', ') || 'Additional materials and complex modifications may incur extra charges.' },
-        { question: "Any special requirements?", answer: adminService.requirements?.join(', ') || 'Basic access to service area required.' }
+        { question: "What's included in this service?", answer: parseJsonArray(adminService.inclusions).join(', ') || 'Professional service with expert technician and quality assurance.' },
+        { question: "What's excluded?", answer: parseJsonArray(adminService.exclusions).join(', ') || 'Additional materials and complex modifications may incur extra charges.' },
+        { question: "Any special requirements?", answer: parseJsonArray(adminService.requirements).join(', ') || 'Basic access to service area required.' }
       ]
     } : {
       // Default service data when backend service not found
@@ -1328,410 +1343,285 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
     // Get all active categories (show all, even if no services yet) - memoized to prevent re-renders
     const activeCategories = useMemo(() => categories.filter(cat => cat.is_active), [categories]);
     
-    // Banner state
-    const [banners, setBanners] = useState<{
-      hero: any[];
-      secondary: any[];
-      promotional: any[];
-    }>({ hero: [], secondary: [], promotional: [] });
-    const [bannersLoading, setBannersLoading] = useState(true);
-    
-    // Fetch banners from database
-    useEffect(() => {
-      const fetchBanners = async () => {
-        try {
-          setBannersLoading(true);
-          const [heroRes, secondaryRes, promotionalRes] = await Promise.all([
-            fetch(`${import.meta.env.VITE_API_BASE_URL}/banners/position/hero`),
-            fetch(`${import.meta.env.VITE_API_BASE_URL}/banners/position/secondary`),
-            fetch(`${import.meta.env.VITE_API_BASE_URL}/banners/position/promotional`)
-          ]);
-          
-          const heroData = heroRes.ok ? (await heroRes.json()).data || [] : [];
-          const secondaryData = secondaryRes.ok ? (await secondaryRes.json()).data || [] : [];
-          const promotionalData = promotionalRes.ok ? (await promotionalRes.json()).data || [] : [];
-          
-          setBanners({
-            hero: heroData,
-            secondary: secondaryData, 
-            promotional: promotionalData
-          });
-        } catch (error) {
-          console.error('Failed to fetch banners:', error);
-          setBanners({ hero: [], secondary: [], promotional: [] });
-        } finally {
-          setBannersLoading(false);
-        }
-      };
-      
-      fetchBanners();
-    }, []);
+    // Get featured services for display on homepage
+    const featuredServices = useMemo(() => {
+      return convertToBackendServices(services)
+        ?.filter(service => service.is_active && (service as any).is_featured)
+        ?.slice(0, 6) || [];
+    }, [services]);
     
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-purple-50 to-blue-50 relative" style={{backgroundImage: 'radial-gradient(circle at 15% 85%, rgba(139, 69, 199, 0.08) 0%, transparent 70%), radial-gradient(circle at 85% 15%, rgba(59, 130, 246, 0.06) 0%, transparent 70%), radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.04) 0%, transparent 60%), linear-gradient(45deg, rgba(236, 72, 153, 0.03) 0%, transparent 50%)'}}>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
         
-        
-        {/* Dynamic Database Banners */}
-        {bannersLoading ? (
-          <div className="bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 py-20 text-center text-white">
-            <div className="animate-pulse">
-              <div className="text-2xl mb-4">🔄</div>
-              <div>Loading banners...</div>
+        {/* Hero Section */}
+        <section className="relative overflow-hidden bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-700">
+          <div className="absolute inset-0 bg-black/20"></div>
+          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
+            <div className="text-center text-white">
+              <h1 className="text-5xl md:text-7xl font-bold mb-8 leading-tight">
+                <span className="block">Professional Home</span>
+                <span className="block text-yellow-300">Services</span>
+              </h1>
+              <p className="text-xl md:text-2xl mb-12 text-blue-100 max-w-4xl mx-auto leading-relaxed">
+                Expert technicians for all your home service needs. From plumbing to electrical work, 
+                we connect you with trusted professionals in your area.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-6 justify-center">
+                <button 
+                  onClick={() => {
+                    const firstCategory = activeCategories.find(cat => {
+                      const hasServices = convertToBackendServices(services)?.some(service => 
+                        service.category_name === cat.name && service.is_active
+                      );
+                      return hasServices;
+                    });
+                    if (firstCategory) {
+                      navigateToCategory(firstCategory.name);
+                    }
+                  }}
+                  className="bg-yellow-400 hover:bg-yellow-300 text-gray-900 font-bold py-4 px-8 rounded-xl text-lg transition-all duration-300 transform hover:scale-105 shadow-xl hover:shadow-2xl"
+                >
+                  Browse Services
+                </button>
+                <button 
+                  onClick={() => setCurrentPage('offers')}
+                  className="border-2 border-white text-white hover:bg-white hover:text-gray-900 font-bold py-4 px-8 rounded-xl text-lg transition-all duration-300 shadow-xl"
+                >
+                  View Offers
+                </button>
+              </div>
             </div>
           </div>
-        ) : (
-          <div className="space-y-8">
-            {/* Hero Banner */}
-            {banners.hero.length > 0 && (
-              <section className="relative overflow-hidden">
-                {banners.hero.map((banner, index) => (
-                  <div key={banner.id || index} className="relative" style={{ backgroundColor: banner.background_color || '#1e40af' }}>
-                    <div className="absolute inset-0 bg-gradient-to-r from-purple-800/20 to-blue-800/20"></div>
-                    <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-                      <div className="text-center text-white">
-                        <h1 className="text-4xl md:text-6xl font-bold mb-6" style={{ color: banner.text_color || '#ffffff' }}>
-                          {banner.title}
-                          {banner.subtitle && (
-                            <span className="block text-orange-200 text-3xl md:text-4xl mt-2">
-                              {banner.subtitle}
+          {/* Decorative Elements */}
+          <div className="absolute top-0 right-0 w-96 h-96 bg-yellow-400/10 rounded-full -translate-y-48 translate-x-48"></div>
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-400/10 rounded-full translate-y-32 -translate-x-32"></div>
+        </section>
+
+        {/* Why Choose Us Section */}
+        <section className="py-20 bg-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-16">
+              <h2 className="text-4xl font-bold text-gray-900 mb-4">Why Choose Happy Homes?</h2>
+              <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+                We make home services simple, reliable, and affordable
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
+              <div className="text-center p-8 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-100 hover:shadow-xl transition-all duration-300">
+                <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <span className="text-2xl text-white">🔧</span>
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-4">Expert Professionals</h3>
+                <p className="text-gray-600 leading-relaxed">
+                  Verified, experienced technicians who deliver quality workmanship every time.
+                </p>
+              </div>
+              
+              <div className="text-center p-8 rounded-2xl bg-gradient-to-br from-purple-50 to-pink-100 hover:shadow-xl transition-all duration-300">
+                <div className="w-16 h-16 bg-purple-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <span className="text-2xl text-white">⚡</span>
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-4">Fast Service</h3>
+                <p className="text-gray-600 leading-relaxed">
+                  Same-day service available. Book now and get help when you need it most.
+                </p>
+              </div>
+              
+              <div className="text-center p-8 rounded-2xl bg-gradient-to-br from-green-50 to-emerald-100 hover:shadow-xl transition-all duration-300">
+                <div className="w-16 h-16 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <span className="text-2xl text-white">🛡️</span>
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-4">Fully Insured</h3>
+                <p className="text-gray-600 leading-relaxed">
+                  Complete insurance coverage and satisfaction guarantee for your peace of mind.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Featured Services Section */}
+        {featuredServices.length > 0 && (
+          <section className="py-20 bg-gradient-to-br from-gray-50 to-blue-50">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="text-center mb-16">
+                <h2 className="text-4xl font-bold text-gray-900 mb-4">Featured Services</h2>
+                <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+                  Popular services chosen by our customers
+                </p>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {featuredServices.map((service, index) => (
+                  <div 
+                    key={service.id || index}
+                    onClick={() => navigateToServiceDetail(service.id)}
+                    className="bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 cursor-pointer overflow-hidden group"
+                  >
+                    <div className="h-48 bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center relative overflow-hidden">
+                      <span className="text-4xl font-bold text-gray-700 group-hover:scale-110 transition-transform duration-300">
+                        {service.category_name}
+                      </span>
+                      <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-purple-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    </div>
+                    
+                    <div className="p-6">
+                      <h3 className="text-xl font-bold text-gray-900 mb-3 group-hover:text-blue-600 transition-colors duration-300">
+                        {service.name}
+                      </h3>
+                      <p className="text-gray-600 mb-4 line-clamp-2">
+                        {service.short_description || service.description || 'Professional service for your home'}
+                      </p>
+                      
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <span className="text-2xl font-bold text-green-600">
+                            ₹{service.discounted_price || service.base_price}
+                          </span>
+                          {service.discounted_price && service.discounted_price < service.base_price && (
+                            <span className="text-lg text-gray-500 line-through ml-2">
+                              ₹{service.base_price}
                             </span>
                           )}
-                        </h1>
-                        {banner.description && (
-                          <p className="text-xl md:text-2xl mb-8 text-orange-100 max-w-3xl mx-auto">
-                            {banner.description}
-                          </p>
-                        )}
-                        {banner.button_text && (
-                          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                            <button 
-                              onClick={() => {
-                                if (banner.button_link === '/services') {
-                                  // Navigate to first available category with services
-                                  const categoryWithServices = categories.find(cat => {
-                                    const hasServices = convertToBackendServices(services)?.some((service) => 
-                                      service.category_name === cat.name && service.is_active
-                                    );
-                                    return cat.is_active && hasServices;
-                                  });
-                                  if (categoryWithServices) {
-                                    navigateToCategory(categoryWithServices.name);
-                                  } else {
-                                    navigateToHome(); // Fallback to home if no services available
-                                  }
-                                } else if (banner.button_link === '/offer' || banner.button_link === '/offers') {
-                                  setCurrentPage('offers');
-                                } else {
-                                  navigateToHome(); // Default fallback
-                                }
-                              }}
-                              className="bg-yellow-400 hover:bg-yellow-300 text-purple-900 font-bold py-4 px-8 rounded-2xl text-lg transition-all duration-300 transform hover:scale-105 shadow-2xl"
-                            >
-                              {banner.button_text}
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-yellow-400/10 rounded-full -translate-y-32 translate-x-32"></div>
-                    <div className="absolute bottom-0 left-0 w-48 h-48 bg-purple-400/10 rounded-full translate-y-24 -translate-x-24"></div>
-                  </div>
-                ))}
-              </section>
-            )}
-            
-            {/* Promotional Banner */}
-            {banners.promotional.length > 0 && (
-              <section className="relative overflow-hidden">
-                {banners.promotional.map((banner, index) => (
-                  <div key={banner.id || index} className="bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 relative" style={{ backgroundColor: banner.background_color || '#dc2626' }}>
-                    <div className="absolute inset-0 bg-gradient-to-r from-purple-800/20 to-blue-800/20"></div>
-                    <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-                        <div className="text-white">
-                          <div className="inline-flex items-center bg-yellow-400 text-purple-900 px-4 py-2 rounded-full text-sm font-bold mb-4">
-                            <span className="mr-2">🎉</span>
-                            {banner.subtitle || 'Limited Time Offer'}
-                          </div>
-                          <h2 className="text-4xl md:text-5xl font-black mb-4 leading-tight" style={{ color: banner.text_color || '#ffffff' }}>
-                            {banner.title}
-                          </h2>
-                          <p className="text-xl text-purple-100 mb-6 leading-relaxed">
-                            {banner.description}
-                          </p>
-                          {banner.button_text && (
-                            <div className="flex flex-col sm:flex-row gap-4">
-                              <button 
-                                onClick={() => {
-                                  if (banner.button_link === '/services') {
-                                    // Navigate to first available category with services
-                                    const categoryWithServices = categories.find(cat => {
-                                      const hasServices = convertToBackendServices(services)?.some((service) => 
-                                        service.category_name === cat.name && service.is_active
-                                      );
-                                      return cat.is_active && hasServices;
-                                    });
-                                    if (categoryWithServices) {
-                                      navigateToCategory(categoryWithServices.name);
-                                    } else {
-                                      navigateToHome(); // Fallback to home if no services available
-                                    }
-                                  } else if (banner.button_link === '/offer' || banner.button_link === '/offers') {
-                                    setCurrentPage('offers');
-                                  } else {
-                                    navigateToHome(); // Default fallback
-                                  }
-                                }}
-                                className="bg-yellow-400 hover:bg-yellow-300 text-purple-900 font-bold py-4 px-8 rounded-2xl text-lg transition-all duration-300 transform hover:scale-105 shadow-2xl"
-                              >
-                                {banner.button_text}
-                              </button>
-                            </div>
-                          )}
                         </div>
-                        <div className="space-y-4">
-                          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
-                            <div className="flex items-center justify-between mb-3">
-                              <h3 className="text-white font-bold text-lg">New Customer Special</h3>
-                              <span className="bg-green-400 text-green-900 px-3 py-1 rounded-full text-sm font-bold">NEW</span>
-                            </div>
-                            <p className="text-purple-100 text-sm mb-3">First 3 services at flat ₹99 each</p>
-                            <div className="text-right">
-                              <span className="text-yellow-400 font-black text-2xl">₹99</span>
-                              <span className="text-purple-200 line-through ml-2">₹299</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-yellow-400/10 rounded-full -translate-y-32 translate-x-32"></div>
-                    <div className="absolute bottom-0 left-0 w-48 h-48 bg-purple-400/10 rounded-full translate-y-24 -translate-x-24"></div>
-                  </div>
-                ))}
-              </section>
-            )}
-            
-            {/* Secondary Banner */}
-            {banners.secondary.length > 0 && (
-              <section className="py-16">
-                {banners.secondary.map((banner, index) => (
-                  <div key={banner.id || index} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-3xl p-12 text-center text-white" style={{ backgroundColor: banner.background_color || '#059669' }}>
-                      <h2 className="text-3xl md:text-4xl font-bold mb-4" style={{ color: banner.text_color || '#ffffff' }}>
-                        {banner.title}
-                      </h2>
-                      {banner.subtitle && (
-                        <h3 className="text-xl md:text-2xl mb-4 text-green-100">
-                          {banner.subtitle}
-                        </h3>
-                      )}
-                      {banner.description && (
-                        <p className="text-lg mb-8 max-w-2xl mx-auto text-green-100">
-                          {banner.description}
-                        </p>
-                      )}
-                      {banner.button_text && (
-                        <button 
-                          onClick={() => {
-                            if (banner.button_link === '/services') {
-                              // Navigate to first available category with services
-                              const categoryWithServices = categories.find(cat => {
-                                const hasServices = convertToBackendServices(services)?.some((service) => 
-                                  service.category_name === cat.name && service.is_active
-                                );
-                                return cat.is_active && hasServices;
-                              });
-                              if (categoryWithServices) {
-                                navigateToCategory(categoryWithServices.name);
-                              } else {
-                                navigateToHome(); // Fallback to home if no services available
-                              }
-                            } else if (banner.button_link === '/offer' || banner.button_link === '/offers') {
-                              setCurrentPage('offers');
-                            } else {
-                              navigateToHome(); // Default fallback
-                            }
-                          }}
-                          className="bg-white text-green-600 font-bold py-3 px-8 rounded-2xl text-lg transition-all duration-300 transform hover:scale-105 shadow-xl hover:bg-green-50"
-                        >
-                          {banner.button_text}
+                        <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors duration-300">
+                          View Details
                         </button>
+                      </div>
+                      
+                      {service.rating && service.rating > 0 && (
+                        <div className="flex items-center mt-3 text-sm text-gray-600">
+                          <span className="text-yellow-500">★★★★★</span>
+                          <span className="ml-2">{service.rating} ({service.review_count || 0} reviews)</span>
+                        </div>
                       )}
                     </div>
                   </div>
                 ))}
-              </section>
-            )}
-            
-            {/* Fallback if no banners */}
-            {banners.hero.length === 0 && banners.promotional.length === 0 && (
-              <section className="bg-gradient-to-br from-orange-500 via-purple-600 to-blue-600 text-white py-20">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-                  <h1 className="text-4xl md:text-6xl font-bold mb-6">
-                    Professional Home Services
-                    <span className="block text-orange-200">At Your Doorstep</span>
-                  </h1>
-                  <p className="text-xl md:text-2xl mb-8 text-orange-100 max-w-3xl mx-auto">
-                    Get reliable, professional services for your home. From plumbing to cleaning, we connect you with trusted professionals in your area.
-                  </p>
-                  <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                    <button 
-                      onClick={() => {
-                        // Navigate to first available category with services
-                        const categoryWithServices = categories.find(cat => {
-                          const hasServices = convertToBackendServices(services)?.some((service) => 
-                            service.category_name === cat.name && service.is_active
-                          );
-                          return cat.is_active && hasServices;
-                        });
-                        if (categoryWithServices) {
-                          navigateToCategory(categoryWithServices.name);
-                        } else {
-                          navigateToHome(); // Fallback to home if no services available
-                        }
-                      }}
-                      className="bg-yellow-400 hover:bg-yellow-300 text-purple-900 font-bold py-4 px-8 rounded-2xl text-lg transition-all duration-300 transform hover:scale-105 shadow-2xl"
-                    >
-                      Browse Services
-                    </button>
-                  </div>
-                </div>
-              </section>
-            )}
-          </div>
-        )}
-
-        {/* Enhanced Main Content Section */}
-        <div className="py-20">
-          <div className="text-center mb-20">
-            <h1 className="text-5xl font-black mb-6 bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 bg-clip-text text-transparent">
-              Welcome to Happy Homes
-            </h1>
-            <p className="text-xl text-gray-700 mb-8 font-medium max-w-2xl mx-auto leading-relaxed">
-              Your trusted partner for home maintenance and services. Choose from our colorful categories below!
-            </p>
-            <div className="flex justify-center space-x-4 mb-8">
-              <div className="flex items-center space-x-2 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg">
-                <div className="w-3 h-3 bg-gradient-to-r from-orange-400 to-orange-500 rounded-full animate-pulse"></div>
-                <span className="text-sm font-semibold text-gray-700">Professional Services</span>
-              </div>
-              <div className="flex items-center space-x-2 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg">
-                <div className="w-3 h-3 bg-gradient-to-r from-blue-400 to-blue-500 rounded-full animate-pulse"></div>
-                <span className="text-sm font-semibold text-gray-700">Trusted Experts</span>
-              </div>
-              <div className="flex items-center space-x-2 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg">
-                <div className="w-3 h-3 bg-gradient-to-r from-purple-400 to-purple-500 rounded-full animate-pulse"></div>
-                <span className="text-sm font-semibold text-gray-700">Instant Booking</span>
               </div>
             </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 max-w-7xl mx-auto">
-            {activeCategories.map((category, categoryIndex) => {
-              // Check if this category has services
-              const hasServices = convertToBackendServices(services)?.some((service) => 
-                service.category_name === category.name && service.is_active
-              );
-              
-              // Get first 2 subcategories for display
-              const categorySubcategories = subcategories.filter(sub => 
-                sub.category_id === category.id && sub.is_active
-              ).slice(0, 2);
+          </section>
+        )}
 
-              // Unified color scheme to match plumbing/category pages exactly
-              const getCategoryColors = () => {
-                // Match the exact same light colors used in category pages
-                return {
-                  gradient: hasServices 
-                    ? 'bg-gradient-to-br from-orange-50 via-purple-50 to-blue-50' 
-                    : 'bg-gradient-to-br from-gray-200 via-gray-300 to-gray-400',
-                  textColor: hasServices ? 'text-orange-700' : 'text-gray-600',
-                  descColor: hasServices ? 'text-purple-800' : 'text-gray-600',
-                  tagBg: 'bg-white/50 backdrop-blur-sm text-orange-700',
-                  shadow: 'shadow-lg hover:shadow-xl',
-                  border: 'border-orange-200',
-                  hoverShadow: 'hover:bg-gradient-to-br hover:from-orange-100 hover:via-purple-50 hover:to-blue-100'
-                };
-              };
+        {/* Service Categories Section */}
+        <section className="py-20 bg-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-16">
+              <h2 className="text-4xl font-bold text-gray-900 mb-4">Our Service Categories</h2>
+              <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+                Professional services for every corner of your home
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {activeCategories.map((category, categoryIndex) => {
+                // Check if this category has services
+                const hasServices = convertToBackendServices(services)?.some((service) => 
+                  service.category_name === category.name && service.is_active
+                );
+                
+                // Get first 2 subcategories for display
+                const categorySubcategories = subcategories.filter(sub => 
+                  sub.category_id === category.id && sub.is_active
+                ).slice(0, 2);
 
-              const colors = getCategoryColors();
-              
-              return (
-                <div 
-                  key={category.id || categoryIndex}
-                  onClick={() => hasServices ? navigateToCategory(category.name) : null}
-                  className={`${colors.gradient} ${colors.shadow} ${
-                    hasServices 
-                      ? `cursor-pointer transform hover:scale-105 transition-all duration-300 ${colors.hoverShadow}` 
-                      : 'cursor-not-allowed'
-                  } p-8 rounded-2xl border border-orange-200 hover:border-purple-300 group relative overflow-hidden`}
-                >
-                  {/* Animated background overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                  
-                  {/* Floating particles effect */}
-                  <div className="absolute top-2 right-2 w-3 h-3 bg-white/40 rounded-full animate-pulse"></div>
-                  <div className="absolute top-8 right-8 w-2 h-2 bg-white/30 rounded-full animate-ping"></div>
-                  <div className="absolute bottom-4 left-4 w-1 h-1 bg-white/50 rounded-full animate-bounce"></div>
-                  
-                  <div className="relative z-10">
+                return (
+                  <div 
+                    key={category.id || categoryIndex}
+                    onClick={() => hasServices ? navigateToCategory(category.name) : null}
+                    className={`${
+                      hasServices 
+                        ? 'bg-gradient-to-br from-blue-50 to-indigo-100 hover:from-blue-100 hover:to-indigo-200 cursor-pointer transform hover:scale-105' 
+                        : 'bg-gradient-to-br from-gray-100 to-gray-200 cursor-not-allowed'
+                    } p-6 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 group relative overflow-hidden border border-blue-200`}
+                  >
                     {/* Category Image Section */}
-                    <div className="mb-6">
+                    <div className="mb-4">
                       <DynamicImage
                         src={category.image_path}
                         alt={`${category.name} Services`}
-                        className="w-full h-32 rounded-2xl object-cover shadow-lg group-hover:shadow-xl transition-all duration-300"
+                        className="w-full h-24 rounded-xl object-cover shadow-md group-hover:shadow-lg transition-all duration-300"
                         fallbackEmoji={category.icon}
                         onClick={() => hasServices ? navigateToCategory(category.name) : null}
                       />
                     </div>
                     
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className={`font-black text-xl ${colors.textColor} group-hover:scale-105 transition-transform duration-300`}>
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className={`font-bold text-lg ${hasServices ? 'text-blue-700' : 'text-gray-600'} group-hover:text-blue-800 transition-colors duration-300`}>
                         {category.name}
                       </h3>
                       {!hasServices && (
-                        <span className="bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 text-white text-xs px-3 py-2 rounded-full font-bold shadow-lg animate-pulse">
-                          Coming Soon
+                        <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-bold">
+                          Soon
                         </span>
                       )}
                     </div>
-                    <p className={`text-sm mb-4 leading-relaxed ${colors.descColor} group-hover:scale-102 transition-transform duration-300`}>
+                    
+                    <p className={`text-sm mb-3 leading-relaxed ${hasServices ? 'text-gray-700' : 'text-gray-600'}`}>
                       {category.description}
                     </p>
+                    
                     <div className="flex flex-wrap gap-2">
                       {hasServices ? (
                         categorySubcategories.map((sub, subIndex) => (
                           <span 
                             key={subIndex} 
-                            className={`${colors.tagBg} text-xs px-3 py-2 rounded-full font-semibold shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105`}
+                            className="bg-white/70 backdrop-blur-sm text-blue-700 text-xs px-2 py-1 rounded-full font-semibold shadow-sm hover:shadow-md transition-all duration-300"
                           >
                             {sub.name}
                           </span>
                         ))
                       ) : (
-                        <span className="bg-white/30 text-gray-600 text-xs px-3 py-1 rounded-full">
-                          Services will be available soon
+                        <span className="bg-white/50 text-gray-600 text-xs px-2 py-1 rounded-full">
+                          Coming Soon
                         </span>
                       )}
                     </div>
-                    
-                    {/* Action hint for active categories */}
-                    {hasServices && (
-                      <div className="mt-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                        <div className="flex items-center text-xs font-semibold">
-                          <span className={`${colors.textColor} mr-1`}>Click to explore</span>
-                          <svg className={`w-4 h-4 ${colors.textColor} animate-bounce`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                          </svg>
-                        </div>
-                      </div>
-                    )}
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
+        </section>
+
+        {/* Call to Action Section */}
+        <section className="py-20 bg-gradient-to-r from-blue-600 to-indigo-700">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <h2 className="text-4xl font-bold text-white mb-6">
+              Ready to Transform Your Home?
+            </h2>
+            <p className="text-xl text-blue-100 mb-10 max-w-3xl mx-auto">
+              Join thousands of satisfied customers who trust us with their home service needs.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-6 justify-center">
+              <button 
+                onClick={() => {
+                  const firstCategory = activeCategories.find(cat => {
+                    const hasServices = convertToBackendServices(services)?.some(service => 
+                      service.category_name === cat.name && service.is_active
+                    );
+                    return hasServices;
+                  });
+                  if (firstCategory) {
+                    navigateToCategory(firstCategory.name);
+                  }
+                }}
+                className="bg-yellow-400 hover:bg-yellow-300 text-gray-900 font-bold py-4 px-8 rounded-xl text-lg transition-all duration-300 transform hover:scale-105 shadow-2xl"
+              >
+                Book Service Now
+              </button>
+              <WhatsAppButton
+                phoneNumber="9437341234"
+                message="Hi! I'm interested in your home services. Can you help me?"
+                className="border-2 border-white text-white hover:bg-white hover:text-gray-900 font-bold py-4 px-8 rounded-xl text-lg transition-all duration-300 shadow-xl"
+                variant="inline"
+              >
+                Get Help on WhatsApp
+              </WhatsAppButton>
+            </div>
+          </div>
+        </section>
       </div>
     );
   };
@@ -2182,13 +2072,9 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                         </button>
                         <hr className="my-2 border-gray-100" />
                         <button 
-                          onClick={async () => {
-                            try {
-                              await logout();
-                              setCurrentPage('home');
-                            } catch (error) {
-                              console.error('Logout error:', error);
-                            }
+                          onClick={() => {
+                            logout();
+                            setCurrentPage('home');
                           }}
                           className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 font-medium"
                         >
@@ -2545,17 +2431,7 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
               {currentPage === 'profile' && <ProfilePage />}
               {currentPage === 'offers' && <OfferPage navigateHome={navigateToHome} navigateToLogin={navigateToLogin} navigateToCheckout={navigateToCheckout} navigateToCart={navigateToCart} />}
               {currentPage === 'service-detail' && selectedServiceId && (
-                <ServiceDetailPageRoute 
-                  serviceId={selectedServiceId} 
-                  onNavigateHome={navigateToHome}
-                  onNavigateLogin={navigateToLogin}
-                  onNavigateBooking={(serviceId: string) => {
-                    // Navigate to booking page - you can implement this as needed
-                    console.log('Navigate to booking for service:', serviceId);
-                    // For now, redirect to checkout or implement booking page
-                    navigateToCheckout();
-                  }}
-                />
+                <ServiceDetailPageRoute serviceId={selectedServiceId} />
               )}
               {currentPage === 'admin' && (
                 <AdminPanel 

@@ -103,39 +103,51 @@ export class OrdersController {
   // Get current user's orders
   static async getUserOrders(req: Request, res: Response) {
     try {
-      const userId = (req as any).user?.userId;
+      const user = (req as any).user;
+      const userId = user?.userId || user?.id;
       
-      if (!userId) {
+      console.log('🔍 DEBUG: getUserOrders - user object:', user);
+      console.log('🔍 DEBUG: getUserOrders - extracted userId:', userId);
+      
+      if (!userId || userId === '') {
+        console.log('❌ No valid userId found in user object');
         const response: ApiResponse<null> = {
           success: false,
-          error: 'User not authenticated'
+          error: 'User not authenticated - invalid user ID'
         };
         return res.status(401).json(response);
       }
 
       const query = `
         SELECT o.*, 
-        JSON_AGG(
-          JSON_BUILD_OBJECT(
-            'id', oi.id,
-            'service_id', oi.service_id,
-            'service_name', oi.service_name,
-            'variant_id', oi.service_variant_id,
-            'variant_name', oi.service_name,
-            'quantity', oi.quantity,
-            'unit_price', oi.unit_price,
-            'total_price', oi.total_price,
-            'assigned_engineer_id', oi.assigned_engineer_id,
-            'assigned_engineer_name', oi.assigned_engineer_name,
-            'item_status', oi.item_status,
-            'scheduled_date', oi.scheduled_date,
-            'scheduled_time_slot', oi.scheduled_time_slot,
-            'completion_date', oi.completion_date,
-            'item_notes', oi.item_notes,
-            'item_rating', oi.item_rating,
-            'item_review', oi.item_review,
-            'created_at', oi.created_at
-          )
+        COALESCE(
+          JSON_AGG(
+            CASE 
+              WHEN oi.id IS NOT NULL THEN 
+                JSON_BUILD_OBJECT(
+                  'id', oi.id,
+                  'service_id', oi.service_id,
+                  'service_name', COALESCE(oi.service_name, 'Service'),
+                  'variant_id', oi.service_variant_id,
+                  'variant_name', COALESCE(oi.service_name, 'Service'),
+                  'quantity', COALESCE(oi.quantity, 1),
+                  'unit_price', COALESCE(oi.unit_price, 0),
+                  'total_price', COALESCE(oi.total_price, 0),
+                  'assigned_engineer_id', oi.assigned_engineer_id,
+                  'assigned_engineer_name', oi.assigned_engineer_name,
+                  'item_status', COALESCE(oi.item_status, 'pending'),
+                  'scheduled_date', oi.scheduled_date,
+                  'scheduled_time_slot', oi.scheduled_time_slot,
+                  'completion_date', oi.completion_date,
+                  'item_notes', oi.item_notes,
+                  'item_rating', oi.item_rating,
+                  'item_review', oi.item_review,
+                  'created_at', COALESCE(oi.created_at, o.created_at)
+                )
+              ELSE NULL
+            END
+          ) FILTER (WHERE oi.id IS NOT NULL), 
+          '[]'::json
         ) as items
         FROM orders o
         LEFT JOIN order_items oi ON o.id = oi.order_id
@@ -146,11 +158,64 @@ export class OrdersController {
       
       const result = await pool.query(query, [userId]);
       
+      if (!result || !result.rows) {
+        const response: ApiResponse<any[]> = {
+          success: true,
+          data: []
+        };
+        return res.json(response);
+      }
+      
       // Transform Order data to Booking format expected by frontend
       const bookings = result.rows.flatMap(order => {
-        if (!order.items || order.items.length === 0) return [];
-        
-        return order.items.map((item: any) => {
+        try {
+          if (!order || !order.items || !Array.isArray(order.items) || order.items.length === 0) {
+            // Return a basic order entry even if no items
+            return [{
+              id: order?.id || '',
+              orderNumber: order?.order_number || `HH${(order?.id || '').slice(0, 3).toUpperCase()}`,
+              userId: order?.customer_id || '',
+              serviceId: null,
+              scheduledDate: order?.created_at || new Date().toISOString(),
+              timeSlot: { startTime: '09:00', endTime: '11:00', isAvailable: true },
+              status: order?.status || 'pending',
+              itemStatus: 'pending',
+              items: [],
+              totalAmount: parseFloat(order?.total_amount || '0'),
+              discountAmount: parseFloat(order?.discount_amount || '0'),
+              finalAmount: parseFloat(order?.final_amount || order?.total_amount || '0'),
+              couponCode: null, // Coupon code not stored in orders table
+              customerAddress: {
+                street: 'Address not provided',
+                city: 'City not specified',
+                state: 'State not specified',
+                zipCode: 'PIN not provided',
+                landmark: ''
+              },
+              customerNotes: order?.notes || '',
+              paymentStatus: order?.payment_status || 'pending',
+              paymentMethod: order?.payment_method || null,
+              paymentId: order?.transaction_id || null,
+              transactionId: order?.transaction_id || null,
+              completedAt: null,
+              cancelledAt: null,
+              cancellationReason: null,
+              adminNotes: '',
+              assignedTechnician: null,
+              customerRating: order?.customer_rating || null,
+              customerReview: order?.customer_review || null,
+              createdAt: order?.created_at || new Date().toISOString(),
+              updatedAt: order?.updated_at || new Date().toISOString(),
+              service: {
+                id: null,
+                name: 'Service',
+                description: '',
+                basePrice: 0
+              }
+            }];
+          }
+          
+          return order.items.map((item: any) => {
           // Handle date formatting properly
           const getValidDate = (dateValue: any, fallbackDate: any) => {
             // First try the provided date value
@@ -228,7 +293,7 @@ export class OrdersController {
             totalAmount: parseFloat(item.total_price || order.total_amount || '0'),
             discountAmount: parseFloat(order.discount_amount || '0'),
             finalAmount: parseFloat(order.final_amount || item.total_price || order.total_amount || '0'),
-            couponCode: order.coupon_code,
+            couponCode: null, // Coupon code not stored in orders table
             customerAddress: getAddress(),
           customerNotes: order.notes || item.item_notes || '',
           paymentStatus: order.payment_status || 'pending',
@@ -252,6 +317,10 @@ export class OrdersController {
           }
         };
         });
+      } catch (orderError) {
+        console.error('Error processing order:', orderError, order);
+        return []; // Skip this order if processing fails
+      }
       });
       
       const response: ApiResponse<any[]> = {
@@ -434,8 +503,8 @@ export class OrdersController {
         INSERT INTO orders (
           id, order_number, customer_id, customer_name, customer_phone, customer_email,
           service_address, total_amount, discount_amount, gst_amount, service_charge,
-          final_amount, priority, notes, status, coupon_code, coupon_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+          final_amount, priority, notes, status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         RETURNING *
       `;
       
@@ -454,9 +523,7 @@ export class OrdersController {
         finalCalculatedAmount, // Use calculated final amount
         orderData.priority || 'medium',
         orderData.notes,
-        'pending',
-        orderData.coupon_code || null, // Add coupon code
-        appliedCoupon?.id || null // Add coupon ID
+        'pending'
       ];
       
       const orderResult = await client.query(orderInsertQuery, orderValues);
@@ -464,9 +531,9 @@ export class OrdersController {
       // Insert order items
       const itemInsertQuery = `
         INSERT INTO order_items (
-          id, order_id, service_id, service_name, service_variant_id, 
-          quantity, unit_price, total_price, service_description, customizations
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+          id, order_id, service_id, service_name, variant_id, variant_name,
+          quantity, unit_price, total_price, category_id, subcategory_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         RETURNING *
       `;
       
@@ -480,11 +547,12 @@ export class OrdersController {
           item.service_id,
           item.service_name || 'Service',
           item.variant_id || null,
+          item.variant_name || null,
           item.quantity,
           item.unit_price,
           item.total_price,
-          item.service_name || 'Service',
-          '{}' // Empty JSON object as string
+          item.category_id || 'default-category',
+          item.subcategory_id || 'default-subcategory'
         ];
         
         const itemResult = await client.query(itemInsertQuery, itemValues);
@@ -521,12 +589,24 @@ export class OrdersController {
         items
       };
 
-      // Note: Orders start in 'pending' status and require admin confirmation before engineer assignment
+      // Order created successfully - return order details for payment method selection
+      console.log(`✅ Order ${orderNumber} created successfully, ready for payment`);
+      console.log('🔍 DEBUG: Order object fields:', Object.keys(order));
+      console.log('🔍 DEBUG: Order number from DB:', order.order_number);
+      console.log('🔍 DEBUG: Complete order object:', JSON.stringify(order, null, 2));
       
-      const response: ApiResponse<Order> = {
+      const response: ApiResponse<any> = {
         success: true,
-        data: order,
-        message: `Order ${orderNumber} created successfully`
+        data: {
+          order: order,
+          requires_payment: true,
+          payment_options: {
+            methods: ['credit_card', 'debit_card', 'net_banking', 'upi', 'wallet'],
+            gateway: 'ICICI',
+            amount: order.final_amount
+          }
+        },
+        message: `Order ${orderNumber} created successfully. Please select payment method to proceed.`
       };
       
       res.status(201).json(response);

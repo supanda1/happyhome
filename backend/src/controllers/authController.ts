@@ -4,6 +4,20 @@ import bcrypt from 'bcryptjs';
 import jwt, { SignOptions } from 'jsonwebtoken';
 import { getSessionType, getCookieOptions, SessionTypeName } from '../config/sessionConfig';
 
+// Helper function to convert duration strings to PostgreSQL intervals
+function convertDurationToInterval(duration: string): string {
+  const match = duration.match(/^(\d+)([hdm])$/);
+  if (!match) return '1 hour'; // fallback
+  
+  const [, amount, unit] = match;
+  switch (unit) {
+    case 'h': return `${amount} hours`;
+    case 'd': return `${amount} days`;
+    case 'm': return `${amount} minutes`;
+    default: return '1 hour';
+  }
+}
+
 // JWT payload interfaces
 interface JWTPayload {
   userId: string;
@@ -53,11 +67,11 @@ export const register = async (req: Request, res: Response) => {
     // Create user
     const result = await pool.query(`
       INSERT INTO users (
-        id, email, password, first_name, last_name, phone, role, 
-        is_active, email_verified, created_at, updated_at
+        id, email, password_hash, first_name, last_name, phone, role, 
+        is_active, is_verified, created_at, updated_at
       )
       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, true, false, NOW(), NOW())
-      RETURNING id, email, first_name, last_name, phone, role, is_active, email_verified, created_at
+      RETURNING id, email, first_name, last_name, phone, role, is_active, is_verified, created_at
     `, [email, hashedPassword, first_name, last_name, phone, role]);
 
     const user = result.rows[0];
@@ -84,9 +98,10 @@ export const register = async (req: Request, res: Response) => {
 
     // Store refresh token in database with dynamic expiration
     const refreshTokenDuration = sessionType.refreshTokenDuration;
+    const intervalStr = convertDurationToInterval(refreshTokenDuration);
     await pool.query(`
-      INSERT INTO refresh_tokens (id, user_id, token, expires_at, is_revoked, created_at)
-      VALUES (gen_random_uuid(), $1, $2, NOW() + INTERVAL '${refreshTokenDuration}', false, NOW())
+      INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at, is_revoked, created_at, updated_at)
+      VALUES (gen_random_uuid(), $1, $2, NOW() + INTERVAL '${intervalStr}', false, NOW(), NOW())
     `, [user.id, refreshToken]);
 
     // Format user response
@@ -98,7 +113,7 @@ export const register = async (req: Request, res: Response) => {
       phone: user.phone,
       role: user.role,
       isActive: user.is_active,
-      isVerified: user.email_verified,
+      isVerified: user.is_verified,
       createdAt: user.created_at
     };
 
@@ -157,10 +172,10 @@ export const login = async (req: Request, res: Response) => {
     }
 
     const user = result.rows[0];
-    console.log('User data:', { id: user.id, email: user.email, hasPassword: !!user.password });
+    console.log('User data:', { id: user.id, email: user.email, hasPassword: !!user.password_hash });
 
     // Check password
-    const isValidPassword = await bcrypt.compare(password, user.password);
+    const isValidPassword = await bcrypt.compare(password, user.password_hash);
     console.log('Password valid:', isValidPassword);
     
     if (!isValidPassword) {
@@ -193,9 +208,10 @@ export const login = async (req: Request, res: Response) => {
 
     // Store refresh token with dynamic expiration
     const refreshTokenDuration = sessionType.refreshTokenDuration;
+    const intervalStr = convertDurationToInterval(refreshTokenDuration);
     await pool.query(`
-      INSERT INTO refresh_tokens (id, user_id, token, expires_at, is_revoked, created_at)
-      VALUES (gen_random_uuid(), $1, $2, NOW() + INTERVAL '${refreshTokenDuration}', false, NOW())
+      INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at, is_revoked, created_at, updated_at)
+      VALUES (gen_random_uuid(), $1, $2, NOW() + INTERVAL '${intervalStr}', false, NOW(), NOW())
     `, [user.id, refreshToken]);
 
     // Format user response
@@ -207,7 +223,7 @@ export const login = async (req: Request, res: Response) => {
       phone: user.phone,
       role: user.role,
       isActive: user.is_active,
-      isVerified: user.email_verified,
+      isVerified: user.is_verified,
       createdAt: user.created_at
     };
 
@@ -379,7 +395,7 @@ export const updateProfile = async (req: Request, res: Response) => {
       UPDATE users 
       SET ${updateFields.join(', ')}
       WHERE id = $${paramIndex}
-      RETURNING id, email, first_name, last_name, phone, role, is_active, email_verified, created_at, updated_at
+      RETURNING id, email, first_name, last_name, phone, role, is_active, is_verified, created_at, updated_at
     `;
 
 
@@ -401,7 +417,7 @@ export const updateProfile = async (req: Request, res: Response) => {
       phone: user.phone,
       role: user.role,
       isActive: user.is_active,
-      isVerified: user.email_verified,
+      isVerified: user.is_verified,
       createdAt: user.created_at,
       updatedAt: user.updated_at
     };
@@ -444,7 +460,7 @@ export const getProfile = async (req: Request, res: Response) => {
 
     // Get user profile
     const result = await pool.query(
-      'SELECT id, email, first_name, last_name, phone, role, is_active, email_verified, created_at FROM users WHERE id = $1',
+      'SELECT id, email, first_name, last_name, phone, role, is_active, is_verified, created_at FROM users WHERE id = $1',
       [decoded.userId]
     );
 
@@ -464,7 +480,7 @@ export const getProfile = async (req: Request, res: Response) => {
       phone: user.phone,
       role: user.role,
       isActive: user.is_active,
-      isVerified: user.email_verified,
+      isVerified: user.is_verified,
       createdAt: user.created_at
     };
 
@@ -551,7 +567,7 @@ export const getCurrentUser = async (req: Request, res: Response) => {
     
     // Get user profile from database
     const result = await pool.query(
-      'SELECT id, email, first_name, last_name, phone, role, is_active, email_verified, created_at FROM users WHERE id = $1 AND is_active = true',
+      'SELECT id, email, first_name, last_name, phone, role, is_active, is_verified, created_at FROM users WHERE id = $1 AND is_active = true',
       [userId]
     );
 
@@ -571,7 +587,7 @@ export const getCurrentUser = async (req: Request, res: Response) => {
       phone: user.phone,
       role: user.role,
       isActive: user.is_active,
-      isVerified: user.email_verified,
+      isVerified: user.is_verified,
       createdAt: user.created_at
     };
 
@@ -613,7 +629,7 @@ export const refreshToken = async (req: Request, res: Response) => {
 
     // Check if refresh token exists and is valid
     const tokenResult = await pool.query(
-      'SELECT user_id FROM refresh_tokens WHERE token = $1 AND expires_at > NOW()',
+      'SELECT user_id FROM refresh_tokens WHERE token_hash = $1 AND expires_at > NOW()',
       [refresh_token]
     );
 
@@ -659,12 +675,12 @@ export const refreshToken = async (req: Request, res: Response) => {
     );
 
     // Replace old refresh token with new one
-    await pool.query('DELETE FROM refresh_tokens WHERE token = $1', [refresh_token]);
+    await pool.query('DELETE FROM refresh_tokens WHERE token_hash = $1', [refresh_token]);
     const refreshTokenDuration = sessionType.refreshTokenDuration;
     await pool.query(`
-      INSERT INTO refresh_tokens (id, user_id, token, expires_at, created_at)
-      VALUES (gen_random_uuid(), $1, $2, NOW() + INTERVAL '${refreshTokenDuration}', NOW())
-    `, [user.id, newRefreshToken]);
+      INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at, is_revoked, created_at, updated_at)
+      VALUES (gen_random_uuid(), $1, $2, NOW() + INTERVAL $3, false, NOW(), NOW())
+    `, [user.id, newRefreshToken, refreshTokenDuration]);
 
     res.json({
       success: true,
@@ -752,7 +768,7 @@ export const changePassword = async (req: Request, res: Response) => {
 
     // Get user from database
     const userResult = await pool.query(
-      'SELECT id, password FROM users WHERE id = $1 AND is_active = true',
+      'SELECT id, password_hash FROM users WHERE id = $1 AND is_active = true',
       [userId]
     );
 
@@ -766,7 +782,7 @@ export const changePassword = async (req: Request, res: Response) => {
     const user = userResult.rows[0];
 
     // Verify current password
-    const isCurrentPasswordValid = await bcrypt.compare(current_password, user.password);
+    const isCurrentPasswordValid = await bcrypt.compare(current_password, user.password_hash);
     if (!isCurrentPasswordValid) {
       return res.status(400).json({
         success: false,
@@ -780,7 +796,7 @@ export const changePassword = async (req: Request, res: Response) => {
 
     // Update password in database
     await pool.query(
-      'UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2',
+      'UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2',
       [hashedNewPassword, userId]
     );
 
@@ -916,9 +932,9 @@ export const updateSessionType = async (req: Request, res: Response) => {
     await pool.query('DELETE FROM refresh_tokens WHERE user_id = $1', [userId]);
     const refreshTokenDuration = sessionType.refreshTokenDuration;
     await pool.query(`
-      INSERT INTO refresh_tokens (id, user_id, token, expires_at, created_at)
-      VALUES (gen_random_uuid(), $1, $2, NOW() + INTERVAL '${refreshTokenDuration}', NOW())
-    `, [user.id, newRefreshToken]);
+      INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at, is_revoked, created_at, updated_at)
+      VALUES (gen_random_uuid(), $1, $2, NOW() + INTERVAL $3, false, NOW(), NOW())
+    `, [user.id, newRefreshToken, refreshTokenDuration]);
 
     // Set updated JWT tokens as HTTP-only cookies
     res.setHeader('Set-Cookie', [

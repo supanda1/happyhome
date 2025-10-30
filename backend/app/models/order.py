@@ -168,6 +168,13 @@ class Order(Base):
         lazy="select"
     )
     
+    payments: Mapped[List["Payment"]] = relationship(
+        "Payment",
+        back_populates="order",
+        cascade="all, delete-orphan",
+        lazy="select"
+    )
+    
     @property
     def calculated_final_amount(self) -> float:
         """Calculate final amount from components."""
@@ -189,6 +196,28 @@ class Order(Base):
         if not self.total_items:
             return 0.0
         return (self.completed_items / self.total_items) * 100
+    
+    @property
+    def payment_status(self) -> str:
+        """Get current payment status."""
+        if not self.payments:
+            return "pending"
+        
+        latest_payment = max(self.payments, key=lambda p: p.created_at)
+        return latest_payment.payment_status
+    
+    @property
+    def is_paid(self) -> bool:
+        """Check if order is fully paid."""
+        return any(payment.is_successful for payment in self.payments)
+    
+    @property
+    def total_paid_amount(self) -> float:
+        """Calculate total paid amount."""
+        return sum(
+            payment.amount for payment in self.payments 
+            if payment.is_successful
+        )
     
     def generate_order_number(self) -> str:
         """Generate unique order number."""
