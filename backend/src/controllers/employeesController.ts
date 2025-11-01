@@ -31,9 +31,15 @@ export class EmployeesController {
       
       const result = await pool.query(query, values);
       
+      // Parse expertise JSON strings back to arrays for frontend
+      const employees = result.rows.map(employee => ({
+        ...employee,
+        expertise: employee.expertise ? JSON.parse(employee.expertise) : []
+      }));
+      
       const response: ApiResponse<Employee[]> = {
         success: true,
-        data: result.rows,
+        data: employees,
         message: `Found ${result.rows.length} employees`
       };
       
@@ -65,9 +71,15 @@ export class EmployeesController {
         return res.status(404).json(response);
       }
       
+      // Parse expertise JSON string back to array for frontend
+      const employee = {
+        ...result.rows[0],
+        expertise: result.rows[0].expertise ? JSON.parse(result.rows[0].expertise) : []
+      };
+      
       const response: ApiResponse<Employee> = {
         success: true,
-        data: result.rows[0]
+        data: employee
       };
       
       res.json(response);
@@ -138,9 +150,15 @@ export class EmployeesController {
 
       const result = await pool.query(query, values);
       
+      // Parse expertise JSON string back to array for frontend
+      const employee = {
+        ...result.rows[0],
+        expertise: result.rows[0].expertise ? JSON.parse(result.rows[0].expertise) : []
+      };
+      
       const response: ApiResponse<Employee> = {
         success: true,
-        data: result.rows[0],
+        data: employee,
         message: 'Employee created successfully'
       };
       
@@ -260,9 +278,15 @@ export class EmployeesController {
         return res.status(404).json(response);
       }
       
+      // Parse expertise JSON string back to array for frontend
+      const employee = {
+        ...result.rows[0],
+        expertise: result.rows[0].expertise ? JSON.parse(result.rows[0].expertise) : []
+      };
+      
       const response: ApiResponse<Employee> = {
         success: true,
-        data: result.rows[0],
+        data: employee,
         message: 'Employee updated successfully'
       };
       

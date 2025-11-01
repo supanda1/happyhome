@@ -24,12 +24,10 @@ export class OrdersController {
             'id', oi.id,
             'service_id', oi.service_id,
             'service_name', oi.service_name,
-            'variant_id', oi.service_variant_id,
+            'variant_id', oi.variant_id,
             'quantity', oi.quantity,
             'unit_price', oi.unit_price,
             'total_price', oi.total_price,
-            'service_description', oi.service_description,
-            'customizations', oi.customizations,
             'assigned_engineer_id', oi.assigned_engineer_id,
             'assigned_engineer_name', oi.assigned_engineer_name,
             'item_status', oi.item_status,
@@ -128,7 +126,7 @@ export class OrdersController {
                   'id', oi.id,
                   'service_id', oi.service_id,
                   'service_name', COALESCE(oi.service_name, 'Service'),
-                  'variant_id', oi.service_variant_id,
+                  'variant_id', oi.variant_id,
                   'variant_name', COALESCE(oi.service_name, 'Service'),
                   'quantity', COALESCE(oi.quantity, 1),
                   'unit_price', COALESCE(oi.unit_price, 0),
@@ -351,7 +349,7 @@ export class OrdersController {
             'id', oi.id,
             'service_id', oi.service_id,
             'service_name', oi.service_name,
-            'variant_id', oi.service_variant_id,
+            'variant_id', oi.variant_id,
             'variant_name', oi.service_name,
             'quantity', oi.quantity,
             'unit_price', oi.unit_price,
@@ -647,7 +645,7 @@ export class OrdersController {
       }
       
       if (updates.admin_notes) {
-        updateFields.push(`special_instructions = $${valueIndex}`);
+        updateFields.push(`admin_notes = $${valueIndex}`);
         values.push(updates.admin_notes);
         valueIndex++;
       }
@@ -845,7 +843,7 @@ export class OrdersController {
               await client.query(`
                 UPDATE orders 
                 SET status = $1, 
-                    special_instructions = COALESCE(special_instructions, '') || $2,
+                    admin_notes = COALESCE(admin_notes, '') || $2,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = $3
               `, [newOrderStatus, orderNote, orderId]);
@@ -1077,7 +1075,7 @@ export class OrdersController {
         // All items are assigned, update order status
         const orderNote = `\n[${new Date().toISOString().substring(0, 10)}] All items assigned - Order scheduled`;
         await client.query(
-          'UPDATE orders SET status = $1, special_instructions = COALESCE(special_instructions, \'\') || $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3',
+          'UPDATE orders SET status = $1, admin_notes = COALESCE(admin_notes, \'\') || $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3',
           ['scheduled', orderNote, orderId] // Set order status to scheduled when all items assigned
         );
       }
@@ -1617,7 +1615,7 @@ export class OrdersController {
           // All items are assigned, update order status to scheduled
           const orderNote = `\n[${new Date().toISOString().substring(0, 10)}] All items auto-assigned - Order scheduled`;
           await client.query(
-            'UPDATE orders SET status = $1, special_instructions = COALESCE(special_instructions, \'\') || $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3',
+            'UPDATE orders SET status = $1, admin_notes = COALESCE(admin_notes, \'\') || $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3',
             ['scheduled', orderNote, orderId]
           );
           
@@ -1779,7 +1777,7 @@ export class OrdersController {
       // Update order status to cancelled
       // originalStatus variable removed - not used
       const cancellationNote = `CANCELLED by ${userEmail}: ${cancelReason}`;
-      const existingNotes = order.special_instructions || '';
+      const existingNotes = order.admin_notes || '';
       const updatedAdminNotes = existingNotes 
         ? `${existingNotes}\n${cancellationNote}` 
         : cancellationNote;
@@ -1787,7 +1785,7 @@ export class OrdersController {
       await client.query(`
         UPDATE orders 
         SET status = 'cancelled', 
-            special_instructions = $1,
+            admin_notes = $1,
             updated_at = CURRENT_TIMESTAMP
         WHERE id = $2
       `, [updatedAdminNotes, orderId]);

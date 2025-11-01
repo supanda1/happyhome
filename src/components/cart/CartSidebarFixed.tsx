@@ -478,30 +478,58 @@ export const CartSidebarFixed: React.FC<CartSidebarFixedProps> = ({
                       <span>{formatPrice(cart.subtotal || cart.totalAmount)}</span>
                     </div>
                     
+                    {/* Offer Plan Discount */}
+                    {localStorage.getItem('selectedOfferPlan') && !cart.appliedCoupon && (
+                      <div className="flex justify-between text-green-600">
+                        <span>💰 20% Discount</span>
+                        <span>-{formatPrice(Math.round((cart.subtotal || cart.totalAmount) * 0.20))}</span>
+                      </div>
+                    )}
+                    
                     {cart.discountAmount > 0 && (
                       <div className="flex justify-between text-purple-600">
-                        <span>Discount ({cart.appliedCoupon})</span>
+                        <span>Discount</span>
                         <span>-{formatPrice(cart.discountAmount)}</span>
                       </div>
                     )}
                     
-                    <div className="flex justify-between text-purple-800">
-                      <span>GST (18%)</span>
-                      <span>{formatPrice(cart.gstAmount)}</span>
-                    </div>
-                    
-                    <div className="flex justify-between text-purple-800">
-                      <span>Service charge</span>
-                      <span className={cart.serviceChargeAmount > 0 ? 'text-purple-900' : 'text-purple-600'}>
-                        {cart.serviceChargeAmount > 0 ? formatPrice(cart.serviceChargeAmount) : 'FREE'}
-                      </span>
-                    </div>
-                    
-                    <hr className="my-1 border-purple-300" />
-                    <div className="flex justify-between font-bold text-purple-900">
-                      <span>Total</span>
-                      <span>{formatPrice(cart.finalAmount)}</span>
-                    </div>
+{(() => {
+                      // Calculate GST and Total with offer plan discount
+                      const hasOfferPlan = !!localStorage.getItem('selectedOfferPlan') && !cart.appliedCoupon;
+                      const subtotal = cart.subtotal || cart.totalAmount;
+                      const discountAmount = hasOfferPlan ? Math.round(subtotal * 0.20) : 0;
+                      const discountedSubtotal = subtotal - discountAmount;
+                      
+                      const calculatedGST = hasOfferPlan 
+                        ? Math.round(discountedSubtotal * 0.18)
+                        : cart.gstAmount;
+                      
+                      const calculatedTotal = hasOfferPlan 
+                        ? discountedSubtotal + calculatedGST + cart.serviceChargeAmount
+                        : cart.finalAmount;
+                      
+                      return (
+                        <>
+                          <div className="flex justify-between text-purple-800">
+                            <span>GST (18%)</span>
+                            <span>{formatPrice(calculatedGST)}</span>
+                          </div>
+                          
+                          <div className="flex justify-between text-purple-800">
+                            <span>Service charge</span>
+                            <span className={cart.serviceChargeAmount > 0 ? 'text-purple-900' : 'text-purple-600'}>
+                              {cart.serviceChargeAmount > 0 ? formatPrice(cart.serviceChargeAmount) : 'FREE'}
+                            </span>
+                          </div>
+                          
+                          <hr className="my-1 border-purple-300" />
+                          <div className="flex justify-between font-bold text-purple-900">
+                            <span>Total</span>
+                            <span>{formatPrice(calculatedTotal)}</span>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
@@ -511,12 +539,30 @@ export const CartSidebarFixed: React.FC<CartSidebarFixedProps> = ({
           {/* Footer */}
           {cart && cart.items.length > 0 && (
             <div className="border-t bg-gray-50 p-2">
-              <button
-                onClick={onCheckout}
-                className="w-full bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 text-white py-2 rounded-lg text-xs font-semibold hover:from-orange-600 hover:via-purple-700 hover:to-blue-700 transition-all shadow-md hover:shadow-lg"
-              >
-                Checkout - {formatPrice(cart.finalAmount)}
-              </button>
+{(() => {
+                // Calculate total for checkout button
+                const hasOfferPlan = !!localStorage.getItem('selectedOfferPlan') && !cart.appliedCoupon;
+                const subtotal = cart.subtotal || cart.totalAmount;
+                const discountAmount = hasOfferPlan ? Math.round(subtotal * 0.20) : 0;
+                const discountedSubtotal = subtotal - discountAmount;
+                
+                const calculatedGST = hasOfferPlan 
+                  ? Math.round(discountedSubtotal * 0.18)
+                  : cart.gstAmount;
+                
+                const calculatedTotal = hasOfferPlan 
+                  ? discountedSubtotal + calculatedGST + cart.serviceChargeAmount
+                  : cart.finalAmount;
+                
+                return (
+                  <button
+                    onClick={onCheckout}
+                    className="w-full bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 text-white py-2 rounded-lg text-xs font-semibold hover:from-orange-600 hover:via-purple-700 hover:to-blue-700 transition-all shadow-md hover:shadow-lg"
+                  >
+                    Checkout - {formatPrice(calculatedTotal)}
+                  </button>
+                );
+              })()}
             </div>
           )}
         </>

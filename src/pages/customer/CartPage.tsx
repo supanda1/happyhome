@@ -510,7 +510,7 @@ const CartPage: React.FC<CartPageProps> = ({
                 {/* Price Breakdown - Moved to top */}
                 <div className="space-y-3 text-sm mb-6">
                   {(() => {
-                    const isOfferPlanActive = offerPlan && cart.appliedCoupon === offerPlan.coupon_code;
+                    const isOfferPlanActive = offerPlan && localStorage.getItem('selectedOfferPlan');
                     const calculatedSubtotal = isOfferPlanActive 
                       ? cart.items.reduce((sum, item) => {
                           // Use basePrice for uniform offer discount calculation
@@ -523,21 +523,16 @@ const CartPage: React.FC<CartPageProps> = ({
                       <div className="flex justify-between">
                         <span>
                           Subtotal ({cart.totalItems} items)
-                          {isOfferPlanActive && (
-                            <span className="text-xs text-green-600 ml-1">
-                              ({offerPlan.discount_percentage}% offer applied)
-                            </span>
-                          )}
                         </span>
                         <span>{formatPrice(calculatedSubtotal)}</span>
                       </div>
                     );
                   })()}
-                  {cart.discountAmount > 0 && (!offerPlan || cart.appliedCoupon !== offerPlan.coupon_code) && (
+                  {cart.discountAmount > 0 && (
                     <div className="space-y-1">
                       <div className="flex justify-between text-green-600">
                         <span>
-                          Discount ({cart.appliedCoupon})
+                          Discount
                           {cart.couponDetails?.isPartiallyApplied && (
                             <span className="text-xs text-gray-500 ml-1">
                               (Partial)
@@ -555,7 +550,7 @@ const CartPage: React.FC<CartPageProps> = ({
                     </div>
                   )}
 {(() => {
-                    const isOfferPlanActive = offerPlan && cart.appliedCoupon === offerPlan.coupon_code;
+                    const isOfferPlanActive = offerPlan && localStorage.getItem('selectedOfferPlan');
                     const calculatedSubtotal = isOfferPlanActive 
                       ? cart.items.reduce((sum, item) => {
                           // Use basePrice for uniform offer discount calculation
@@ -591,7 +586,7 @@ const CartPage: React.FC<CartPageProps> = ({
                   </div>
                   <hr />
 {(() => {
-                    const isOfferPlanActive = offerPlan && cart.appliedCoupon === offerPlan.coupon_code;
+                    const isOfferPlanActive = offerPlan && localStorage.getItem('selectedOfferPlan');
                     const calculatedSubtotal = isOfferPlanActive 
                       ? cart.items.reduce((sum, item) => {
                           // Use basePrice for uniform offer discount calculation
@@ -650,15 +645,15 @@ const CartPage: React.FC<CartPageProps> = ({
                           {offerPlan && cart.appliedCoupon === offerPlan.coupon_code ? (
                             <div>
                               <div className="font-semibold text-orange-800">
-                                🎁 Offer Plan Discount Applied: {cart.appliedCoupon}
+                                🎁 Discount Applied
                               </div>
                               <div className="text-sm text-orange-700">
-                                {offerPlan.title} • {offerPlan.discount_percentage}% OFF for {offerPlan.duration_months} months
+                                {offerPlan.discount_percentage}% OFF for {offerPlan.duration_months} months
                               </div>
                             </div>
                           ) : (
                             <div className="font-semibold text-green-800">
-                              Coupon Applied: {cart.appliedCoupon}
+                              Coupon Applied
                             </div>
                           )}
                           {cart.couponDetails && (
@@ -698,23 +693,6 @@ const CartPage: React.FC<CartPageProps> = ({
                       </button>
                     </div>
 
-                    {/* Offer Plan Specific Message */}
-                    {offerPlan && cart.appliedCoupon === offerPlan.coupon_code && (
-                      <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                        <div className="flex items-start space-x-2">
-                          <svg className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          <div className="text-sm">
-                            <div className="font-medium text-blue-800">Special Offer Plan Active</div>
-                            <div className="text-blue-700 mt-1">
-                              This discount is automatically applied as part of your selected {offerPlan.title} plan. 
-                              You cannot combine this with other coupon codes, but you can remove it to use a different coupon if preferred.
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
 
                     {/* Partial Application Warning */}
                     {cart.couponDetails?.isPartiallyApplied && (
@@ -752,7 +730,7 @@ const CartPage: React.FC<CartPageProps> = ({
                           🎁 {offerPlan.title} Discount Active
                         </div>
                         <div className="text-sm text-orange-700">
-                          Your {offerPlan.discount_percentage}% discount (code: {offerPlan.coupon_code}) is being applied automatically.
+                          Your {offerPlan.discount_percentage}% discount is being applied automatically.
                         </div>
                       </div>
                     </div>

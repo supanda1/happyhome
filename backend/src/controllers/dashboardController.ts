@@ -97,7 +97,6 @@ export const getDashboardStats = async (req: Request, res: Response) => {
         o.order_number,
         o.total_amount,
         o.status,
-        o.preferred_date,
         o.created_at,
         o.customer_name,
         o.customer_email
@@ -162,7 +161,7 @@ export const getDashboardStats = async (req: Request, res: Response) => {
         orderNumber: row.order_number,
         totalAmount: parseFloat(row.total_amount) || 0,
         status: row.status,
-        scheduledDate: row.preferred_date || row.created_at,
+        scheduledDate: row.created_at,
         user: {
           firstName: row.customer_name?.split(' ')[0] || 'Customer',
           lastName: row.customer_name?.split(' ')[1] || '',

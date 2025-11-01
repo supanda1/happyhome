@@ -251,7 +251,7 @@ export const addToCart = async (req: Request, res: Response) => {
     const totalPrice = unitPrice * quantity;
 
     // Get or create cart for user
-    let cartResult = await pool.query('SELECT id FROM cart WHERE user_id = $1', [sessionId]);
+    let cartResult = await pool.query('SELECT id FROM cart WHERE user_id::text = $1', [sessionId]);
     let cartId;
     
     if (cartResult.rows.length === 0) {
@@ -353,8 +353,9 @@ export const updateCartItem = async (req: Request, res: Response) => {
     const itemResult = await pool.query(`
       SELECT ci.*, s.name as service_name, s.base_price, s.discounted_price
       FROM cart_items ci
+      LEFT JOIN cart c ON ci.cart_id = c.id
       LEFT JOIN services s ON ci.service_id = s.id
-      WHERE ci.id = $1::uuid AND ci.user_id = $2
+      WHERE ci.id = $1::uuid AND c.user_id::text = $2
     `, [itemId, userId]);
 
     if (itemResult.rows.length === 0) {
@@ -377,7 +378,7 @@ export const updateCartItem = async (req: Request, res: Response) => {
       id: updateResult.rows[0].id,
       serviceId: updateResult.rows[0].service_id,
       serviceName: item.service_name,
-      variantId: updateResult.rows[0].service_variant_id,
+      variantId: updateResult.rows[0].variant_id,
       quantity: updateResult.rows[0].quantity,
       basePrice: item.base_price,
       discountedPrice: item.discounted_price,
@@ -417,7 +418,7 @@ export const removeFromCart = async (req: Request, res: Response) => {
 
     const result = await pool.query(`
       DELETE FROM cart_items 
-      WHERE id = $1::uuid AND user_id = $2
+      WHERE id = $1::uuid AND cart_id IN (SELECT id FROM cart WHERE user_id::text = $2)
       RETURNING *
     `, [itemId, userId]);
 
@@ -450,7 +451,7 @@ export const clearCart = async (req: Request, res: Response) => {
 
     await pool.query(`
       DELETE FROM cart_items 
-      WHERE cart_id IN (SELECT id FROM cart WHERE user_id = $1)
+      WHERE cart_id IN (SELECT id FROM cart WHERE user_id::text = $1)
     `, [sessionId]);
     
     res.json({
@@ -486,6 +487,8 @@ export const applyCoupon = async (req: Request, res: Response) => {
     }
 
     console.log('🎯 Applying coupon:', couponCode);
+    console.log('🆔 Session ID type and value:', typeof sessionId, sessionId);
+    console.log('🔍 Session ID length:', sessionId.length);
 
     // Validate coupon using correct column names
     const couponResult = await pool.query(`
@@ -524,8 +527,9 @@ export const applyCoupon = async (req: Request, res: Response) => {
         s.category_id,
         s.id as service_id
       FROM cart_items ci
-      LEFT JOIN services s ON ci.service_id = s.id
-      WHERE ci.user_id = $1
+      LEFT JOIN cart c ON ci.cart_id = c.id
+      LEFT JOIN services s ON ci.service_id::uuid = s.id
+      WHERE c.user_id::text = $1
     `, [sessionId]);
 
     if (cartItemsResult.rows.length === 0) {
@@ -541,7 +545,7 @@ export const applyCoupon = async (req: Request, res: Response) => {
       SELECT COALESCE(SUM(ci.unit_price * ci.quantity), 0) as total
       FROM cart_items ci
       JOIN cart c ON ci.cart_id = c.id
-      WHERE c.user_id = $1
+      WHERE c.user_id::text = $1
     `, [sessionId]);
 
     const total = parseFloat(cartTotal.rows[0].total);
@@ -634,7 +638,7 @@ export const removeCoupon = async (req: Request, res: Response) => {
       SELECT COALESCE(SUM(ci.unit_price * ci.quantity), 0) as total
       FROM cart_items ci
       JOIN cart c ON ci.cart_id = c.id
-      WHERE c.user_id = $1
+      WHERE c.user_id::text = $1
     `, [sessionId]);
 
     const total = parseFloat(cartTotal.rows[0].total);

@@ -531,7 +531,7 @@ const OfferPage: React.FC<OfferPageProps> = ({
                             <div className="text-sm text-yellow-800">
                               <span className="font-semibold">💰 {selectedPlan.discount_percentage}% Discount</span>
                               <br />
-                              <span className="text-xs">Applied automatically at checkout with {selectedPlan.coupon_code}</span>
+                              <span className="text-xs">Applied automatically at checkout</span>
                             </div>
                             <div className="text-lg font-bold text-green-600 mt-2">
                               Final Amount: {formatPrice(totals.finalAmount)}
@@ -586,7 +586,7 @@ const OfferPage: React.FC<OfferPageProps> = ({
                       <div className="mt-4 text-xs text-gray-500">
                         <div className="font-medium mb-1">Plan Details:</div>
                         <div className="space-y-1">
-                          <div className="text-blue-700 font-medium">• {selectedPlan.discount_percentage}% discount applied at checkout using code {selectedPlan.coupon_code}</div>
+                          <div className="text-blue-700 font-medium">• {selectedPlan.discount_percentage}% discount applied at checkout</div>
                           <div className="text-orange-700 font-medium">• No other coupons can be combined with offer plans</div>
                           {selectedPlan.terms_conditions.slice(0, 1).map((term, index) => (
                             <div key={index}>• {term}</div>

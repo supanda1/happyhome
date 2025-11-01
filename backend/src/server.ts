@@ -223,23 +223,45 @@ app.use((err: Error & { status?: number }, _req: express.Request, res: express.R
   });
 });
 
-// Start server
-const server = app.listen(PORT, () => {
-  console.log(`🚀 Household Services API server is running on port ${PORT}`);
-  console.log(`🌐 Health check: http://localhost:${PORT}/health`);
-  console.log(`📊 Database health: http://localhost:${PORT}/health/db`);
-  console.log(`📚 API Documentation: http://localhost:${PORT}/`);
-  console.log(`🔗 Frontend CORS: ${process.env.FRONTEND_URL || 'http://localhost:3001'}`);
-});
+// Startup data validation
+async function initializeServer() {
+  try {
+    // Validate and restore essential data
+    const { validateAndRestoreData } = require('../scripts/startup-data-validator');
+    await validateAndRestoreData();
+  } catch (error) {
+    console.warn('⚠️  Startup data validation failed, continuing anyway:', error.message);
+  }
+  
+  // Start server
+  const server = app.listen(PORT, () => {
+    console.log(`🚀 Household Services API server is running on port ${PORT}`);
+    console.log(`🌐 Health check: http://localhost:${PORT}/health`);
+    console.log(`📊 Database health: http://localhost:${PORT}/health/db`);
+    console.log(`📚 API Documentation: http://localhost:${PORT}/`);
+    console.log(`🔗 Frontend CORS: ${process.env.FRONTEND_URL || 'http://localhost:3001'}`);
+  });
 
-// Graceful shutdown
+  return server;
+}
+
+// Initialize server with data validation and handle shutdown
+let server: any;
+
+initializeServer().then((serverInstance) => {
+  server = serverInstance;
+}).catch(console.error);
+
+// Graceful shutdown  
 process.on('SIGTERM', () => {
   console.log('🛑 SIGTERM received. Shutting down gracefully...');
-  server.close(() => {
-    console.log('✅ Process terminated');
-    pool.end();
-    process.exit(0);
-  });
+  if (server) {
+    server.close(() => {
+      console.log('✅ Process terminated');
+      pool.end();
+      process.exit(0);
+    });
+  }
 });
 
 process.on('SIGINT', () => {

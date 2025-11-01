@@ -4,11 +4,11 @@
 -- This is the ONLY file needed for complete database initialization
 -- ==============================================================================
 
--- Database initialization
-CREATE DATABASE household_services;
+-- Database initialization (skip if running in specific database context)
+-- CREATE DATABASE household_services;
 
--- Connect to the household_services database
-\c household_services;
+-- Connect to the household_services database (skip for targeted database runs)
+-- \c household_services;
 
 -- Enable required extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -98,9 +98,9 @@ CREATE TABLE public.cart (
 CREATE TABLE public.cart_items (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     cart_id uuid NOT NULL,
-    service_id character varying(100) NOT NULL,
+    service_id uuid NOT NULL,
     service_name character varying(100) NOT NULL,
-    variant_id character varying(100),
+    variant_id uuid,
     quantity integer DEFAULT 1 NOT NULL,
     unit_price double precision NOT NULL,
     total_price double precision NOT NULL,
@@ -281,16 +281,16 @@ CREATE TABLE public.order_items (
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     order_id uuid NOT NULL,
-    service_id character varying(100) NOT NULL,
+    service_id uuid NOT NULL,
     service_name character varying(100) NOT NULL,
-    variant_id character varying(100),
+    variant_id uuid,
     variant_name character varying(50),
     quantity integer DEFAULT 1 NOT NULL,
     unit_price double precision NOT NULL,
     total_price double precision NOT NULL,
-    category_id character varying(100) NOT NULL,
-    subcategory_id character varying(100) NOT NULL,
-    assigned_engineer_id character varying(100),
+    category_id uuid NOT NULL,
+    subcategory_id uuid NOT NULL,
+    assigned_engineer_id uuid,
     assigned_engineer_name character varying(100),
     item_status character varying(20) DEFAULT 'pending'::character varying NOT NULL,
     scheduled_date character varying(20),
@@ -612,12 +612,17 @@ CREATE INDEX idx_offer_services_service_id ON public.offer_services USING btree 
 
 ALTER TABLE ONLY public.assignment_history ADD CONSTRAINT assignment_history_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.cart_items ADD CONSTRAINT cart_items_cart_id_fkey FOREIGN KEY (cart_id) REFERENCES public.cart(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.cart ADD CONSTRAINT cart_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.cart_items ADD CONSTRAINT cart_items_service_id_fkey FOREIGN KEY (service_id) REFERENCES public.services(id) ON DELETE CASCADE;
+-- Cart user_id constraint removed to allow session UUIDs for anonymous users
+-- ALTER TABLE ONLY public.cart ADD CONSTRAINT cart_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.coupon_usages ADD CONSTRAINT coupon_usages_coupon_id_fkey FOREIGN KEY (coupon_id) REFERENCES public.coupons(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.coupon_usages ADD CONSTRAINT coupon_usages_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.coupon_usages ADD CONSTRAINT coupon_usages_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id) ON DELETE SET NULL;
 ALTER TABLE ONLY public.employees ADD CONSTRAINT employees_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.order_items ADD CONSTRAINT order_items_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.order_items ADD CONSTRAINT order_items_service_id_fkey FOREIGN KEY (service_id) REFERENCES public.services(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.order_items ADD CONSTRAINT order_items_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.service_categories(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.order_items ADD CONSTRAINT order_items_subcategory_id_fkey FOREIGN KEY (subcategory_id) REFERENCES public.service_subcategories(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.refresh_tokens ADD CONSTRAINT refresh_tokens_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.service_photos ADD CONSTRAINT service_photos_service_id_fkey FOREIGN KEY (service_id) REFERENCES public.services(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.service_subcategories ADD CONSTRAINT service_subcategories_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.service_categories(id) ON DELETE CASCADE;
@@ -653,10 +658,10 @@ INSERT INTO public.service_categories (id, name, description, icon, image_path, 
 ('550e8400-e29b-41d4-a716-446655440001', 'Plumbing', 'Professional plumbing services for your home', '🔧', '/images/categories/plumbing.jpg', 1, true),
 ('550e8400-e29b-41d4-a716-446655440002', 'Electrical', 'Certified electrical services and repairs', '⚡', '/images/categories/electrical.jpg', 2, true),
 ('550e8400-e29b-41d4-a716-446655440003', 'Cleaning', 'Professional cleaning services', '🧹', '/images/categories/cleaning.jpg', 3, true),
-('550e8400-e29b-41d4-a716-446655440004', 'Transportation', 'Reliable transportation and delivery services', '🚚', '/images/categories/transport.jpg', 4, true),
-('550e8400-e29b-41d4-a716-446655440005', 'Documentation', 'Legal and government documentation services', '📋', '/images/categories/documentation.jpg', 5, true),
-('550e8400-e29b-41d4-a716-446655440006', 'Personal Care', 'Health, beauty and personal care services', '💆', '/images/categories/personal-care.jpg', 6, true),
-('550e8400-e29b-41d4-a716-446655440007', 'Home Improvement', 'Home renovation and improvement services', '🏠', '/images/categories/home-improvement.jpg', 7, true);
+('550e8400-e29b-41d4-a716-446655440004', 'Call A Service', 'Transportation, delivery and professional services', '📞', '/images/categories/call-service-hero.jpg', 4, true),
+('550e8400-e29b-41d4-a716-446655440005', 'Finance & Insurance', 'Financial documentation and insurance services', '💰', '/images/categories/finance-hero.jpg', 5, true),
+('550e8400-e29b-41d4-a716-446655440006', 'Personal Care', 'Health, beauty and personal care services', '💆', '/images/categories/personal-care-hero.jpg', 6, true),
+('550e8400-e29b-41d4-a716-446655440007', 'Civil Work', 'Home renovation and construction services', '🏗️', '/images/categories/civil-work-hero.jpg', 7, true);
 
 -- Insert Service Subcategories
 INSERT INTO public.service_subcategories (id, category_id, name, description, icon, sort_order, is_active) VALUES 
@@ -681,12 +686,12 @@ INSERT INTO public.service_subcategories (id, category_id, name, description, ic
 ('650e8400-e29b-41d4-a716-446655440024', '550e8400-e29b-41d4-a716-446655440003', 'Car Wash', 'Professional car washing services', '🚗', 4, true),
 ('650e8400-e29b-41d4-a716-446655440025', '550e8400-e29b-41d4-a716-446655440003', 'Septic Tank Cleaning', 'Septic tank cleaning and maintenance', '🔄', 5, true),
 ('650e8400-e29b-41d4-a716-446655440026', '550e8400-e29b-41d4-a716-446655440003', 'Water Purifier Cleaning', 'Water purifier cleaning and filter replacement', '💧', 6, true),
--- Transportation Subcategories  
+-- Call A Service Subcategories  
 ('650e8400-e29b-41d4-a716-446655440031', '550e8400-e29b-41d4-a716-446655440004', 'Courier Service', 'Pickup and delivery services', '📦', 1, true),
 ('650e8400-e29b-41d4-a716-446655440032', '550e8400-e29b-41d4-a716-446655440004', 'CAB Booking', 'Taxi and cab booking services', '🚕', 2, true),
 ('650e8400-e29b-41d4-a716-446655440033', '550e8400-e29b-41d4-a716-446655440004', 'Vehicle Breakdown', 'Vehicle breakdown assistance', '🔧', 3, true),
 ('650e8400-e29b-41d4-a716-446655440034', '550e8400-e29b-41d4-a716-446655440004', 'Photographer', 'Event and product photography services', '📸', 4, true),
--- Documentation Subcategories
+-- Finance & Insurance Subcategories
 ('650e8400-e29b-41d4-a716-446655440041', '550e8400-e29b-41d4-a716-446655440005', 'GST Registration', 'GST registration and filing', '📊', 1, true),
 ('650e8400-e29b-41d4-a716-446655440042', '550e8400-e29b-41d4-a716-446655440005', 'PAN Card Services', 'PAN card application and services', '🆔', 2, true),
 ('650e8400-e29b-41d4-a716-446655440043', '550e8400-e29b-41d4-a716-446655440005', 'ITR Filing', 'Income tax return filing', '📋', 3, true),
@@ -695,7 +700,7 @@ INSERT INTO public.service_subcategories (id, category_id, name, description, ic
 ('650e8400-e29b-41d4-a716-446655440051', '550e8400-e29b-41d4-a716-446655440006', 'Medicine Delivery', 'Home medicine delivery services', '💊', 1, true),
 ('650e8400-e29b-41d4-a716-446655440052', '550e8400-e29b-41d4-a716-446655440006', 'Salon at Home', 'Beauty and salon services at home', '💅', 2, true),
 ('650e8400-e29b-41d4-a716-446655440053', '550e8400-e29b-41d4-a716-446655440006', 'Health Checkup', 'Health checkup and physiotherapy', '🏥', 3, true),
--- Home Improvement Subcategories
+-- Civil Work Subcategories
 ('650e8400-e29b-41d4-a716-446655440061', '550e8400-e29b-41d4-a716-446655440007', 'House Painting', 'Interior and exterior house painting', '🎨', 1, true),
 ('650e8400-e29b-41d4-a716-446655440062', '550e8400-e29b-41d4-a716-446655440007', 'Tile Work', 'Tile and marble installation', '🏠', 2, true),
 ('650e8400-e29b-41d4-a716-446655440063', '550e8400-e29b-41d4-a716-446655440007', 'Home Repairs', 'General home repair services', '🔨', 3, true);
@@ -728,13 +733,13 @@ INSERT INTO public.services (id, name, category_id, subcategory_id, description,
 ('750e8400-e29b-41d4-a716-446655440025', 'Septic Tank Cleaning', '550e8400-e29b-41d4-a716-446655440003', '650e8400-e29b-41d4-a716-446655440025', 'Professional septic tank cleaning and maintenance', 'Septic cleaning', 1499.00, 1299.00, '3-5 hours', true, false),
 ('750e8400-e29b-41d4-a716-446655440026', 'Water Purifier Service', '550e8400-e29b-41d4-a716-446655440003', '650e8400-e29b-41d4-a716-446655440026', 'Water purifier cleaning and filter replacement', 'Purifier service', 399.00, 349.00, '1-2 hours', true, false),
 
--- Transportation Services (4 services)
+-- Call A Service Services (4 services)
 ('750e8400-e29b-41d4-a716-446655440031', 'Courier & Delivery', '550e8400-e29b-41d4-a716-446655440004', '650e8400-e29b-41d4-a716-446655440031', 'Reliable pickup and delivery services across the city', 'Courier service', 99.00, 79.00, '2-6 hours', true, false),
 ('750e8400-e29b-41d4-a716-446655440032', 'Taxi Booking Service', '550e8400-e29b-41d4-a716-446655440004', '650e8400-e29b-41d4-a716-446655440032', 'Professional taxi and cab booking services', 'Taxi booking', 199.00, 149.00, 'As needed', true, false),
 ('750e8400-e29b-41d4-a716-446655440033', 'Vehicle Breakdown Assistance', '550e8400-e29b-41d4-a716-446655440004', '650e8400-e29b-41d4-a716-446655440033', '24/7 vehicle breakdown assistance and towing', 'Breakdown service', 599.00, 499.00, '1-3 hours', true, true),
 ('750e8400-e29b-41d4-a716-446655440034', 'Photography Service', '550e8400-e29b-41d4-a716-446655440004', '650e8400-e29b-41d4-a716-446655440034', 'Professional event and product photography services', 'Photography', 1999.00, 1699.00, '2-8 hours', true, false),
 
--- Documentation Services (4 services)
+-- Finance & Insurance Services (4 services)
 ('750e8400-e29b-41d4-a716-446655440041', 'GST Registration Service', '550e8400-e29b-41d4-a716-446655440005', '650e8400-e29b-41d4-a716-446655440041', 'Complete GST registration and filing assistance', 'GST registration', 1499.00, 1299.00, '3-7 days', true, false),
 ('750e8400-e29b-41d4-a716-446655440042', 'PAN Card Application', '550e8400-e29b-41d4-a716-446655440005', '650e8400-e29b-41d4-a716-446655440042', 'PAN card application and correction services', 'PAN card service', 499.00, 399.00, '7-15 days', true, false),
 ('750e8400-e29b-41d4-a716-446655440043', 'ITR Filing Service', '550e8400-e29b-41d4-a716-446655440005', '650e8400-e29b-41d4-a716-446655440043', 'Professional income tax return filing service', 'ITR filing', 999.00, 799.00, '2-5 days', true, true),
@@ -743,7 +748,12 @@ INSERT INTO public.services (id, name, category_id, subcategory_id, description,
 -- Personal Care Services (3 services)  
 ('750e8400-e29b-41d4-a716-446655440051', 'Medicine Home Delivery', '550e8400-e29b-41d4-a716-446655440006', '650e8400-e29b-41d4-a716-446655440051', 'Prescription medicine delivery to your doorstep', 'Medicine delivery', 49.00, 29.00, '30-120 minutes', true, false),
 ('750e8400-e29b-41d4-a716-446655440052', 'Home Salon Service', '550e8400-e29b-41d4-a716-446655440006', '650e8400-e29b-41d4-a716-446655440052', 'Professional beauty and salon services at home', 'Home salon', 799.00, 699.00, '1-3 hours', true, true),
-('750e8400-e29b-41d4-a716-446655440053', 'Home Health Checkup', '550e8400-e29b-41d4-a716-446655440006', '650e8400-e29b-41d4-a716-446655440053', 'Comprehensive health checkup at your home', 'Health checkup', 1299.00, 1099.00, '1-2 hours', true, false);
+('750e8400-e29b-41d4-a716-446655440053', 'Home Health Checkup', '550e8400-e29b-41d4-a716-446655440006', '650e8400-e29b-41d4-a716-446655440053', 'Comprehensive health checkup at your home', 'Health checkup', 1299.00, 1099.00, '1-2 hours', true, false),
+
+-- Civil Work Services (3 services)
+('750e8400-e29b-41d4-a716-446655440061', 'House Painting Service', '550e8400-e29b-41d4-a716-446655440007', '650e8400-e29b-41d4-a716-446655440061', 'Professional interior and exterior house painting', 'House painting', 2999.00, 2499.00, '2-5 days', true, true),
+('750e8400-e29b-41d4-a716-446655440062', 'Tile & Marble Work', '550e8400-e29b-41d4-a716-446655440007', '650e8400-e29b-41d4-a716-446655440062', 'Professional tile and marble installation services', 'Tile work', 1999.00, 1699.00, '1-3 days', true, false),
+('750e8400-e29b-41d4-a716-446655440063', 'General Home Repairs', '550e8400-e29b-41d4-a716-446655440007', '650e8400-e29b-41d4-a716-446655440063', 'Comprehensive home repair and maintenance services', 'Home repairs', 899.00, 799.00, '4-8 hours', true, false);
 
 -- Insert Coupons
 INSERT INTO public.coupons (id, code, name, description, discount_type, discount_value, minimum_amount, maximum_discount, usage_limit, used_count, is_active, valid_from, valid_until) VALUES 
@@ -752,7 +762,23 @@ INSERT INTO public.coupons (id, code, name, description, discount_type, discount
 ('1430ecdb-14dc-4130-9068-49e81022276f', 'NEWUSER25', 'New User Discount', '25% off for new customers', 'percentage', 25.00, 299.00, NULL, 2000, 0, true, '2025-10-29', '2026-01-27'),
 ('7f636c64-f83b-4003-9e88-f11d1a4f3ef5', 'PLUMBING20', 'Plumbing Special', '20% off on all plumbing services', 'percentage', 20.00, 199.00, NULL, 300, 0, true, '2025-10-29', '2025-12-13'),
 ('b171c0cc-4d8e-4f9e-85c4-9da685510205', 'ELECTRICAL15', 'Electrical Discount', '15% off on electrical services', 'percentage', 15.00, 199.00, NULL, 250, 0, true, '2025-10-29', '2025-12-13'),
-('06ab5b79-f8ba-4959-8ecf-84c7e9391959', 'CLEANING30', 'Cleaning Special', '30% off on cleaning services', 'percentage', 30.00, 149.00, NULL, 400, 0, true, '2025-10-29', '2025-11-28');
+('06ab5b79-f8ba-4959-8ecf-84c7e9391959', 'CLEANING30', 'Cleaning Special', '30% off on cleaning services', 'percentage', 30.00, 149.00, NULL, 400, 0, true, '2025-10-29', '2025-11-28'),
+-- OFFER PLAN COUPONS (MISSING - CAUSING 404 ERRORS)
+('a1b2c3d4-e5f6-7890-1234-567890abcdef', 'STARTER20', 'Smart Start Offer', '20% discount for Smart Start plan subscribers', 'percentage', 20.00, 0.00, NULL, 10000, 0, true, '2025-01-01', '2026-12-31'),
+('b2c3d4e5-f6a7-8901-2345-678901bcdef0', 'PREMIUM25', 'Premium Care Offer', '25% discount for Premium Care plan subscribers', 'percentage', 25.00, 0.00, NULL, 10000, 0, true, '2025-01-01', '2026-12-31'),
+('c3d4e5f6-a7b8-9012-3456-789012cdef01', 'ELITE30', 'Elite Guard Offer', '30% discount for Elite Guard plan subscribers', 'percentage', 30.00, 0.00, NULL, 10000, 0, true, '2025-01-01', '2026-12-31');
+
+-- Insert Offer Plans
+INSERT INTO public.offer_plans (id, title, description, duration_months, discount_percentage, combo_coupon_code, is_active, sort_order, benefits, terms_conditions) VALUES 
+('d4e5f6a7-b8c9-0123-4567-890123defabc', 'Smart Start', '20% discount at checkout with priority support', 3, 20.00, 'STARTER20', true, 1, 
+'["20% discount at checkout", "Priority customer support", "Quick response time", "Basic service guarantee"]',
+'["Valid for 3 months from activation", "Applies to all regular services", "Cannot be combined with other offers", "Service charges may apply"]'),
+('e5f6a7b8-c9d0-1234-5678-901234efabcd', 'Premium Care', '25% discount at checkout with enhanced benefits', 6, 25.00, 'PREMIUM25', true, 2,
+'["25% discount at checkout", "Premium customer support", "Extended warranty", "Free home consultations"]',
+'["Valid for 6 months from activation", "Includes premium services", "Priority booking slots", "Service charges may apply"]'),
+('f6a7b8c9-d0e1-2345-6789-012345fabcde', 'Elite Guard', '30% discount at checkout with VIP treatment', 12, 30.00, 'ELITE30', true, 3,
+'["30% discount at checkout", "VIP customer support", "Dedicated service manager", "Emergency service priority", "Annual maintenance plans"]',
+'["Valid for 12 months from activation", "Includes all premium features", "24/7 priority support", "Exclusive member benefits"]);
 
 -- Insert Banners
 INSERT INTO public.banners (id, title, subtitle, description, button_text, button_link, background_color, text_color, "position", sort_order, is_active) VALUES 
@@ -796,6 +822,18 @@ INSERT INTO public.admin_permissions (id, permission_key, permission_name, permi
 -- Insert Sample Review Settings (default configuration)
 INSERT INTO public.review_settings (id, auto_approve_reviews, require_booking_for_review, minimum_rating_threshold, maximum_reviews_per_user_per_service, review_moderation_enabled, display_average_rating, display_review_count, allow_anonymous_reviews, updated_by, created_at, updated_at) VALUES
 ('22222222-2222-2222-2222-222222222222', false, true, 1, 1, true, true, true, false, '43942929-b0ef-4f4b-a910-3c4e5a14b002', NOW(), NOW());
+
+-- Insert Sample Employees
+INSERT INTO public.employees (id, employee_id, name, expertise, phone, email, address, is_active, created_at, updated_at) VALUES
+-- Employee 1: Sunil Kumar (EPM001) - Multi-skilled technician
+(gen_random_uuid(), 'EPM001', 'Sunil Kumar', 
+ '["AC Cleaning","Appliance Repair","Basin & Sink","Bath Fittings","Bathroom Cleaning","CAB Booking","Car Wash","Courier Service","Electrical Safety Check","Fan Installation","GST Registration","Grouting","Health Checkup"]', 
+ '9731739111', 'sunil1@gmail.com', 'HNo 506 A Plus,Subhadra Apartement , Bhubaneswar , Odisha 24', true, NOW(), NOW()),
+
+-- Employee 2: Debashis (EMP002) - Comprehensive service provider  
+(gen_random_uuid(), 'EMP002', 'Debashis', 
+ '["Home Repairs","House Painting","ITR Filing","Lighting Solutions","Medicine Delivery","PAN Card Services","Photographer","Pipes","Salon at Home","Stamp Paper & Agreement","Septic Tank Cleaning","Switch & Socket","Tile Work","Toilets","Vehicle Breakdown","Water Purifier Cleaning","Water Tank","Water Tank Cleaning","Wiring Installation"]', 
+ '9731739222', 'debasish@gmail.com', 'HNo 506 A Plus,Subhadra Apartement , Bhubaneswar , Odisha 24', true, NOW(), NOW());
 
 -- Log successful initialization
 SELECT 'Database household_services initialized successfully with complete schema and seed data' as message;

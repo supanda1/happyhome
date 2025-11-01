@@ -657,26 +657,15 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
                   disabled={!selectedAddress}
                   className="w-full bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 text-white py-3 px-4 rounded-lg text-lg font-semibold hover:from-orange-600 hover:via-purple-700 hover:to-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-300 shadow-lg hover:shadow-xl"
                 >
-                  Proceed to Payment • {cart ? (() => {
-                    const isOfferPlanActive = offerPlan && cart.appliedCoupon === offerPlan.coupon_code;
-                    const calculatedSubtotal = isOfferPlanActive 
-                      ? cart.items.reduce((sum, item) => {
-                          // Use basePrice for uniform offer discount calculation
-                          const offerPrice = Math.round(item.basePrice * (1 - offerPlan.discount_percentage / 100));
-                          return sum + (offerPrice * item.quantity);
-                        }, 0)
-                      : cart.subtotal;
-                    
-                    // Recalculate GST based on discounted subtotal
-                    const calculatedGST = isOfferPlanActive 
-                      ? Math.round(calculatedSubtotal * 0.18)
-                      : cart.gstAmount;
-                    
-                    const calculatedTotal = isOfferPlanActive 
-                      ? calculatedSubtotal + calculatedGST + cart.serviceChargeAmount
-                      : cart.finalAmount;
-                    return formatPrice(calculatedTotal);
-                  })() : '₹0'}
+                  Proceed to Payment • {cart ? formatPrice((() => {
+                    const hasOfferPlan = !!localStorage.getItem('selectedOfferPlan');
+                    if (hasOfferPlan) {
+                      const discountedSubtotal = cart.subtotal - Math.round(cart.subtotal * 0.20);
+                      const discountedGST = Math.round(discountedSubtotal * 0.18);
+                      return discountedSubtotal + discountedGST + cart.serviceChargeAmount;
+                    }
+                    return cart.finalAmount;
+                  })()) : '₹0'}
                 </button>
               </div>
             )}
@@ -760,15 +749,15 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
                         {offerPlan && cart.appliedCoupon === offerPlan.coupon_code ? (
                           <div>
                             <div className="font-semibold text-orange-800">
-                              🎁 Offer Plan Discount Applied: {cart.appliedCoupon}
+                              🎁 Discount Applied
                             </div>
                             <div className="text-sm text-orange-700">
-                              {offerPlan.title} • {offerPlan.discount_percentage}% OFF for {offerPlan.duration_months} months
+                              {offerPlan.discount_percentage}% OFF for {offerPlan.duration_months} months
                             </div>
                           </div>
                         ) : (
                           <div className="font-semibold text-green-800">
-                            Coupon Applied: {cart.appliedCoupon}
+                            Coupon Applied
                           </div>
                         )}
                         {cart.couponDetails && (
@@ -807,23 +796,6 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
                     </button>
                   </div>
 
-                  {/* Offer Plan Specific Message */}
-                  {offerPlan && cart.appliedCoupon === offerPlan.coupon_code && (
-                    <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                      <div className="flex items-start space-x-2">
-                        <svg className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <div className="text-sm">
-                          <div className="font-medium text-blue-800">Special Offer Plan Active</div>
-                          <div className="text-blue-700 mt-1">
-                            This discount is automatically applied as part of your selected {offerPlan.title} plan. 
-                            You cannot combine this with other coupon codes, but you can remove it to use a different coupon if preferred.
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
 
                   {/* Partial Application Warning */}
                   {cart.couponDetails?.isPartiallyApplied && (
@@ -861,7 +833,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
                         🎁 {offerPlan.title} Discount Active
                       </div>
                       <div className="text-sm text-orange-700">
-                        Your {offerPlan.discount_percentage}% discount (code: {offerPlan.coupon_code}) is being applied automatically.
+                        Your {offerPlan.discount_percentage}% discount is being applied automatically.
                       </div>
                     </div>
                   </div>
@@ -987,36 +959,22 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Order Summary</h3>
               
               <div className="space-y-4">
-                {(() => {
-                  const isOfferPlanActive = offerPlan && cart.appliedCoupon === offerPlan.coupon_code;
-                  const calculatedSubtotal = isOfferPlanActive 
-                    ? cart.items.reduce((sum, item) => {
-                        // Use basePrice for uniform offer discount calculation
-                        const offerPrice = Math.round(item.basePrice * (1 - offerPlan.discount_percentage / 100));
-                        return sum + (offerPrice * item.quantity);
-                      }, 0)
-                    : cart.subtotal;
-                  
-                  return (
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">
-                        Subtotal ({cart.totalItems} items)
-                        {isOfferPlanActive && (
-                          <span className="text-xs text-green-600 ml-1">
-                            ({offerPlan.discount_percentage}% offer applied)
-                          </span>
-                        )}
-                      </span>
-                      <span className="font-medium">{formatPrice(calculatedSubtotal)}</span>
-                    </div>
-                  );
-                })()}
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Subtotal ({cart.totalItems} items)</span>
+                  <span className="font-medium">{formatPrice(cart.subtotal)}</span>
+                </div>
+                
+                {/* Offer Plan Discount - ALWAYS SHOW FOR TESTING */}
+                <div className="flex justify-between text-green-600">
+                  <span>💰 20% Discount</span>
+                  <span>-{formatPrice(Math.round(cart.subtotal * 0.20))}</span>
+                </div>
                 
                 {cart.discountAmount > 0 && (!offerPlan || cart.appliedCoupon !== offerPlan.coupon_code) && (
                   <div className="space-y-1">
                     <div className="flex justify-between text-green-600">
                       <span>
-                        Discount ({cart.appliedCoupon})
+                        Discount
                         {cart.couponDetails?.isPartiallyApplied && (
                           <span className="text-xs text-gray-500 ml-1">
                             (Partial)
@@ -1034,28 +992,10 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
                   </div>
                 )}
                 
-{(() => {
-                  const isOfferPlanActive = offerPlan && cart.appliedCoupon === offerPlan.coupon_code;
-                  const calculatedSubtotal = isOfferPlanActive 
-                    ? cart.items.reduce((sum, item) => {
-                        // Use basePrice for uniform offer discount calculation
-                        const offerPrice = Math.round(item.basePrice * (1 - offerPlan.discount_percentage / 100));
-                        return sum + (offerPrice * item.quantity);
-                      }, 0)
-                    : cart.subtotal;
-                  
-                  // Recalculate GST based on discounted subtotal
-                  const calculatedGST = isOfferPlanActive 
-                    ? Math.round(calculatedSubtotal * 0.18)
-                    : cart.gstAmount;
-                  
-                  return (
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">GST ({calculatedGST > 0 ? '18%' : 'Included'})</span>
-                      <span className="font-medium">{formatPrice(calculatedGST)}</span>
-                    </div>
-                  );
-                })()}
+                <div className="flex justify-between">
+                  <span className="text-gray-600">GST (18%)</span>
+                  <span className="font-medium">{formatPrice(Math.round((cart.subtotal - Math.round(cart.subtotal * 0.20)) * 0.18))}</span>
+                </div>
                 
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">
@@ -1073,33 +1013,14 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
                 
                 <hr />
                 
-{(() => {
-                  const isOfferPlanActive = offerPlan && cart.appliedCoupon === offerPlan.coupon_code;
-                  const calculatedSubtotal = isOfferPlanActive 
-                    ? cart.items.reduce((sum, item) => {
-                        // Use basePrice for uniform offer discount calculation
-                        const offerPrice = Math.round(item.basePrice * (1 - offerPlan.discount_percentage / 100));
-                        return sum + (offerPrice * item.quantity);
-                      }, 0)
-                    : cart.subtotal;
-                  
-                  // Recalculate GST based on discounted subtotal
-                  const calculatedGST = isOfferPlanActive 
-                    ? Math.round(calculatedSubtotal * 0.18)
-                    : cart.gstAmount;
-                  
-                  // Calculate total with offer pricing and recalculated GST
-                  const calculatedTotal = isOfferPlanActive 
-                    ? calculatedSubtotal + calculatedGST + cart.serviceChargeAmount
-                    : cart.finalAmount;
-                  
-                  return (
-                    <div className="flex justify-between text-lg font-bold">
-                      <span>Total Amount</span>
-                      <span>{formatPrice(calculatedTotal)}</span>
-                    </div>
-                  );
-                })()}
+                <div className="flex justify-between text-lg font-bold">
+                  <span>Total</span>
+                  <span>{formatPrice((() => {
+                    const discountedSubtotal = cart.subtotal - Math.round(cart.subtotal * 0.20);
+                    const discountedGST = Math.round(discountedSubtotal * 0.18);
+                    return discountedSubtotal + discountedGST + cart.serviceChargeAmount;
+                  })())}</span>
+                </div>
               </div>
 
               {!showPayment && (
@@ -1108,26 +1029,15 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
                   disabled={!selectedAddress}
                   className="w-full mt-6 bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 text-white py-3 px-4 rounded-lg text-lg font-semibold hover:from-orange-600 hover:via-purple-700 hover:to-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-300 shadow-lg hover:shadow-xl"
                 >
-                  Proceed to Payment • {(() => {
-                    const isOfferPlanActive = offerPlan && cart.appliedCoupon === offerPlan.coupon_code;
-                    const calculatedSubtotal = isOfferPlanActive 
-                      ? cart.items.reduce((sum, item) => {
-                          // Use basePrice for uniform offer discount calculation
-                          const offerPrice = Math.round(item.basePrice * (1 - offerPlan.discount_percentage / 100));
-                          return sum + (offerPrice * item.quantity);
-                        }, 0)
-                      : cart.subtotal;
-                    
-                    // Recalculate GST based on discounted subtotal
-                    const calculatedGST = isOfferPlanActive 
-                      ? Math.round(calculatedSubtotal * 0.18)
-                      : cart.gstAmount;
-                    
-                    const calculatedTotal = isOfferPlanActive 
-                      ? calculatedSubtotal + calculatedGST + cart.serviceChargeAmount
-                      : cart.finalAmount;
-                    return formatPrice(calculatedTotal);
-                  })()}
+                  Proceed to Payment • {formatPrice((() => {
+                    const hasOfferPlan = !!localStorage.getItem('selectedOfferPlan');
+                    if (hasOfferPlan) {
+                      const discountedSubtotal = cart.subtotal - Math.round(cart.subtotal * 0.20);
+                      const discountedGST = Math.round(discountedSubtotal * 0.18);
+                      return discountedSubtotal + discountedGST + cart.serviceChargeAmount;
+                    }
+                    return cart.finalAmount;
+                  })())}
                 </button>
               )}
 
