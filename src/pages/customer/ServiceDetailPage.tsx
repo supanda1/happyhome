@@ -76,6 +76,17 @@ const ServiceDetailPage: React.FC<ServiceDetailPageProps> = ({ serviceId }) => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* BACK TO HOME - TOP */}
+      <div className="bg-blue-600 text-white text-center py-3 shadow-lg">
+        <button 
+          onClick={() => navigate('/')}
+          className="bg-white text-blue-600 px-4 py-2 rounded-lg font-bold hover:bg-gray-100 flex items-center space-x-2 mx-auto"
+        >
+          <span>🏠</span>
+          <span>← Back to Home</span>
+        </button>
+      </div>
+      
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Breadcrumb */}
         <nav className="flex items-center space-x-2 text-sm text-gray-600 mb-8">
@@ -398,6 +409,17 @@ const ServiceDetailPage: React.FC<ServiceDetailPageProps> = ({ serviceId }) => {
             </Card>
           </div>
         )}
+        
+      </div>
+
+      {/* Bottom Back to Home Link */}
+      <div className="px-4 sm:px-6 lg:px-8 py-8 border-t border-gray-200 bg-white">
+        <div className="max-w-7xl mx-auto text-center">
+          <button onClick={() => navigate('/')} className="text-blue-600 hover:text-blue-800 flex items-center space-x-1 text-sm font-medium mx-auto">
+            <span>←</span>
+            <span>Back to Home</span>
+          </button>
+        </div>
       </div>
     </div>
   );

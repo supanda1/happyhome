@@ -444,6 +444,19 @@ const ServicesManagement: React.FC<ServicesManagementProps> = ({ onServiceChange
     <>
       <style>{customStyles}</style>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 animate-fade-in">
+        {/* Back to Home Navigation */}
+        <div className="bg-white shadow-sm border-b">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <button 
+              onClick={() => window.location.href = '/'}
+              className="text-blue-600 hover:text-blue-800 flex items-center space-x-2"
+            >
+              <span>←</span>
+              <span>Back to Home</span>
+            </button>
+          </div>
+        </div>
+
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         {/* Enhanced Header Section */}
         <div className="relative overflow-hidden">
@@ -1552,6 +1565,16 @@ const ServicesManagement: React.FC<ServicesManagementProps> = ({ onServiceChange
         )}
         </div>
       </div>
+
+        {/* Back to Home Button at Bottom */}
+        <div className="mt-8 text-center pb-8">
+          <button
+            onClick={() => window.location.href = '/'}
+            className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700"
+          >
+            Back to Home
+          </button>
+        </div>
       </div>
     </>
   );

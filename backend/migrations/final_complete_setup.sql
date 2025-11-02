@@ -46,6 +46,11 @@ DROP TABLE IF EXISTS review_settings CASCADE;
 DROP TABLE IF EXISTS user_admin_permissions CASCADE;
 DROP TABLE IF EXISTS admin_permissions CASCADE;
 DROP TABLE IF EXISTS reviews CASCADE;
+DROP TABLE IF EXISTS sms_providers CASCADE;
+DROP TABLE IF EXISTS sms_provider_stats CASCADE;
+DROP TABLE IF EXISTS sms_templates CASCADE;
+DROP TABLE IF EXISTS sms_blacklist CASCADE;
+DROP TABLE IF EXISTS sms_webhooks CASCADE;
 
 -- ==============================================================================
 -- TABLE CREATION - COMPLETE SCHEMA
@@ -54,19 +59,6 @@ DROP TABLE IF EXISTS reviews CASCADE;
 SET default_tablespace = '';
 SET default_table_access_method = heap;
 
--- Assignment History Table
-CREATE TABLE public.assignment_history (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    order_id uuid,
-    employee_id uuid,
-    status character varying(20) DEFAULT 'assigned'::character varying,
-    assigned_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    accepted_at timestamp without time zone,
-    completed_at timestamp without time zone,
-    notes text,
-    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
-);
 
 -- Banners Table
 CREATE TABLE public.banners (
@@ -275,57 +267,7 @@ CREATE TABLE public.employees (
     updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
 );
 
--- Order Items Table
-CREATE TABLE public.order_items (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
-    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
-    order_id uuid NOT NULL,
-    service_id uuid NOT NULL,
-    service_name character varying(100) NOT NULL,
-    variant_id uuid,
-    variant_name character varying(50),
-    quantity integer DEFAULT 1 NOT NULL,
-    unit_price double precision NOT NULL,
-    total_price double precision NOT NULL,
-    category_id uuid NOT NULL,
-    subcategory_id uuid NOT NULL,
-    assigned_engineer_id uuid,
-    assigned_engineer_name character varying(100),
-    item_status character varying(20) DEFAULT 'pending'::character varying NOT NULL,
-    scheduled_date character varying(20),
-    scheduled_time_slot character varying(20),
-    completion_date character varying(20),
-    item_notes text,
-    item_rating integer,
-    item_review text,
-    CONSTRAINT order_items_item_rating_check CHECK (((item_rating >= 1) AND (item_rating <= 5)))
-);
 
--- Orders Table
-CREATE TABLE public.orders (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
-    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
-    order_number character varying(50) NOT NULL,
-    customer_id character varying(255) NOT NULL,
-    customer_name character varying(100) NOT NULL,
-    customer_phone character varying(20) NOT NULL,
-    customer_email character varying(100) NOT NULL,
-    service_address jsonb NOT NULL,
-    total_amount double precision NOT NULL,
-    discount_amount double precision DEFAULT 0.0 NOT NULL,
-    gst_amount double precision DEFAULT 0.0 NOT NULL,
-    service_charge double precision DEFAULT 0.0 NOT NULL,
-    final_amount double precision NOT NULL,
-    status character varying(20) DEFAULT 'pending'::character varying NOT NULL,
-    priority character varying(10) DEFAULT 'medium'::character varying NOT NULL,
-    notes text,
-    admin_notes text,
-    customer_rating integer,
-    customer_review text,
-    CONSTRAINT orders_customer_rating_check CHECK (((customer_rating >= 1) AND (customer_rating <= 5)))
-);
 
 -- Refresh Tokens Table
 CREATE TABLE public.refresh_tokens (
@@ -510,21 +452,323 @@ CREATE TABLE public.reviews (
     CONSTRAINT reviews_rating_check CHECK (((rating >= 1) AND (rating <= 5)))
 );
 
+-- SMS Providers Table
+CREATE TABLE public.sms_providers (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    name character varying(100) NOT NULL,
+    provider_type character varying(50) NOT NULL CHECK (provider_type IN ('twilio', 'textlocal', 'teleo', 'aws_sns', 'mock')),
+    description text,
+    is_enabled boolean DEFAULT false,
+    is_primary boolean DEFAULT false,
+    priority integer DEFAULT 1 CHECK (priority > 0),
+    config_data jsonb DEFAULT '{}' NOT NULL,
+    daily_limit integer CHECK (daily_limit > 0),
+    rate_limit_per_minute integer DEFAULT 60 CHECK (rate_limit_per_minute > 0),
+    cost_per_sms numeric(10,4) CHECK (cost_per_sms >= 0),
+    last_used_at timestamp with time zone,
+    total_sent integer DEFAULT 0 CHECK (total_sent >= 0),
+    total_failed integer DEFAULT 0 CHECK (total_failed >= 0),
+    current_balance numeric(15,4),
+    balance_updated_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    created_by character varying(100),
+    updated_by character varying(100)
+);
+
+-- SMS Provider Statistics Table
+CREATE TABLE public.sms_provider_stats (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    provider_id uuid NOT NULL,
+    date date NOT NULL,
+    messages_sent integer DEFAULT 0 CHECK (messages_sent >= 0),
+    messages_failed integer DEFAULT 0 CHECK (messages_failed >= 0),
+    messages_delivered integer DEFAULT 0 CHECK (messages_delivered >= 0),
+    avg_response_time_ms numeric(10,2),
+    total_cost numeric(15,4) DEFAULT 0.0 CHECK (total_cost >= 0),
+    error_codes jsonb DEFAULT '{}',
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+-- SMS Templates Table
+CREATE TABLE public.sms_templates (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    name character varying(100) NOT NULL,
+    event_type character varying(50) NOT NULL,
+    message_template text NOT NULL,
+    variables jsonb DEFAULT '[]',
+    is_active boolean DEFAULT true,
+    max_length integer DEFAULT 160 CHECK (max_length > 0),
+    provider_overrides jsonb DEFAULT '{}',
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+-- SMS Blacklist Table
+CREATE TABLE public.sms_blacklist (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    phone_number character varying(20) NOT NULL,
+    reason character varying(200),
+    added_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    added_by character varying(100)
+);
+
+-- SMS Webhook Logs Table
+CREATE TABLE public.sms_webhooks (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    provider_type character varying(50) NOT NULL,
+    message_id character varying(100),
+    webhook_data jsonb NOT NULL,
+    delivery_status character varying(50),
+    delivered_at timestamp with time zone,
+    processed boolean DEFAULT false,
+    processed_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Orders Table (Enhanced Version)
+CREATE TABLE public.orders (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    order_number character varying(50) NOT NULL,
+    customer_id uuid NOT NULL,
+    customer_name character varying(100) NOT NULL,
+    customer_phone character varying(20) NOT NULL,
+    customer_email character varying(100) NOT NULL,
+    service_address jsonb NOT NULL,
+    total_amount numeric(10,2) DEFAULT 0.00 NOT NULL,
+    discount_amount numeric(10,2) DEFAULT 0.00 NOT NULL,
+    gst_amount numeric(10,2) DEFAULT 0.00 NOT NULL,
+    service_charge numeric(10,2) DEFAULT 0.00 NOT NULL,
+    final_amount numeric(10,2) DEFAULT 0.00 NOT NULL,
+    status character varying(20) DEFAULT 'pending' NOT NULL CHECK (status IN ('pending', 'confirmed', 'scheduled', 'in_progress', 'completed', 'cancelled', 'postponed')),
+    priority character varying(10) DEFAULT 'medium' NOT NULL CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
+    notes text,
+    admin_notes text,
+    customer_rating integer CHECK (customer_rating >= 1 AND customer_rating <= 5),
+    customer_review text,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Order Items Table (Enhanced Version)
+CREATE TABLE public.order_items (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    order_id uuid NOT NULL,
+    service_id uuid NOT NULL,
+    service_name character varying(100) NOT NULL,
+    variant_id uuid,
+    variant_name character varying(50),
+    quantity integer DEFAULT 1 NOT NULL CHECK (quantity > 0),
+    unit_price numeric(10,2) DEFAULT 0.00 NOT NULL,
+    total_price numeric(10,2) DEFAULT 0.00 NOT NULL,
+    category_id uuid NOT NULL,
+    subcategory_id uuid NOT NULL,
+    assigned_engineer_id uuid,
+    assigned_engineer_name character varying(100),
+    item_status character varying(20) DEFAULT 'pending' NOT NULL CHECK (item_status IN ('pending', 'scheduled', 'in_progress', 'completed', 'cancelled', 'postponed')),
+    scheduled_date character varying(20),
+    scheduled_time_slot character varying(20),
+    completion_date character varying(20),
+    item_notes text,
+    item_rating integer CHECK (item_rating >= 1 AND item_rating <= 5),
+    item_review text,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Assignment History Table (Enhanced Version)
+CREATE TABLE public.assignment_history (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    order_id uuid NOT NULL,
+    item_id uuid NOT NULL,
+    engineer_id uuid,
+    engineer_name character varying(100) NOT NULL,
+    action_type character varying(20) NOT NULL CHECK (action_type IN ('assigned', 'reassigned', 'unassigned')),
+    notes text,
+    created_by character varying(50) NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Bookings Table
+CREATE TABLE public.bookings (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    service_id uuid NOT NULL,
+    variant_id uuid,
+    address_id uuid NOT NULL,
+    scheduled_date timestamp with time zone NOT NULL,
+    scheduled_time_start character varying(10) NOT NULL,
+    scheduled_time_end character varying(10) NOT NULL,
+    status character varying(20) DEFAULT 'pending' NOT NULL,
+    quantity integer DEFAULT 1 NOT NULL,
+    unit_price double precision NOT NULL,
+    subtotal_amount double precision NOT NULL,
+    discount_amount double precision DEFAULT 0.0 NOT NULL,
+    tax_amount double precision DEFAULT 0.0 NOT NULL,
+    total_amount double precision NOT NULL,
+    coupon_id uuid,
+    coupon_code character varying(50),
+    customer_notes text,
+    customizations jsonb DEFAULT '{}' NOT NULL,
+    admin_notes text,
+    assigned_technician_id uuid,
+    started_at timestamp with time zone,
+    completed_at timestamp with time zone,
+    cancelled_at timestamp with time zone,
+    cancellation_reason text,
+    payment_status character varying(20) DEFAULT 'pending' NOT NULL,
+    payment_method character varying(50),
+    transaction_id character varying(100),
+    invoice_number character varying(50),
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Notifications Table
+CREATE TABLE public.notifications (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    customer_id character varying(255) NOT NULL,
+    customer_name character varying(100) NOT NULL,
+    customer_phone character varying(20),
+    customer_email character varying(100),
+    notification_type character varying(20) NOT NULL CHECK (notification_type IN ('sms', 'email', 'push')),
+    event_type character varying(50) NOT NULL,
+    priority character varying(20) DEFAULT 'normal' NOT NULL CHECK (priority IN ('low', 'normal', 'high', 'urgent')),
+    subject character varying(200),
+    message text NOT NULL,
+    order_id uuid,
+    order_number character varying(50),
+    template_id uuid,
+    status character varying(20) DEFAULT 'pending' NOT NULL CHECK (status IN ('pending', 'sent', 'delivered', 'failed', 'cancelled')),
+    provider_name character varying(50),
+    provider_message_id character varying(100),
+    sent_at timestamp with time zone,
+    delivered_at timestamp with time zone,
+    failed_at timestamp with time zone,
+    failure_reason text,
+    retry_count integer DEFAULT 0,
+    max_retries integer DEFAULT 3,
+    metadata jsonb DEFAULT '{}',
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Notification Templates Table
+CREATE TABLE public.notification_templates (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    name character varying(100) NOT NULL,
+    event_type character varying(50) NOT NULL,
+    notification_type character varying(20) NOT NULL CHECK (notification_type IN ('sms', 'email', 'push')),
+    subject_template character varying(200),
+    message_template text NOT NULL,
+    variables jsonb DEFAULT '[]',
+    is_active boolean DEFAULT true NOT NULL,
+    language character varying(10) DEFAULT 'en' NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+-- User Notification Preferences Table
+CREATE TABLE public.user_notification_preferences (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    sms_enabled boolean DEFAULT true NOT NULL,
+    email_enabled boolean DEFAULT true NOT NULL,
+    push_enabled boolean DEFAULT true NOT NULL,
+    marketing_sms boolean DEFAULT false NOT NULL,
+    marketing_email boolean DEFAULT false NOT NULL,
+    order_updates boolean DEFAULT true NOT NULL,
+    appointment_reminders boolean DEFAULT true NOT NULL,
+    promotional_offers boolean DEFAULT false NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Notification Logs Table
+CREATE TABLE public.notification_logs (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    notification_id uuid NOT NULL,
+    log_level character varying(20) DEFAULT 'info' NOT NULL CHECK (log_level IN ('debug', 'info', 'warn', 'error')),
+    message text NOT NULL,
+    error_code character varying(50),
+    provider_response jsonb,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Payment Webhooks Table
+CREATE TABLE public.payment_webhooks (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    payment_id uuid,
+    provider_name character varying(50) NOT NULL,
+    webhook_event character varying(50) NOT NULL,
+    webhook_data jsonb NOT NULL,
+    processed boolean DEFAULT false,
+    processed_at timestamp with time zone,
+    error_message text,
+    retry_count integer DEFAULT 0,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Review Photos Table
+CREATE TABLE public.review_photos (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    review_id uuid NOT NULL,
+    photo_url character varying(500) NOT NULL,
+    caption character varying(200),
+    sort_order integer DEFAULT 1,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Review Helpfulness Table
+CREATE TABLE public.review_helpfulness (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    review_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    is_helpful boolean NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Engineers Table (alias for employees with enhanced fields)
+CREATE TABLE public.engineers (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid,
+    employee_id character varying(50) NOT NULL,
+    name character varying(100) NOT NULL,
+    email character varying(100),
+    phone character varying(20) NOT NULL,
+    address text,
+    expertise jsonb DEFAULT '[]',
+    specializations jsonb DEFAULT '[]',
+    rating double precision DEFAULT 0.0,
+    total_jobs integer DEFAULT 0,
+    completed_jobs integer DEFAULT 0,
+    cancelled_jobs integer DEFAULT 0,
+    current_active_jobs integer DEFAULT 0,
+    max_concurrent_jobs integer DEFAULT 5,
+    is_available boolean DEFAULT true NOT NULL,
+    is_active boolean DEFAULT true NOT NULL,
+    hire_date date,
+    emergency_contact_name character varying(100),
+    emergency_contact_phone character varying(20),
+    license_number character varying(50),
+    certification_details jsonb DEFAULT '{}',
+    work_schedule jsonb DEFAULT '{}',
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+);
+
 -- ==============================================================================
 -- PRIMARY KEYS AND CONSTRAINTS
 -- ==============================================================================
 
-ALTER TABLE ONLY public.assignment_history ADD CONSTRAINT assignment_history_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.banners ADD CONSTRAINT banners_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.cart_items ADD CONSTRAINT cart_items_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.cart ADD CONSTRAINT cart_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.service_categories ADD CONSTRAINT categories_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.service_categories ADD CONSTRAINT service_categories_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.contact_settings ADD CONSTRAINT contact_settings_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.coupons ADD CONSTRAINT coupons_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.coupon_usages ADD CONSTRAINT coupon_usages_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.employees ADD CONSTRAINT employees_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.order_items ADD CONSTRAINT order_items_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.orders ADD CONSTRAINT orders_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.refresh_tokens ADD CONSTRAINT refresh_tokens_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.service_photos ADD CONSTRAINT service_photos_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.service_subcategories ADD CONSTRAINT service_subcategories_pkey PRIMARY KEY (id);
@@ -541,6 +785,23 @@ ALTER TABLE ONLY public.offer_plans ADD CONSTRAINT offer_plans_pkey PRIMARY KEY 
 ALTER TABLE ONLY public.offer_services ADD CONSTRAINT offer_services_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.review_settings ADD CONSTRAINT review_settings_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.user_admin_permissions ADD CONSTRAINT user_admin_permissions_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.sms_providers ADD CONSTRAINT sms_providers_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.sms_provider_stats ADD CONSTRAINT sms_provider_stats_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.sms_templates ADD CONSTRAINT sms_templates_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.sms_blacklist ADD CONSTRAINT sms_blacklist_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.sms_webhooks ADD CONSTRAINT sms_webhooks_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.orders ADD CONSTRAINT orders_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.order_items ADD CONSTRAINT order_items_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.assignment_history ADD CONSTRAINT assignment_history_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.bookings ADD CONSTRAINT bookings_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.notifications ADD CONSTRAINT notifications_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.notification_templates ADD CONSTRAINT notification_templates_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.user_notification_preferences ADD CONSTRAINT user_notification_preferences_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.notification_logs ADD CONSTRAINT notification_logs_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.payment_webhooks ADD CONSTRAINT payment_webhooks_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.review_photos ADD CONSTRAINT review_photos_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.review_helpfulness ADD CONSTRAINT review_helpfulness_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.engineers ADD CONSTRAINT engineers_pkey PRIMARY KEY (id);
 
 -- Unique constraints
 ALTER TABLE ONLY public.coupons ADD CONSTRAINT coupons_code_key UNIQUE (code);
@@ -551,13 +812,22 @@ ALTER TABLE ONLY public.admin_permissions ADD CONSTRAINT admin_permissions_permi
 ALTER TABLE ONLY public.payments ADD CONSTRAINT payments_transaction_id_key UNIQUE (transaction_id);
 ALTER TABLE ONLY public.offer_plans ADD CONSTRAINT offer_plans_combo_coupon_code_key UNIQUE (combo_coupon_code);
 ALTER TABLE ONLY public.user_admin_permissions ADD CONSTRAINT user_admin_permissions_user_id_permission_id_key UNIQUE (user_id, permission_id);
+ALTER TABLE ONLY public.sms_blacklist ADD CONSTRAINT sms_blacklist_phone_number_key UNIQUE (phone_number);
+ALTER TABLE ONLY public.sms_templates ADD CONSTRAINT sms_templates_event_type_key UNIQUE (event_type);
+ALTER TABLE ONLY public.sms_provider_stats ADD CONSTRAINT sms_provider_stats_provider_date_key UNIQUE (provider_id, date);
+ALTER TABLE ONLY public.orders ADD CONSTRAINT orders_order_number_key UNIQUE (order_number);
+ALTER TABLE ONLY public.bookings ADD CONSTRAINT bookings_transaction_id_key UNIQUE (transaction_id);
+ALTER TABLE ONLY public.bookings ADD CONSTRAINT bookings_invoice_number_key UNIQUE (invoice_number);
+ALTER TABLE ONLY public.notification_templates ADD CONSTRAINT notification_templates_event_type_notification_type_key UNIQUE (event_type, notification_type, language);
+ALTER TABLE ONLY public.user_notification_preferences ADD CONSTRAINT user_notification_preferences_user_id_key UNIQUE (user_id);
+ALTER TABLE ONLY public.review_helpfulness ADD CONSTRAINT review_helpfulness_review_user_key UNIQUE (review_id, user_id);
+ALTER TABLE ONLY public.engineers ADD CONSTRAINT engineers_employee_id_key UNIQUE (employee_id);
+ALTER TABLE ONLY public.engineers ADD CONSTRAINT engineers_user_id_key UNIQUE (user_id);
 
 -- ==============================================================================
 -- INDEXES FOR PERFORMANCE
 -- ==============================================================================
 
-CREATE INDEX idx_assignment_history_employee_id ON public.assignment_history USING btree (employee_id);
-CREATE INDEX idx_assignment_history_order_id ON public.assignment_history USING btree (order_id);
 CREATE INDEX idx_cart_items_cart_id ON public.cart_items USING btree (cart_id);
 CREATE INDEX idx_cart_user_id ON public.cart USING btree (user_id);
 CREATE INDEX idx_coupon_usages_coupon_id ON public.coupon_usages USING btree (coupon_id);
@@ -565,16 +835,6 @@ CREATE INDEX idx_coupon_usages_user_id ON public.coupon_usages USING btree (user
 CREATE INDEX idx_coupon_usages_order_id ON public.coupon_usages USING btree (order_id);
 CREATE INDEX idx_employees_is_active ON public.employees USING btree (is_active);
 CREATE INDEX idx_employees_is_available ON public.employees USING btree (is_available);
-CREATE INDEX idx_order_items_assigned_engineer_id ON public.order_items USING btree (assigned_engineer_id);
-CREATE INDEX idx_order_items_category_id ON public.order_items USING btree (category_id);
-CREATE INDEX idx_order_items_item_status ON public.order_items USING btree (item_status);
-CREATE INDEX idx_order_items_order_id ON public.order_items USING btree (order_id);
-CREATE INDEX idx_order_items_service_id ON public.order_items USING btree (service_id);
-CREATE INDEX idx_order_items_subcategory_id ON public.order_items USING btree (subcategory_id);
-CREATE INDEX idx_orders_customer_id ON public.orders USING btree (customer_id);
-CREATE INDEX idx_orders_order_number ON public.orders USING btree (order_number);
-CREATE INDEX idx_orders_priority ON public.orders USING btree (priority);
-CREATE INDEX idx_orders_status ON public.orders USING btree (status);
 CREATE INDEX idx_refresh_tokens_user_id ON public.refresh_tokens USING btree (user_id);
 CREATE INDEX idx_service_photos_service_id ON public.service_photos USING btree (service_id);
 CREATE INDEX idx_service_subcategories_category_id ON public.service_subcategories USING btree (category_id);
@@ -605,12 +865,67 @@ CREATE INDEX idx_payments_transaction_id ON public.payments USING btree (transac
 CREATE INDEX idx_offer_plans_active ON public.offer_plans USING btree (is_active);
 CREATE INDEX idx_offer_services_plan_id ON public.offer_services USING btree (plan_id);
 CREATE INDEX idx_offer_services_service_id ON public.offer_services USING btree (service_id);
+CREATE INDEX idx_sms_providers_type ON public.sms_providers USING btree (provider_type);
+CREATE INDEX idx_sms_providers_enabled ON public.sms_providers USING btree (is_enabled);
+CREATE INDEX idx_sms_providers_primary ON public.sms_providers USING btree (is_primary);
+CREATE INDEX idx_sms_providers_priority ON public.sms_providers USING btree (priority);
+CREATE INDEX idx_sms_provider_stats_provider ON public.sms_provider_stats USING btree (provider_id);
+CREATE INDEX idx_sms_provider_stats_date ON public.sms_provider_stats USING btree (date);
+CREATE INDEX idx_sms_templates_event_type ON public.sms_templates USING btree (event_type);
+CREATE INDEX idx_sms_templates_active ON public.sms_templates USING btree (is_active);
+CREATE INDEX idx_sms_blacklist_phone ON public.sms_blacklist USING btree (phone_number);
+CREATE INDEX idx_sms_webhooks_provider ON public.sms_webhooks USING btree (provider_type);
+CREATE INDEX idx_sms_webhooks_message_id ON public.sms_webhooks USING btree (message_id);
+CREATE INDEX idx_sms_webhooks_processed ON public.sms_webhooks USING btree (processed);
+CREATE INDEX idx_sms_webhooks_created ON public.sms_webhooks USING btree (created_at);
+CREATE UNIQUE INDEX idx_sms_providers_single_primary ON public.sms_providers USING btree (is_primary) WHERE (is_primary = true);
+CREATE INDEX idx_orders_customer_id ON public.orders USING btree (customer_id);
+CREATE INDEX idx_orders_order_number ON public.orders USING btree (order_number);
+CREATE INDEX idx_orders_status ON public.orders USING btree (status);
+CREATE INDEX idx_orders_priority ON public.orders USING btree (priority);
+CREATE INDEX idx_orders_created_at ON public.orders USING btree (created_at);
+CREATE INDEX idx_order_items_order_id ON public.order_items USING btree (order_id);
+CREATE INDEX idx_order_items_service_id ON public.order_items USING btree (service_id);
+CREATE INDEX idx_order_items_category_id ON public.order_items USING btree (category_id);
+CREATE INDEX idx_order_items_subcategory_id ON public.order_items USING btree (subcategory_id);
+CREATE INDEX idx_order_items_assigned_engineer_id ON public.order_items USING btree (assigned_engineer_id);
+CREATE INDEX idx_order_items_item_status ON public.order_items USING btree (item_status);
+CREATE INDEX idx_assignment_history_order_id ON public.assignment_history USING btree (order_id);
+CREATE INDEX idx_assignment_history_item_id ON public.assignment_history USING btree (item_id);
+CREATE INDEX idx_assignment_history_engineer_id ON public.assignment_history USING btree (engineer_id);
+CREATE INDEX idx_assignment_history_action_type ON public.assignment_history USING btree (action_type);
+CREATE INDEX idx_assignment_history_created_at ON public.assignment_history USING btree (created_at);
+CREATE INDEX idx_bookings_user_id ON public.bookings USING btree (user_id);
+CREATE INDEX idx_bookings_service_id ON public.bookings USING btree (service_id);
+CREATE INDEX idx_bookings_scheduled_date ON public.bookings USING btree (scheduled_date);
+CREATE INDEX idx_bookings_status ON public.bookings USING btree (status);
+CREATE INDEX idx_bookings_payment_status ON public.bookings USING btree (payment_status);
+CREATE INDEX idx_bookings_assigned_technician ON public.bookings USING btree (assigned_technician_id);
+CREATE INDEX idx_notifications_customer_id ON public.notifications USING btree (customer_id);
+CREATE INDEX idx_notifications_order_id ON public.notifications USING btree (order_id);
+CREATE INDEX idx_notifications_event_type ON public.notifications USING btree (event_type);
+CREATE INDEX idx_notifications_notification_type ON public.notifications USING btree (notification_type);
+CREATE INDEX idx_notifications_status ON public.notifications USING btree (status);
+CREATE INDEX idx_notifications_created_at ON public.notifications USING btree (created_at);
+CREATE INDEX idx_notification_templates_event_type ON public.notification_templates USING btree (event_type);
+CREATE INDEX idx_notification_templates_active ON public.notification_templates USING btree (is_active);
+CREATE INDEX idx_user_notification_preferences_user_id ON public.user_notification_preferences USING btree (user_id);
+CREATE INDEX idx_notification_logs_notification_id ON public.notification_logs USING btree (notification_id);
+CREATE INDEX idx_notification_logs_level ON public.notification_logs USING btree (log_level);
+CREATE INDEX idx_payment_webhooks_payment_id ON public.payment_webhooks USING btree (payment_id);
+CREATE INDEX idx_payment_webhooks_provider ON public.payment_webhooks USING btree (provider_name);
+CREATE INDEX idx_payment_webhooks_processed ON public.payment_webhooks USING btree (processed);
+CREATE INDEX idx_review_photos_review_id ON public.review_photos USING btree (review_id);
+CREATE INDEX idx_review_helpfulness_review_id ON public.review_helpfulness USING btree (review_id);
+CREATE INDEX idx_review_helpfulness_user_id ON public.review_helpfulness USING btree (user_id);
+CREATE INDEX idx_engineers_employee_id ON public.engineers USING btree (employee_id);
+CREATE INDEX idx_engineers_is_active ON public.engineers USING btree (is_active);
+CREATE INDEX idx_engineers_is_available ON public.engineers USING btree (is_available);
 
 -- ==============================================================================
 -- FOREIGN KEY CONSTRAINTS
 -- ==============================================================================
 
-ALTER TABLE ONLY public.assignment_history ADD CONSTRAINT assignment_history_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.cart_items ADD CONSTRAINT cart_items_cart_id_fkey FOREIGN KEY (cart_id) REFERENCES public.cart(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.cart_items ADD CONSTRAINT cart_items_service_id_fkey FOREIGN KEY (service_id) REFERENCES public.services(id) ON DELETE CASCADE;
 -- Cart user_id constraint removed to allow session UUIDs for anonymous users
@@ -642,6 +957,32 @@ ALTER TABLE ONLY public.reviews ADD CONSTRAINT reviews_approved_by_fkey FOREIGN 
 ALTER TABLE ONLY public.payments ADD CONSTRAINT payments_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.offer_services ADD CONSTRAINT offer_services_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES public.offer_plans(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.offer_services ADD CONSTRAINT offer_services_service_id_fkey FOREIGN KEY (service_id) REFERENCES public.services(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.sms_provider_stats ADD CONSTRAINT sms_provider_stats_provider_id_fkey FOREIGN KEY (provider_id) REFERENCES public.sms_providers(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.orders ADD CONSTRAINT orders_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.users(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.order_items ADD CONSTRAINT order_items_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.order_items ADD CONSTRAINT order_items_service_id_fkey FOREIGN KEY (service_id) REFERENCES public.services(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.order_items ADD CONSTRAINT order_items_variant_id_fkey FOREIGN KEY (variant_id) REFERENCES public.service_variants(id) ON DELETE SET NULL;
+ALTER TABLE ONLY public.order_items ADD CONSTRAINT order_items_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.service_categories(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.order_items ADD CONSTRAINT order_items_subcategory_id_fkey FOREIGN KEY (subcategory_id) REFERENCES public.service_subcategories(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.order_items ADD CONSTRAINT order_items_assigned_engineer_id_fkey FOREIGN KEY (assigned_engineer_id) REFERENCES public.users(id) ON DELETE SET NULL;
+ALTER TABLE ONLY public.assignment_history ADD CONSTRAINT assignment_history_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.assignment_history ADD CONSTRAINT assignment_history_item_id_fkey FOREIGN KEY (item_id) REFERENCES public.order_items(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.assignment_history ADD CONSTRAINT assignment_history_engineer_id_fkey FOREIGN KEY (engineer_id) REFERENCES public.users(id) ON DELETE SET NULL;
+ALTER TABLE ONLY public.bookings ADD CONSTRAINT bookings_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.bookings ADD CONSTRAINT bookings_service_id_fkey FOREIGN KEY (service_id) REFERENCES public.services(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.bookings ADD CONSTRAINT bookings_variant_id_fkey FOREIGN KEY (variant_id) REFERENCES public.service_variants(id) ON DELETE SET NULL;
+ALTER TABLE ONLY public.bookings ADD CONSTRAINT bookings_address_id_fkey FOREIGN KEY (address_id) REFERENCES public.user_addresses(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.bookings ADD CONSTRAINT bookings_coupon_id_fkey FOREIGN KEY (coupon_id) REFERENCES public.coupons(id) ON DELETE SET NULL;
+ALTER TABLE ONLY public.bookings ADD CONSTRAINT bookings_assigned_technician_fkey FOREIGN KEY (assigned_technician_id) REFERENCES public.users(id) ON DELETE SET NULL;
+ALTER TABLE ONLY public.notifications ADD CONSTRAINT notifications_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id) ON DELETE SET NULL;
+ALTER TABLE ONLY public.notifications ADD CONSTRAINT notifications_template_id_fkey FOREIGN KEY (template_id) REFERENCES public.notification_templates(id) ON DELETE SET NULL;
+ALTER TABLE ONLY public.user_notification_preferences ADD CONSTRAINT user_notification_preferences_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.notification_logs ADD CONSTRAINT notification_logs_notification_id_fkey FOREIGN KEY (notification_id) REFERENCES public.notifications(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.payment_webhooks ADD CONSTRAINT payment_webhooks_payment_id_fkey FOREIGN KEY (payment_id) REFERENCES public.payments(id) ON DELETE SET NULL;
+ALTER TABLE ONLY public.review_photos ADD CONSTRAINT review_photos_review_id_fkey FOREIGN KEY (review_id) REFERENCES public.reviews(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.review_helpfulness ADD CONSTRAINT review_helpfulness_review_id_fkey FOREIGN KEY (review_id) REFERENCES public.reviews(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.review_helpfulness ADD CONSTRAINT review_helpfulness_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.engineers ADD CONSTRAINT engineers_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 -- ==============================================================================
 -- SEED DATA - COMPLETE INITIAL DATA SET
@@ -707,6 +1048,9 @@ INSERT INTO public.service_subcategories (id, category_id, name, description, ic
 
 -- Copy subcategories to legacy table for compatibility
 INSERT INTO public.subcategories SELECT * FROM public.service_subcategories;
+
+-- Create alias table for backward compatibility (categories = service_categories)
+CREATE VIEW public.categories AS SELECT * FROM public.service_categories;
 
 -- Insert Sample Services (28 services across all categories)
 INSERT INTO public.services (id, name, category_id, subcategory_id, description, short_description, base_price, discounted_price, duration, is_active, is_featured) VALUES 
@@ -817,7 +1161,26 @@ INSERT INTO public.admin_permissions (id, permission_key, permission_name, permi
 
 -- Super Admin Only
 ('11111111-1111-1111-1111-111111111124', 'users.manage', 'User Management', 'Create and manage admin users', 'page', true, NOW(), NOW()),
-('11111111-1111-1111-1111-111111111125', 'permissions.manage', 'Permission Management', 'Assign permissions to admin users', 'page', true, NOW(), NOW());
+('11111111-1111-1111-1111-111111111125', 'permissions.manage', 'Permission Management', 'Assign permissions to admin users', 'page', true, NOW(), NOW()),
+
+-- Additional Management Pages
+('11111111-1111-1111-1111-111111111126', 'bookings.manage', 'Bookings Management', 'Manage service appointments and bookings', 'page', true, NOW(), NOW()),
+('11111111-1111-1111-1111-111111111127', 'notifications.manage', 'Notifications Management', 'Manage SMS and email notifications', 'page', true, NOW(), NOW()),
+('11111111-1111-1111-1111-111111111128', 'payments.manage', 'Payments Management', 'View and manage payments', 'page', true, NOW(), NOW()),
+('11111111-1111-1111-1111-111111111129', 'offers.manage', 'Offers Management', 'Manage promotional offers and plans', 'page', true, NOW(), NOW()),
+('11111111-1111-1111-1111-111111111130', 'system.health', 'System Health', 'View system health and monitoring', 'page', true, NOW(), NOW()),
+
+-- Action Permissions
+('22222222-2222-2222-2222-222222222201', 'orders.create', 'Create Orders', 'Create new customer orders', 'action', true, NOW(), NOW()),
+('22222222-2222-2222-2222-222222222202', 'orders.edit', 'Edit Orders', 'Modify existing orders', 'action', true, NOW(), NOW()),
+('22222222-2222-2222-2222-222222222203', 'orders.delete', 'Delete Orders', 'Delete customer orders', 'action', true, NOW(), NOW()),
+('22222222-2222-2222-2222-222222222204', 'engineers.assign', 'Assign Engineers', 'Assign engineers to orders', 'action', true, NOW(), NOW()),
+('22222222-2222-2222-2222-222222222205', 'payments.process', 'Process Payments', 'Process customer payments', 'action', true, NOW(), NOW()),
+('22222222-2222-2222-2222-222222222206', 'reviews.approve', 'Approve Reviews', 'Approve customer reviews', 'action', true, NOW(), NOW()),
+('22222222-2222-2222-2222-222222222207', 'notifications.send', 'Send Notifications', 'Send SMS/email notifications', 'action', true, NOW(), NOW()),
+('22222222-2222-2222-2222-222222222208', 'services.create', 'Create Services', 'Add new services', 'action', true, NOW(), NOW()),
+('22222222-2222-2222-2222-222222222209', 'coupons.create', 'Create Coupons', 'Create discount coupons', 'action', true, NOW(), NOW()),
+('22222222-2222-2222-2222-222222222210', 'users.create', 'Create Users', 'Create admin/engineer accounts', 'action', true, NOW(), NOW());
 
 -- Insert Sample Review Settings (default configuration)
 INSERT INTO public.review_settings (id, auto_approve_reviews, require_booking_for_review, minimum_rating_threshold, maximum_reviews_per_user_per_service, review_moderation_enabled, display_average_rating, display_review_count, allow_anonymous_reviews, updated_by, created_at, updated_at) VALUES
@@ -834,6 +1197,164 @@ INSERT INTO public.employees (id, employee_id, name, expertise, phone, email, ad
 (gen_random_uuid(), 'EMP002', 'Debashis', 
  '["Home Repairs","House Painting","ITR Filing","Lighting Solutions","Medicine Delivery","PAN Card Services","Photographer","Pipes","Salon at Home","Stamp Paper & Agreement","Septic Tank Cleaning","Switch & Socket","Tile Work","Toilets","Vehicle Breakdown","Water Purifier Cleaning","Water Tank","Water Tank Cleaning","Wiring Installation"]', 
  '9731739222', 'debasish@gmail.com', 'HNo 506 A Plus,Subhadra Apartement , Bhubaneswar , Odisha 24', true, NOW(), NOW());
+
+-- Insert SMS Templates
+INSERT INTO public.sms_templates (name, event_type, message_template, variables) VALUES
+('Order Placed', 'ORDER_PLACED', 
+ 'Hi {customer_name}! Your order #{order_number} for {service_names} has been placed successfully. Total: ₹{final_amount}. Happy Homes team will contact you soon.', 
+ '["customer_name", "order_number", "service_names", "final_amount"]'),
+
+('Order Confirmed', 'ORDER_CONFIRMED', 
+ 'Great news {customer_name}! Your order #{order_number} is confirmed. Our expert will visit on {scheduled_date} between {time_slot}. Thank you for choosing Happy Homes!', 
+ '["customer_name", "order_number", "scheduled_date", "time_slot"]'),
+
+('Engineer Assigned', 'ENGINEER_ASSIGNED', 
+ 'Hi {customer_name}! Engineer {engineer_name} ({engineer_phone}) has been assigned to your order #{order_number}. Service: {service_name}. Happy Homes', 
+ '["customer_name", "engineer_name", "engineer_phone", "order_number", "service_name"]'),
+
+('Service Started', 'SERVICE_STARTED', 
+ 'Your service has started! Engineer {engineer_name} is now working on {service_name} at your location. Order #{order_number}. Happy Homes', 
+ '["customer_name", "engineer_name", "service_name", "order_number"]'),
+
+('Service Completed', 'SERVICE_COMPLETED', 
+ 'Service completed! {service_name} for order #{order_number} is done. Please rate our service. Thank you for choosing Happy Homes!', 
+ '["customer_name", "service_name", "order_number"]'),
+
+('Payment Due', 'PAYMENT_DUE', 
+ 'Payment reminder: ₹{due_amount} is due for order #{order_number}. Please complete payment to avoid service interruption. Happy Homes', 
+ '["customer_name", "due_amount", "order_number"]'),
+
+('Payment Received', 'PAYMENT_RECEIVED', 
+ 'Payment received! ₹{amount} for order #{order_number} has been confirmed. Thank you for your business! - Happy Homes', 
+ '["customer_name", "amount", "order_number"]')
+
+ON CONFLICT (event_type) DO NOTHING;
+
+-- Insert Mock SMS Provider for Development
+INSERT INTO public.sms_providers (
+    name, 
+    provider_type, 
+    description, 
+    is_enabled, 
+    is_primary,
+    priority, 
+    config_data, 
+    cost_per_sms,
+    created_by
+) VALUES (
+    'Mock SMS Provider (Development)',
+    'mock',
+    'Mock SMS provider for development and testing purposes. Does not send real SMS messages.',
+    true,
+    true,
+    1,
+    '{"simulate_failures": false, "failure_rate": 0.1}',
+    0.0,
+    'system'
+) ON CONFLICT DO NOTHING;
+
+-- Insert Notification Templates
+INSERT INTO public.notification_templates (name, event_type, notification_type, subject_template, message_template, variables, is_active, language) VALUES
+('Order Placed SMS', 'order_placed', 'sms', NULL, 
+ 'Hi {customer_name}! Your order #{order_number} for {service_names} has been placed successfully. Total: ₹{final_amount}. Happy Homes team will contact you soon.', 
+ '["customer_name", "order_number", "service_names", "final_amount"]', true, 'en'),
+
+('Order Confirmed SMS', 'order_confirmed', 'sms', NULL,
+ 'Great news {customer_name}! Your order #{order_number} is confirmed. Our expert will visit on {scheduled_date} between {time_slot}. Thank you for choosing Happy Homes!', 
+ '["customer_name", "order_number", "scheduled_date", "time_slot"]', true, 'en'),
+
+('Engineer Assigned SMS', 'engineer_assigned', 'sms', NULL,
+ 'Hi {customer_name}! Engineer {engineer_name} ({engineer_phone}) has been assigned to your order #{order_number}. Service: {service_name}. Happy Homes', 
+ '["customer_name", "engineer_name", "engineer_phone", "order_number", "service_name"]', true, 'en'),
+
+('Service Started SMS', 'service_started', 'sms', NULL,
+ 'Your service has started! Engineer {engineer_name} is now working on {service_name} at your location. Order #{order_number}. Happy Homes', 
+ '["customer_name", "engineer_name", "service_name", "order_number"]', true, 'en'),
+
+('Service Completed SMS', 'service_completed', 'sms', NULL,
+ 'Service completed! {service_name} for order #{order_number} is done. Please rate our service. Thank you for choosing Happy Homes!', 
+ '["customer_name", "service_name", "order_number"]', true, 'en'),
+
+('Order Placed Email', 'order_placed', 'email', 'Order Confirmation - #{order_number}',
+ 'Dear {customer_name},\n\nThank you for your order!\n\nOrder Details:\n- Order Number: {order_number}\n- Services: {service_names}\n- Total Amount: ₹{final_amount}\n\nOur team will contact you soon to schedule the service.\n\nBest regards,\nHappy Homes Team', 
+ '["customer_name", "order_number", "service_names", "final_amount"]', true, 'en'),
+
+('Order Confirmed Email', 'order_confirmed', 'email', 'Service Scheduled - #{order_number}',
+ 'Dear {customer_name},\n\nYour service has been confirmed!\n\nScheduled Date: {scheduled_date}\nTime Slot: {time_slot}\nOrder Number: {order_number}\n\nOur expert will arrive at the scheduled time. Please ensure someone is available at the service location.\n\nBest regards,\nHappy Homes Team', 
+ '["customer_name", "order_number", "scheduled_date", "time_slot"]', true, 'en')
+
+ON CONFLICT (event_type, notification_type, language) DO NOTHING;
+
+-- Insert Sample Engineers (enhanced version of employees)
+INSERT INTO public.engineers (employee_id, name, expertise, specializations, phone, email, address, is_active, max_concurrent_jobs) VALUES
+('ENG001', 'Sunil Kumar Panda', 
+ '["Plumbing", "Electrical", "AC Services"]', 
+ '["Bath Fittings", "Wiring Installation", "AC Cleaning", "Appliance Repair"]',
+ '9731739111', 'sunil.engineer@happyhomes.com', 'Bhubaneswar, Odisha', true, 3),
+
+('ENG002', 'Debashis Mohanty', 
+ '["Civil Work", "Cleaning", "General Services"]', 
+ '["House Painting", "Bathroom Cleaning", "Home Repairs", "Water Tank Cleaning"]',
+ '9731739222', 'debashis.engineer@happyhomes.com', 'Bhubaneswar, Odisha', true, 4),
+
+('ENG003', 'Rajesh Kumar', 
+ '["Electrical", "Electronics"]', 
+ '["Switch & Socket", "Fan Installation", "Lighting Solutions", "Electrical Safety Check"]',
+ '9731739333', 'rajesh.engineer@happyhomes.com', 'Bhubaneswar, Odisha', true, 2)
+
+ON CONFLICT (employee_id) DO NOTHING;
+
+-- Add triggers for updated_at columns on new tables
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Apply triggers to SMS tables that have updated_at columns
+DROP TRIGGER IF EXISTS update_sms_providers_updated_at ON public.sms_providers;
+CREATE TRIGGER update_sms_providers_updated_at 
+    BEFORE UPDATE ON public.sms_providers 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_sms_templates_updated_at ON public.sms_templates;
+CREATE TRIGGER update_sms_templates_updated_at 
+    BEFORE UPDATE ON public.sms_templates 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Add triggers for new tables with updated_at columns
+DROP TRIGGER IF EXISTS update_bookings_updated_at ON public.bookings;
+CREATE TRIGGER update_bookings_updated_at 
+    BEFORE UPDATE ON public.bookings 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_notifications_updated_at ON public.notifications;
+CREATE TRIGGER update_notifications_updated_at 
+    BEFORE UPDATE ON public.notifications 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_notification_templates_updated_at ON public.notification_templates;
+CREATE TRIGGER update_notification_templates_updated_at 
+    BEFORE UPDATE ON public.notification_templates 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_user_notification_preferences_updated_at ON public.user_notification_preferences;
+CREATE TRIGGER update_user_notification_preferences_updated_at 
+    BEFORE UPDATE ON public.user_notification_preferences 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_engineers_updated_at ON public.engineers;
+CREATE TRIGGER update_engineers_updated_at 
+    BEFORE UPDATE ON public.engineers 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Add trigger for orders table
+DROP TRIGGER IF EXISTS update_orders_updated_at ON public.orders;
+CREATE TRIGGER update_orders_updated_at 
+    BEFORE UPDATE ON public.orders 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Log successful initialization
 SELECT 'Database household_services initialized successfully with complete schema and seed data' as message;

@@ -472,6 +472,17 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onCategoryChange, onContactChan
     <>
       <style>{customStyles}</style>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex animate-fade-in">
+        {/* Back to Home Navigation */}
+        <div className="fixed top-4 right-4 z-50">
+          <button 
+            onClick={() => window.location.href = '/'}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all"
+          >
+            <span>←</span>
+            <span>Back to Home</span>
+          </button>
+        </div>
+
         {/* Sidebar */}
         <div className={`bg-white/80 backdrop-blur-sm shadow-2xl transition-all duration-500 relative border-r border-white/50 ${sidebarOpen ? 'w-72' : 'w-20'} hover:shadow-3xl`}>
         {/* Header */}

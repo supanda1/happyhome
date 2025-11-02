@@ -11,7 +11,7 @@ from datetime import datetime
 import uuid
 from enum import Enum
 
-from ..core.database import Base
+from .base import Base
 
 
 class SMSProviderType(str, Enum):

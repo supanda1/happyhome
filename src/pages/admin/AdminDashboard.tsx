@@ -210,6 +210,17 @@ const AdminDashboard: React.FC = () => {
 
   return (
     <div>
+      {/* BACK TO HOME - TOP */}
+      <div className="bg-blue-600 text-white text-center py-3 shadow-lg">
+        <button 
+          onClick={() => window.location.href = '/'}
+          className="bg-white text-blue-600 px-4 py-2 rounded-lg font-bold hover:bg-gray-100 flex items-center space-x-2 mx-auto"
+        >
+          <span>🏠</span>
+          <span>← Back to Home</span>
+        </button>
+      </div>
+      
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
@@ -450,6 +461,16 @@ const AdminDashboard: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+      
+      {/* EXTREMELY PROMINENT BACK TO HOME - BOTTOM */}
+      <div className="mt-8 text-center">
+        <button
+          onClick={() => window.location.href = '/'}
+          className="bg-green-500 text-white px-8 py-4 rounded-lg hover:bg-green-600 font-black text-xl shadow-xl border-4 border-green-700"
+        >
+          🏠 BACK TO HOME 🏠
+        </button>
+      </div>
     </div>
   );
 };

@@ -9,7 +9,7 @@ import AddAddressPage from './pages/customer/AddAddressPage';
 import MyBookingsPage from './pages/customer/MyBookingsPage';
 import ProfilePage from './pages/customer/ProfilePage';
 import OfferPage from './pages/customer/OfferPage';
-import ServiceDetailPageRoute from './pages/customer/ServiceDetailPage';
+// Removed incorrect import - ServiceDetailPageRoute will be defined inline
 import AdminPanel from './pages/admin/AdminPanel';
 // Import Dynamic Image component for backend-driven images
 import DynamicImage from './components/ui/DynamicImage';
@@ -98,25 +98,36 @@ const App: React.FC = () => {
     if (!frontendServices || !Array.isArray(frontendServices)) {
       return [];
     }
-    return frontendServices.filter(service => service && (service as any).category_name).map(service => {      
-      const apiService = service as any; // Type assertion for API response structure
-      return ({
-        id: apiService.id,
-        name: apiService.name,
-        category_id: apiService.category_id,
-        category_name: apiService.category_name,
-        subcategory_name: apiService.subcategory_name || '',
-        description: apiService.description,
-        short_description: apiService.short_description,
-        base_price: apiService.base_price,
-        discounted_price: apiService.discounted_price,
-        rating: apiService.rating,
-        is_active: apiService.is_active,
-        duration: apiService.duration,
-        inclusions: apiService.inclusions,
-        exclusions: apiService.exclusions
+    
+    try {
+      return frontendServices.filter(service => {
+        return service && 
+               typeof service === 'object' && 
+               (service as any).category_name && 
+               (service as any).id;
+      }).map(service => {      
+        const apiService = service as any; // Type assertion for API response structure
+        return ({
+          id: apiService.id || '',
+          name: apiService.name || 'Unnamed Service',
+          category_id: apiService.category_id || '',
+          category_name: apiService.category_name || '',
+          subcategory_name: apiService.subcategory_name || '',
+          description: apiService.description || '',
+          short_description: apiService.short_description || '',
+          base_price: Number(apiService.base_price) || 0,
+          discounted_price: apiService.discounted_price ? Number(apiService.discounted_price) : undefined,
+          rating: apiService.rating ? Number(apiService.rating) : undefined,
+          is_active: Boolean(apiService.is_active),
+          duration: apiService.duration,
+          inclusions: apiService.inclusions,
+          exclusions: apiService.exclusions
+        });
       });
-    });
+    } catch (error) {
+      console.error('Error converting backend services:', error);
+      return [];
+    }
   };
 
   // Helper function to show success message for a specific service and expand cart sidebar
@@ -217,10 +228,10 @@ const App: React.FC = () => {
         throw new Error('Invalid services data received from API');
       }
       
-      // Filter only active data
-      const activeCategories = allCategories.filter(cat => cat.is_active);
-      const activeSubcategories = allSubcategories.filter(sub => sub.is_active);
-      const activeServices = allServices.filter(service => service.is_active);
+      // Filter only active data with better error handling
+      const activeCategories = allCategories.filter(cat => cat && typeof cat === 'object' && cat.is_active);
+      const activeSubcategories = allSubcategories.filter(sub => sub && typeof sub === 'object' && sub.is_active);
+      const activeServices = allServices.filter(service => service && typeof service === 'object' && service.is_active);
       
       setCategories(activeCategories);
       setSubcategories(activeSubcategories);
@@ -233,11 +244,12 @@ const App: React.FC = () => {
       };
       
       activeCategories.forEach(category => {
-        const categorySubcategories = activeSubcategories
-          .filter(sub => sub.category_id === category.id)
-          .map(sub => sub.name);
-        serviceCategoriesObj[category.name] = categorySubcategories;
-        
+        if (category && category.id && category.name) {
+          const categorySubcategories = activeSubcategories
+            .filter(sub => sub && sub.category_id === category.id && sub.name)
+            .map(sub => sub.name);
+          serviceCategoriesObj[category.name] = categorySubcategories;
+        }
       });
       
       setServiceCategories(serviceCategoriesObj);
@@ -465,18 +477,29 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
 
     return (
       <div className="min-h-screen bg-gray-50">
+        {/* Enhanced Back to Home Navigation */}
+        <div className="bg-white/95 backdrop-blur-md shadow-lg border-b border-gray-200 mb-6">
+          <div className="max-w-7xl mx-auto px-6 py-4">
+            <div className="flex items-center justify-between">
+              <button 
+                onClick={navigateToHome}
+                className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 transition-all duration-200 hover:scale-105"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                <span className="font-medium">Back to Home</span>
+              </button>
+              <div className="text-sm text-gray-600">
+                <span className="font-semibold">Search Results</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Search Header */}
           <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <button 
-                onClick={navigateToHome}
-                className="text-blue-600 hover:text-blue-800 flex items-center space-x-2"
-              >
-                <span>←</span>
-                <span>Back to Home</span>
-              </button>
-            </div>
             
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Search Results</h1>
             <div className="flex items-center space-x-4 text-sm text-gray-600">
@@ -624,6 +647,16 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
             </div>
           )}
         </div>
+
+        {/* Bottom Back to Home Link */}
+        <div className="px-4 sm:px-6 lg:px-8 py-8 border-t border-gray-200 bg-white">
+          <div className="max-w-7xl mx-auto text-center">
+            <button onClick={navigateToHome} className="text-blue-600 hover:text-blue-800 flex items-center space-x-1 text-sm font-medium mx-auto">
+              <span>←</span>
+              <span>Back to Home</span>
+            </button>
+          </div>
+        </div>
       </div>
     );
   };
@@ -693,6 +726,36 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
       }
     }
     return [];
+  };
+
+  // ServiceDetailPageRoute component - works with adminDataManager system
+  const ServiceDetailPageRoute = ({ serviceId }: { serviceId: string }) => {
+    // Find the service from the loaded services
+    const service = convertToBackendServices(services)?.find(s => s.id === serviceId);
+    
+    if (!service || servicesLoading) {
+      return (
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="text-6xl mb-4 animate-pulse">🔄</div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Loading Service...</h2>
+            <p className="text-gray-600">Please wait while we load the service details.</p>
+          </div>
+        </div>
+      );
+    }
+
+    // Find category and subcategory names
+    const category = categories.find(cat => cat.id === service.category_id);
+    const categoryName = category?.name || 'General Services';
+    
+    // Use the existing ServiceDetailPage component with the found service data
+    return (
+      <ServiceDetailPage 
+        categoryName={categoryName} 
+        serviceName={service.name}
+      />
+    );
   };
 
   // PRODUCTION-GRADE SERVICE DETAIL PAGE WITH ENHANCED STYLING
@@ -895,6 +958,21 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
               </svg>
               <span className="text-purple-700 bg-gradient-to-r from-orange-100 to-purple-100 px-3 py-1.5 rounded-full">{serviceName}</span>
             </div>
+          </div>
+        </div>
+
+        {/* Back to Category Button */}
+        <div className="bg-gray-50 border-b border-gray-200">
+          <div className="max-w-7xl mx-auto px-6 py-3">
+            <button 
+              onClick={() => navigateToCategory(categoryName)}
+              className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 transition-all duration-200 hover:scale-105"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              <span className="font-medium">Back to {categoryName}</span>
+            </button>
           </div>
         </div>
 
@@ -1350,42 +1428,74 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
         ?.slice(0, 6) || [];
     }, [services]);
     
+    // Get all services for the new all services section
+    const allServices = useMemo(() => {
+      return convertToBackendServices(services)
+        ?.filter(service => service.is_active)
+        ?.slice(0, 12) || [];
+    }, [services]);
+    
+    // Cart functionality state
+    const [addingToCart, setAddingToCart] = useState<string | null>(null);
+    const [cartMessages, setCartMessages] = useState<{[serviceId: string]: string}>({});
+    
+    // Handle add to cart
+    const handleAddToCart = async (serviceId: string, serviceName: string) => {
+      try {
+        setAddingToCart(serviceId);
+        await addToCart(serviceId, 1);
+        
+        setCartMessages(prev => ({
+          ...prev,
+          [serviceId]: `${serviceName} added to cart!`
+        }));
+        
+        // Clear message after 2 seconds
+        setTimeout(() => {
+          setCartMessages(prev => {
+            const newMessages = { ...prev };
+            delete newMessages[serviceId];
+            return newMessages;
+          });
+        }, 2000);
+      } catch (error) {
+        console.error('Failed to add to cart:', error);
+        setCartMessages(prev => ({
+          ...prev,
+          [serviceId]: 'Failed to add to cart'
+        }));
+      } finally {
+        setAddingToCart(null);
+      }
+    };
+    
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+        
         
         {/* Hero Section */}
         <section className="relative overflow-hidden bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-700">
           <div className="absolute inset-0 bg-black/20"></div>
-          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
+          <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
             <div className="text-center text-white">
-              <h1 className="text-5xl md:text-7xl font-bold mb-8 leading-tight">
+              <h1 className="text-3xl md:text-4xl font-bold mb-6 leading-tight">
                 <span className="block">Professional Home</span>
                 <span className="block text-yellow-300">Services</span>
               </h1>
-              <p className="text-xl md:text-2xl mb-12 text-blue-100 max-w-4xl mx-auto leading-relaxed">
+              <p className="text-base md:text-lg mb-8 text-blue-100 max-w-2xl mx-auto leading-relaxed">
                 Expert technicians for all your home service needs. From plumbing to electrical work, 
                 we connect you with trusted professionals in your area.
               </p>
-              <div className="flex flex-col sm:flex-row gap-6 justify-center">
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <button 
-                  onClick={() => {
-                    const firstCategory = activeCategories.find(cat => {
-                      const hasServices = convertToBackendServices(services)?.some(service => 
-                        service.category_name === cat.name && service.is_active
-                      );
-                      return hasServices;
-                    });
-                    if (firstCategory) {
-                      navigateToCategory(firstCategory.name);
-                    }
-                  }}
-                  className="bg-yellow-400 hover:bg-yellow-300 text-gray-900 font-bold py-4 px-8 rounded-xl text-lg transition-all duration-300 transform hover:scale-105 shadow-xl hover:shadow-2xl"
+                  onClick={() => setCurrentPage('all-services')}
+                  className="bg-yellow-400 hover:bg-yellow-300 text-gray-900 font-semibold py-3 px-6 rounded-lg text-sm transition-all duration-200"
                 >
                   Browse Services
                 </button>
                 <button 
                   onClick={() => setCurrentPage('offers')}
-                  className="border-2 border-white text-white hover:bg-white hover:text-gray-900 font-bold py-4 px-8 rounded-xl text-lg transition-all duration-300 shadow-xl"
+                  className="border-2 border-white text-white hover:bg-white hover:text-gray-900 font-semibold py-3 px-6 rounded-lg text-sm transition-all duration-200"
                 >
                   View Offers
                 </button>
@@ -1397,49 +1507,98 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
           <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-400/10 rounded-full translate-y-32 -translate-x-32"></div>
         </section>
 
-        {/* Why Choose Us Section */}
-        <section className="py-20 bg-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-16">
-              <h2 className="text-4xl font-bold text-gray-900 mb-4">Why Choose Happy Homes?</h2>
-              <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-                We make home services simple, reliable, and affordable
+        {/* All Services Section */}
+        <section className="py-12 bg-gray-50">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-10">
+              <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3">Our Services</h2>
+              <p className="text-base text-gray-600 max-w-2xl mx-auto">
+                Professional home services at your fingertips
               </p>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
-              <div className="text-center p-8 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-100 hover:shadow-xl transition-all duration-300">
-                <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <span className="text-2xl text-white">🔧</span>
-                </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-4">Expert Professionals</h3>
-                <p className="text-gray-600 leading-relaxed">
-                  Verified, experienced technicians who deliver quality workmanship every time.
-                </p>
+            {servicesLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-gray-600 font-semibold">Loading services...</div>
               </div>
-              
-              <div className="text-center p-8 rounded-2xl bg-gradient-to-br from-purple-50 to-pink-100 hover:shadow-xl transition-all duration-300">
-                <div className="w-16 h-16 bg-purple-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <span className="text-2xl text-white">⚡</span>
-                </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-4">Fast Service</h3>
-                <p className="text-gray-600 leading-relaxed">
-                  Same-day service available. Book now and get help when you need it most.
-                </p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {allServices.map((service, index) => (
+                  <div 
+                    key={service.id || index}
+                    className="bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden group relative border border-gray-100"
+                  >
+                    {/* Cart Success Message */}
+                    {cartMessages[service.id] && (
+                      <div className="absolute top-2 right-2 z-10">
+                        <div className="bg-green-500 text-white px-2 py-1 rounded text-xs font-medium shadow-md">
+                          Added!
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div className="h-32 bg-gradient-to-br from-orange-100 via-purple-100 to-blue-100 flex items-center justify-center relative overflow-hidden border-b border-purple-200">
+                      <span className="text-sm font-semibold text-purple-900 text-center px-3 leading-tight bg-white/80 backdrop-blur-sm rounded-md py-1 shadow-sm">
+                        {service.category_name}
+                      </span>
+                    </div>
+                    
+                    <div className="p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        {service.rating && service.rating > 0 && (
+                          <div className="flex items-center">
+                            <span className="text-sm text-amber-500">★</span>
+                            <span className="text-sm text-gray-600 ml-1">{service.rating}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center">
+                          <span className="text-lg font-bold text-purple-600">
+                            ₹{service.discounted_price || service.base_price}
+                          </span>
+                          {service.discounted_price && service.discounted_price < service.base_price && (
+                            <span className="text-sm text-gray-400 line-through ml-2">
+                              ₹{service.base_price}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <h3 className="text-base font-semibold text-gray-900 mb-3 line-clamp-2 leading-tight">
+                        {service.name}
+                      </h3>
+                      
+                      <div className="flex space-x-2">
+                        <button 
+                          onClick={() => navigateToServiceDetail(service.id)}
+                          className="flex-1 bg-white border border-purple-300 text-purple-700 hover:bg-purple-50 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
+                        >
+                          View Details
+                        </button>
+                        <button 
+                          onClick={() => handleAddToCart(service.id, service.name)}
+                          disabled={addingToCart === service.id}
+                          className="flex-1 bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 hover:from-orange-600 hover:via-purple-700 hover:to-blue-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200 disabled:opacity-50"
+                        >
+                          {addingToCart === service.id ? 'Adding...' : 'Add to Cart'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
-              
-              <div className="text-center p-8 rounded-2xl bg-gradient-to-br from-green-50 to-emerald-100 hover:shadow-xl transition-all duration-300">
-                <div className="w-16 h-16 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <span className="text-2xl text-white">🛡️</span>
-                </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-4">Fully Insured</h3>
-                <p className="text-gray-600 leading-relaxed">
-                  Complete insurance coverage and satisfaction guarantee for your peace of mind.
-                </p>
-              </div>
+            )}
+
+            <div className="text-center mt-6">
+              <button 
+                onClick={() => setCurrentPage('all-services')}
+                className="bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 hover:from-orange-600 hover:via-purple-700 hover:to-blue-700 text-white font-medium py-3 px-8 rounded-lg text-base transition-colors duration-200"
+              >
+                View All Services
+              </button>
             </div>
           </div>
         </section>
+
 
         {/* Featured Services Section */}
         {featuredServices.length > 0 && (
@@ -1459,11 +1618,10 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                     onClick={() => navigateToServiceDetail(service.id)}
                     className="bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 cursor-pointer overflow-hidden group"
                   >
-                    <div className="h-48 bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center relative overflow-hidden">
-                      <span className="text-4xl font-bold text-gray-700 group-hover:scale-110 transition-transform duration-300">
+                    <div className="h-20 bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center relative overflow-hidden">
+                      <span className="text-xs font-medium text-gray-600 text-center px-2 leading-tight">
                         {service.category_name}
                       </span>
-                      <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-purple-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                     </div>
                     
                     <div className="p-6">
@@ -1504,17 +1662,17 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
           </section>
         )}
 
-        {/* Service Categories Section */}
-        <section className="py-20 bg-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-16">
-              <h2 className="text-4xl font-bold text-gray-900 mb-4">Our Service Categories</h2>
-              <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+        {/* Categories Section - Matching Services Design */}
+        <section className="py-12 bg-white">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-10">
+              <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3">Our Categories</h2>
+              <p className="text-base text-gray-600 max-w-2xl mx-auto">
                 Professional services for every corner of your home
               </p>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {activeCategories.map((category, categoryIndex) => {
                 // Check if this category has services
                 const hasServices = convertToBackendServices(services)?.some((service) => 
@@ -1530,57 +1688,117 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                   <div 
                     key={category.id || categoryIndex}
                     onClick={() => hasServices ? navigateToCategory(category.name) : null}
-                    className={`${
-                      hasServices 
-                        ? 'bg-gradient-to-br from-blue-50 to-indigo-100 hover:from-blue-100 hover:to-indigo-200 cursor-pointer transform hover:scale-105' 
-                        : 'bg-gradient-to-br from-gray-100 to-gray-200 cursor-not-allowed'
-                    } p-6 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 group relative overflow-hidden border border-blue-200`}
+                    className={`bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden group relative border border-gray-100 ${
+                      hasServices ? 'cursor-pointer' : 'cursor-not-allowed opacity-75'
+                    }`}
                   >
-                    {/* Category Image Section */}
-                    <div className="mb-4">
-                      <DynamicImage
-                        src={category.image_path}
-                        alt={`${category.name} Services`}
-                        className="w-full h-24 rounded-xl object-cover shadow-md group-hover:shadow-lg transition-all duration-300"
-                        fallbackEmoji={category.icon}
-                        onClick={() => hasServices ? navigateToCategory(category.name) : null}
-                      />
-                    </div>
-                    
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className={`font-bold text-lg ${hasServices ? 'text-blue-700' : 'text-gray-600'} group-hover:text-blue-800 transition-colors duration-300`}>
+                    {/* Category Header with same styling as services */}
+                    <div className="h-32 bg-gradient-to-br from-orange-100 via-purple-100 to-blue-100 flex items-center justify-center relative overflow-hidden border-b border-purple-200">
+                      <span className="text-sm font-semibold text-purple-900 text-center px-3 leading-tight bg-white/80 backdrop-blur-sm rounded-md py-1 shadow-sm">
                         {category.name}
-                      </h3>
+                      </span>
                       {!hasServices && (
-                        <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-bold">
+                        <span className="absolute top-2 right-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-bold">
                           Soon
                         </span>
                       )}
                     </div>
                     
-                    <p className={`text-sm mb-3 leading-relaxed ${hasServices ? 'text-gray-700' : 'text-gray-600'}`}>
-                      {category.description}
-                    </p>
-                    
-                    <div className="flex flex-wrap gap-2">
-                      {hasServices ? (
-                        categorySubcategories.map((sub, subIndex) => (
-                          <span 
-                            key={subIndex} 
-                            className="bg-white/70 backdrop-blur-sm text-blue-700 text-xs px-2 py-1 rounded-full font-semibold shadow-sm hover:shadow-md transition-all duration-300"
-                          >
-                            {sub.name}
+                    <div className="p-4">
+                      {/* Category description replacing price section */}
+                      <div className="mb-3">
+                        <p className="text-sm text-gray-600 line-clamp-2 leading-tight">
+                          {category.description}
+                        </p>
+                      </div>
+                      
+                      {/* Category Name */}
+                      <h3 className="text-base font-semibold text-gray-900 mb-3 line-clamp-1 leading-tight">
+                        {category.name}
+                      </h3>
+                      
+                      {/* Subcategories or Action */}
+                      <div className="flex flex-wrap gap-1 mb-3">
+                        {hasServices ? (
+                          categorySubcategories.slice(0, 2).map((sub, subIndex) => (
+                            <span 
+                              key={subIndex} 
+                              className="bg-purple-50 text-purple-700 text-xs px-2 py-1 rounded-full font-medium"
+                            >
+                              {sub.name}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full">
+                            Coming Soon
                           </span>
-                        ))
-                      ) : (
-                        <span className="bg-white/50 text-gray-600 text-xs px-2 py-1 rounded-full">
-                          Coming Soon
-                        </span>
-                      )}
+                        )}
+                      </div>
+                      
+                      {/* Action Button */}
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (hasServices) navigateToCategory(category.name);
+                        }}
+                        disabled={!hasServices}
+                        className={`w-full px-2 py-1.5 rounded-md text-xs font-medium transition-colors duration-200 ${
+                          hasServices
+                            ? 'bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 hover:from-orange-600 hover:via-purple-700 hover:to-blue-700 text-white'
+                            : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                        }`}
+                      >
+                        {hasServices ? 'Browse Services' : 'Coming Soon'}
+                      </button>
                     </div>
                   </div>
                 );
               })}
+            </div>
+          </div>
+        </section>
+
+        {/* Why Choose Happy Homes - Compact Section */}
+        <section className="py-6 bg-gray-50">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-5">
+              <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                Why Choose Happy Homes?
+              </h3>
+            </div>
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="text-center">
+                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-2">
+                  <span className="text-sm text-white">🔧</span>
+                </div>
+                <h4 className="font-medium text-gray-900 text-xs mb-1">Expert Professionals</h4>
+                <p className="text-xs text-gray-500">Verified & experienced</p>
+              </div>
+              
+              <div className="text-center">
+                <div className="w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center mx-auto mb-2">
+                  <span className="text-sm text-white">⚡</span>
+                </div>
+                <h4 className="font-medium text-gray-900 text-xs mb-1">Same Day Service</h4>
+                <p className="text-xs text-gray-500">Quick & efficient</p>
+              </div>
+              
+              <div className="text-center">
+                <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-2">
+                  <span className="text-sm text-white">🛡️</span>
+                </div>
+                <h4 className="font-medium text-gray-900 text-xs mb-1">Insured & Bonded</h4>
+                <p className="text-xs text-gray-500">Safe & secure</p>
+              </div>
+              
+              <div className="text-center">
+                <div className="w-8 h-8 bg-orange-600 rounded-full flex items-center justify-center mx-auto mb-2">
+                  <span className="text-sm text-white">💯</span>
+                </div>
+                <h4 className="font-medium text-gray-900 text-xs mb-1">100% Guarantee</h4>
+                <p className="text-xs text-gray-500">Satisfaction assured</p>
+              </div>
             </div>
           </div>
         </section>
@@ -1596,17 +1814,7 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
             </p>
             <div className="flex flex-col sm:flex-row gap-6 justify-center">
               <button 
-                onClick={() => {
-                  const firstCategory = activeCategories.find(cat => {
-                    const hasServices = convertToBackendServices(services)?.some(service => 
-                      service.category_name === cat.name && service.is_active
-                    );
-                    return hasServices;
-                  });
-                  if (firstCategory) {
-                    navigateToCategory(firstCategory.name);
-                  }
-                }}
+                onClick={() => setCurrentPage('all-services')}
                 className="bg-yellow-400 hover:bg-yellow-300 text-gray-900 font-bold py-4 px-8 rounded-xl text-lg transition-all duration-300 transform hover:scale-105 shadow-2xl"
               >
                 Book Service Now
@@ -1622,6 +1830,196 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
             </div>
           </div>
         </section>
+      </div>
+    );
+  };
+
+  // All Services Page Component
+  const AllServicesPage = () => {
+    // Get all active services
+    const allActiveServices = useMemo(() => {
+      return convertToBackendServices(services)
+        ?.filter(service => service.is_active) || [];
+    }, [services]);
+    
+    // Cart functionality state
+    const [addingToCart, setAddingToCart] = useState<string | null>(null);
+    const [cartMessages, setCartMessages] = useState<{[serviceId: string]: string}>({});
+    
+    // Handle add to cart
+    const handleAddToCart = async (serviceId: string, serviceName: string) => {
+      try {
+        setAddingToCart(serviceId);
+        await addToCart(serviceId, 1);
+        
+        setCartMessages(prev => ({
+          ...prev,
+          [serviceId]: `${serviceName} added to cart!`
+        }));
+        
+        updateGlobalCartCount();
+        
+        // Clear message after 2 seconds
+        setTimeout(() => {
+          setCartMessages(prev => {
+            const newMessages = { ...prev };
+            delete newMessages[serviceId];
+            return newMessages;
+          });
+        }, 2000);
+      } catch (error) {
+        console.error('Failed to add to cart:', error);
+        setCartMessages(prev => ({
+          ...prev,
+          [serviceId]: 'Failed to add to cart'
+        }));
+      } finally {
+        setAddingToCart(null);
+      }
+    };
+
+    return (
+      <div className="min-h-screen bg-gray-50">
+        {/* Enhanced Back to Home Navigation */}
+        <div className="bg-white/95 backdrop-blur-md shadow-lg border-b border-gray-200 mb-6">
+          <div className="max-w-7xl mx-auto px-6 py-4">
+            <div className="flex items-center justify-between">
+              <button 
+                onClick={navigateToHome}
+                className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 transition-all duration-200 hover:scale-105"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                <span className="font-medium">Back to Home</span>
+              </button>
+              <div className="text-sm text-gray-600">
+                <span className="font-semibold">All Services</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Header */}
+          <div className="text-center mb-8">
+            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">All Services</h1>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              Browse all our professional home services in one place
+            </p>
+          </div>
+
+          {/* Services Grid */}
+          {servicesLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+              <span className="ml-3 text-gray-600">Loading services...</span>
+            </div>
+          ) : allActiveServices.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {allActiveServices.map((service, index) => (
+                <div 
+                  key={service.id || index}
+                  className="bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden group relative border border-gray-100"
+                >
+                  {/* Cart Success Message */}
+                  {cartMessages[service.id] && (
+                    <div className="absolute top-2 right-2 z-10">
+                      <div className="bg-green-500 text-white px-2 py-1 rounded text-xs font-medium shadow-md">
+                        Added!
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Category Header */}
+                  <div className="h-32 bg-gradient-to-br from-orange-100 via-purple-100 to-blue-100 flex items-center justify-center relative overflow-hidden border-b border-purple-200">
+                    <span className="text-sm font-semibold text-purple-900 text-center px-3 leading-tight bg-white/80 backdrop-blur-sm rounded-md py-1 shadow-sm">
+                      {service.category_name}
+                    </span>
+                  </div>
+                  
+                  <div className="p-4">
+                    {/* Rating and Price */}
+                    <div className="flex items-center justify-between mb-3">
+                      {service.rating && service.rating > 0 && (
+                        <div className="flex items-center">
+                          <span className="text-sm text-amber-500">★</span>
+                          <span className="text-sm text-gray-600 ml-1">{service.rating}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center">
+                        <span className="text-lg font-bold text-purple-600">
+                          ₹{service.discounted_price || service.base_price}
+                        </span>
+                        {service.discounted_price && service.discounted_price < service.base_price && (
+                          <span className="text-sm text-gray-400 line-through ml-2">
+                            ₹{service.base_price}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Service Name */}
+                    <h3 className="text-base font-semibold text-gray-900 mb-3 line-clamp-2 leading-tight">
+                      {service.name}
+                    </h3>
+                    
+                    {/* Action Buttons */}
+                    <div className="flex space-x-2">
+                      <button 
+                        onClick={() => navigateToServiceDetail(service.id)}
+                        className="flex-1 bg-white border border-purple-300 text-purple-700 hover:bg-purple-50 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
+                      >
+                        View Details
+                      </button>
+                      <button 
+                        onClick={() => handleAddToCart(service.id, service.name)}
+                        disabled={addingToCart === service.id}
+                        className="flex-1 bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 hover:from-orange-600 hover:via-purple-700 hover:to-blue-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200 disabled:opacity-50"
+                      >
+                        {addingToCart === service.id ? 'Adding...' : 'Add to Cart'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            /* No Services */
+            <div className="text-center py-12">
+              <div className="text-6xl mb-4">🔍</div>
+              <h3 className="text-xl font-medium text-gray-900 mb-2">No services available</h3>
+              <p className="text-gray-600 mb-6">
+                We're working on adding more services. Please check back later.
+              </p>
+              <button
+                onClick={navigateToHome}
+                className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700"
+              >
+                Back to Home
+              </button>
+            </div>
+          )}
+
+          {/* Service Count */}
+          {allActiveServices.length > 0 && (
+            <div className="text-center mt-8">
+              <p className="text-gray-600">
+                Showing {allActiveServices.length} service{allActiveServices.length !== 1 ? 's' : ''}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Bottom Back to Home Link */}
+        <div className="px-4 sm:px-6 lg:px-8 py-8 border-t border-gray-200 bg-white">
+          <div className="max-w-7xl mx-auto text-center">
+            <button onClick={navigateToHome} className="text-blue-600 hover:text-blue-800 flex items-center space-x-1 text-sm font-medium mx-auto">
+              <span>←</span>
+              <span>Back to Home</span>
+            </button>
+          </div>
+        </div>
       </div>
     );
   };
@@ -1666,6 +2064,26 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
     
     return (
       <div className={`min-h-screen bg-gradient-to-br ${colors.bgGradient} py-8 relative overflow-y-auto`} style={{backgroundImage: colors.bgRadial}}>
+        {/* Enhanced Back to Home Navigation */}
+        <div className="bg-white/95 backdrop-blur-md shadow-lg border-b border-orange-200 mb-6">
+          <div className="max-w-7xl mx-auto px-6 py-4">
+            <div className="flex items-center justify-between">
+              <button 
+                onClick={navigateToHome}
+                className="flex items-center space-x-2 text-blue-600 hover:text-blue-800 transition-all duration-200 hover:scale-105"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                <span className="font-medium">Back to Home</span>
+              </button>
+              <div className="text-sm text-gray-600">
+                <span className="font-semibold">{categoryName}</span> Services
+              </div>
+            </div>
+          </div>
+        </div>
+        
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
           {/* Enhanced Breadcrumb */}
           <nav className="mb-8">
@@ -1714,9 +2132,9 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
             )}
           </div>
 
-          {/* Subcategories Grid */}
+          {/* Subcategories Grid - Matching Homepage Services Design */}
           {categorySubcategories.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {categorySubcategories.map((subcategory, subcategoryIndex) => {
                 // Find the service for this subcategory
                 const subcategoryService = convertToBackendServices(services)?.find((service) => 
@@ -1726,55 +2144,61 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                 );
 
                 return (
-                  <div
+                  <div 
                     key={subcategory.id || subcategoryIndex}
-                    className={`${colors.cardGradient} rounded-xl p-6 ${colors.cardShadow} hover:shadow-xl transition-all duration-300 transform hover:scale-105 border-2 ${colors.cardBorder} hover:-translate-y-1`}
+                    className="bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden group relative border border-gray-100"
                   >
-                    <div className="text-center">
-                      {/* Subcategory Image */}
-                      <div className="mb-4 rounded-lg overflow-hidden shadow-md">
-                        <ServiceImage
-                          categoryName={categoryName}
-                          serviceName={subcategory.name === 'Toilets' ? 'Toilet Services (Classic)' : subcategory.name}
-                          imageIndex={0}
-                          className="w-full h-32 object-cover hover:scale-105 transition-transform duration-300"
-                        />
+                    {/* Cart Success Message */}
+                    {subcategoryService && subcategoryService.id && cartSuccessMessages[subcategoryService.id] && (
+                      <div className="absolute top-2 right-2 z-10">
+                        <div className="bg-green-500 text-white px-2 py-1 rounded text-xs font-medium shadow-md">
+                          Added!
+                        </div>
                       </div>
-                      <h3 className={`font-bold ${colors.subcategoryIcon} mb-2 text-lg`}>
+                    )}
+                    
+                    {/* Category Header with same styling as homepage */}
+                    <div className="h-32 bg-gradient-to-br from-orange-100 via-purple-100 to-blue-100 flex items-center justify-center relative overflow-hidden border-b border-purple-200">
+                      <span className="text-sm font-semibold text-purple-900 text-center px-3 leading-tight bg-white/80 backdrop-blur-sm rounded-md py-1 shadow-sm">
+                        {categoryName}
+                      </span>
+                    </div>
+                    
+                    <div className="p-4">
+                      {/* Rating and Price - matching homepage layout */}
+                      <div className="flex items-center justify-between mb-3">
+                        {subcategoryService?.rating && subcategoryService.rating > 0 && (
+                          <div className="flex items-center">
+                            <span className="text-sm text-amber-500">★</span>
+                            <span className="text-sm text-gray-600 ml-1">{subcategoryService.rating}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center">
+                          {subcategoryService ? (
+                            <>
+                              <span className="text-lg font-bold text-purple-600">
+                                ₹{subcategoryService.discounted_price || subcategoryService.base_price}
+                              </span>
+                              {subcategoryService.discounted_price && subcategoryService.discounted_price < subcategoryService.base_price && (
+                                <span className="text-sm text-gray-400 line-through ml-2">
+                                  ₹{subcategoryService.base_price}
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-sm text-gray-500">Call for Price</span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Service Name */}
+                      <h3 className="text-base font-semibold text-gray-900 mb-3 line-clamp-2 leading-tight">
                         {subcategory.name === 'Toilets' ? 'Toilet Services (Classic)' : subcategory.name}
                       </h3>
-                      <p className={`text-xs ${colors.descColor} mb-3 line-clamp-3 leading-relaxed opacity-90`}>
-                        {subcategory.description}
-                      </p>
                       
-                      {/* Action Buttons */}
-                      <div className="space-y-2">
-                        {/* Add to Cart Button */}
-                        <button
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            if (subcategoryService && subcategoryService.id) {
-                              try {
-                                const cartItem = await addToCart(subcategoryService.id, 1);
-                                if (cartItem) {
-                                  updateGlobalCartCount();
-                                  showCartSuccessMessage(subcategoryService.id, `${subcategory.name === 'Toilets' ? 'Toilet Services (Classic)' : subcategory.name} added to cart!`);
-                                }
-                              } catch (error) {
-                                console.error('Error adding to cart:', error);
-                              }
-                            } else {
-                              // For subcategories without services, show a message or redirect to contact
-                              alert(`${subcategory.name === 'Toilets' ? 'Toilet Services (Classic)' : subcategory.name} service will be available soon! Call +91${contactSettings?.emergencyPhone || '9437341234'} for immediate assistance.`);
-                            }
-                          }}
-                          className={`w-full px-4 py-2 ${colors.exportButton} text-white font-bold rounded-lg text-sm transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl`}
-                        >
-                          🛒 Add to Cart
-                        </button>
-                        
-                        {/* View Details Button */}
-                        <button
+                      {/* Action Buttons - same layout as homepage */}
+                      <div className="flex space-x-2">
+                        <button 
                           onClick={(e) => {
                             e.stopPropagation();
                             
@@ -1809,25 +2233,33 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                               navigateToSubcategory(categoryName, subcategory.name);
                             }
                           }}
-                          className={`w-full px-4 py-2 bg-white border-2 ${colors.cardBorder} ${colors.subcategoryIcon} font-bold rounded-lg text-sm transition-all duration-300 transform hover:scale-105 hover:shadow-lg`}
+                          className="flex-1 bg-white border border-purple-300 text-purple-700 hover:bg-purple-50 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
                         >
-                          🔍 {(subcategory.name === 'Toilets' || 
-                               subcategory.name.includes('Toilet Service') || 
-                               subcategory.name.includes('toilet')) ? 
-                               (subcategory.name.includes('Premium') ? 'View Details' : 'Choose Package') : 
-                               'View Details'}
+                          View Details
+                        </button>
+                        <button 
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            if (subcategoryService && subcategoryService.id) {
+                              try {
+                                const cartItem = await addToCart(subcategoryService.id, 1);
+                                if (cartItem) {
+                                  updateGlobalCartCount();
+                                  showCartSuccessMessage(subcategoryService.id, `${subcategory.name === 'Toilets' ? 'Toilet Services (Classic)' : subcategory.name} added to cart!`);
+                                }
+                              } catch (error) {
+                                console.error('Error adding to cart:', error);
+                              }
+                            } else {
+                              // For subcategories without services, show a message or redirect to contact
+                              alert(`${subcategory.name === 'Toilets' ? 'Toilet Services (Classic)' : subcategory.name} service will be available soon! Call +91${contactSettings?.emergencyPhone || '9437341234'} for immediate assistance.`);
+                            }
+                          }}
+                          className="flex-1 bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 hover:from-orange-600 hover:via-purple-700 hover:to-blue-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
+                        >
+                          Add to Cart
                         </button>
                       </div>
-
-                      {/* Success Message Display */}
-                      {subcategoryService && subcategoryService.id && cartSuccessMessages[subcategoryService.id] && (
-                        <div className="mt-3 p-2 bg-green-100 border border-green-400 text-green-700 rounded-lg flex items-center justify-center animate-pulse text-xs">
-                          <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                          </svg>
-                          <span className="font-medium">{cartSuccessMessages[subcategoryService.id]}</span>
-                        </div>
-                      )}
                     </div>
                   </div>
                 );
@@ -1883,6 +2315,17 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
             >
               📞 Call Expert: +91 {contactSettings?.emergencyPhone || '9437341234'}
             </a>
+          </div>
+          
+        </div>
+
+        {/* Bottom Back to Home Link */}
+        <div className="px-4 sm:px-6 lg:px-8 py-8 border-t border-gray-200 bg-white">
+          <div className="max-w-7xl mx-auto text-center">
+            <button onClick={navigateToHome} className="text-blue-600 hover:text-blue-800 flex items-center space-x-1 text-sm font-medium mx-auto">
+              <span>←</span>
+              <span>Back to Home</span>
+            </button>
           </div>
         </div>
       </div>
@@ -2421,6 +2864,7 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
           return (
             <main className="transition-all duration-300">
               {currentPage === 'home' && <HomePage navigateToServiceDetail={navigateToServiceDetail} />}
+              {currentPage === 'all-services' && <AllServicesPage />}
               {currentPage === 'search-results' && <SearchResultsPage />}
               {currentPage === 'login' && <LoginPage navigateHome={navigateToHome} navigateToSignup={navigateToSignup} />}
               {currentPage === 'signup' && <RegisterPage navigateHome={navigateToHome} navigateToLogin={navigateToLogin} />}

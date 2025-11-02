@@ -28,6 +28,7 @@ interface OfferPageProps {
 }
 
 const OfferPage: React.FC<OfferPageProps> = ({
+  navigateHome = () => window.location.href = '/',
   navigateToCart = () => window.location.href = '/#cart'
 }) => {
   const {
@@ -283,6 +284,14 @@ const OfferPage: React.FC<OfferPageProps> = ({
 
   return (
     <div className="min-h-screen">
+      {/* Simple Back to Home Link */}
+      <div className="px-4 sm:px-6 lg:px-8 py-4">
+        <button onClick={navigateHome} className="text-blue-600 hover:text-blue-800 flex items-center space-x-1 text-sm font-medium">
+          <span>←</span>
+          <span>Back to Home</span>
+        </button>
+      </div>
+
       {/* Hero Section */}
       <section className="bg-gradient-to-br from-orange-500 via-purple-600 to-blue-600 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -690,6 +699,16 @@ const OfferPage: React.FC<OfferPageProps> = ({
           </div>
         </div>
       </section>
+
+      {/* Bottom Back to Home Link */}
+      <div className="px-4 sm:px-6 lg:px-8 py-8 border-t border-gray-200 bg-white">
+        <div className="max-w-7xl mx-auto text-center">
+          <button onClick={navigateHome} className="text-blue-600 hover:text-blue-800 flex items-center space-x-1 text-sm font-medium mx-auto">
+            <span>←</span>
+            <span>Back to Home</span>
+          </button>
+        </div>
+      </div>
     </div>
   );
 };

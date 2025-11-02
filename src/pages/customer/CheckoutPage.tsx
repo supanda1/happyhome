@@ -532,6 +532,14 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Simple Back to Home Link */}
+      <div className="px-4 sm:px-6 lg:px-8 py-4">
+        <button onClick={navigateHome} className="text-blue-600 hover:text-blue-800 flex items-center space-x-1 text-sm font-medium">
+          <span>←</span>
+          <span>Back to Home</span>
+        </button>
+      </div>
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Page Header */}
         <div className="mb-8">
@@ -1139,6 +1147,17 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
             </div>
             </div>
           )}
+        </div>
+
+      </div>
+
+      {/* Bottom Back to Home Link */}
+      <div className="px-4 sm:px-6 lg:px-8 py-8 border-t border-gray-200 bg-white">
+        <div className="max-w-7xl mx-auto text-center">
+          <button onClick={() => window.location.href = '/'} className="text-blue-600 hover:text-blue-800 flex items-center space-x-1 text-sm font-medium mx-auto">
+            <span>←</span>
+            <span>Back to Home</span>
+          </button>
         </div>
       </div>
     </div>

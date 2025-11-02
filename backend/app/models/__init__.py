@@ -33,6 +33,14 @@ from .notification import (
     NotificationPriority
 )
 from .payment import Payment, PaymentWebhook, PaymentMethod, PaymentStatus
+from .sms_provider import (
+    SMSProvider,
+    SMSProviderStats,
+    SMSTemplate,
+    SMSBlacklist,
+    SMSWebhook,
+    SMSProviderType
+)
 
 # Import database utilities
 from ..database.connection import (
@@ -105,6 +113,14 @@ __all__ = [
     "PaymentWebhook",
     "PaymentMethod",
     "PaymentStatus",
+    
+    # SMS Provider models
+    "SMSProvider",
+    "SMSProviderStats",
+    "SMSTemplate",
+    "SMSBlacklist",
+    "SMSWebhook",
+    "SMSProviderType",
     
     # Database utilities
     "Database",

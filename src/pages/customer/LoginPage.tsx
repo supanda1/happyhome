@@ -45,6 +45,14 @@ const LoginPage: React.FC<LoginPageProps> = ({
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-violet-50 via-pink-25 to-cyan-50 relative flex flex-col justify-center py-12 sm:px-6 lg:px-8" style={{backgroundImage: 'radial-gradient(circle at 15% 85%, rgba(139, 69, 199, 0.08) 0%, transparent 70%), radial-gradient(circle at 85% 15%, rgba(59, 130, 246, 0.06) 0%, transparent 70%), radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.04) 0%, transparent 60%), linear-gradient(45deg, rgba(236, 72, 153, 0.03) 0%, transparent 50%)'}}>
+      {/* Simple Back to Home Link */}
+      <div className="absolute top-4 left-4">
+        <button onClick={navigateHome} className="text-blue-600 hover:text-blue-800 flex items-center space-x-1 text-sm font-medium">
+          <span>←</span>
+          <span>Back to Home</span>
+        </button>
+      </div>
+      
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         {/* Logo and Header */}
         <div className="flex justify-center">
@@ -213,6 +221,17 @@ const LoginPage: React.FC<LoginPageProps> = ({
                 <span className="ml-2">Facebook</span>
               </button>
             </div>
+          </div>
+
+        </div>
+
+        {/* Bottom Back to Home Link */}
+        <div className="px-4 sm:px-6 lg:px-8 py-8 border-t border-gray-200 bg-white">
+          <div className="max-w-7xl mx-auto text-center">
+            <button onClick={navigateHome} className="text-blue-600 hover:text-blue-800 flex items-center space-x-1 text-sm font-medium mx-auto">
+              <span>←</span>
+              <span>Back to Home</span>
+            </button>
           </div>
         </div>
       </div>

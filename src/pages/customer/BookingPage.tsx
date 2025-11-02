@@ -197,8 +197,20 @@ const BookingPage: React.FC = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-gray-50">
+      {/* BACK TO HOME - TOP */}
+      <div className="bg-blue-600 text-white text-center py-3 shadow-lg">
+        <button 
+          onClick={() => navigate('/')}
+          className="bg-white text-blue-600 px-4 py-2 rounded-lg font-bold hover:bg-gray-100 flex items-center space-x-2 mx-auto"
+        >
+          <span>🏠</span>
+          <span>← Back to Home</span>
+        </button>
+      </div>
+    
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">Book Service</h1>
         
         <div className="grid lg:grid-cols-3 gap-8">
@@ -425,7 +437,18 @@ const BookingPage: React.FC = () => {
             </form>
           </div>
         </div>
+        
+        {/* EXTREMELY PROMINENT BACK TO HOME - BOTTOM */}
+        <div className="mt-8 text-center">
+          <button
+            onClick={() => navigate('/')}
+            className="bg-green-500 text-white px-8 py-4 rounded-lg hover:bg-green-600 font-black text-xl shadow-xl border-4 border-green-700"
+          >
+            🏠 BACK TO HOME 🏠
+          </button>
+        </div>
       </div>
+    </div>
     </div>
   );
 };

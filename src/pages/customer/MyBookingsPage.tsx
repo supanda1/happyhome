@@ -530,6 +530,14 @@ const MyBookingsPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      {/* Simple Back to Home Link */}
+      <div className="px-4 sm:px-6 lg:px-8 py-4">
+        <button onClick={() => window.location.href = '/'} className="text-blue-600 hover:text-blue-800 flex items-center space-x-1 text-sm font-medium">
+          <span>←</span>
+          <span>Back to Home</span>
+        </button>
+      </div>
+
       {/* Main Container with Better Spacing */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-12">
         
@@ -1239,6 +1247,17 @@ const MyBookingsPage: React.FC = () => {
               </div>
             </div>
           </div>
+        </div>
+
+      </div>
+
+      {/* Bottom Back to Home Link */}
+      <div className="px-4 sm:px-6 lg:px-8 py-8 border-t border-gray-200 bg-white">
+        <div className="max-w-7xl mx-auto text-center">
+          <button onClick={() => window.location.href = '/'} className="text-blue-600 hover:text-blue-800 flex items-center space-x-1 text-sm font-medium mx-auto">
+            <span>←</span>
+            <span>Back to Home</span>
+          </button>
         </div>
       </div>
     </div>
