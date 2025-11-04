@@ -712,7 +712,7 @@ export class OrdersController {
       
       if (updates.assigned_engineer_id) {
         // Get engineer details (handle both UUID and string IDs)
-        const engineerResult = await pool.query('SELECT id, name FROM employees WHERE (id::text = $1 OR employee_id = $1)', [updates.assigned_engineer_id]);
+        const engineerResult = await pool.query('SELECT id, name FROM engineers WHERE (id::text = $1 OR employee_id = $1)', [updates.assigned_engineer_id]);
         if (engineerResult.rows.length > 0) {
           const engineer = engineerResult.rows[0];
           
@@ -941,7 +941,7 @@ export class OrdersController {
       const engineerResult = await client.query(`
         SELECT e.id, e.name, e.expertise, e.phone, e.email,
                COUNT(oi.id) as current_assignments
-        FROM employees e
+        FROM engineers e
         LEFT JOIN order_items oi ON e.id = oi.assigned_engineer_id 
                                   AND oi.item_status = 'scheduled'
         WHERE (e.id::text = $1 OR e.employee_id = $1) AND e.is_active = true
@@ -977,8 +977,8 @@ export class OrdersController {
       
       if (categoryResult.rows.length > 0) {
         const categoryName = categoryResult.rows[0].name.toLowerCase();
-        const engineerExpertise = engineer.expert ? engineer.expert.toLowerCase() : '';
-        const expertiseAreas = engineer.expertise_areas || [];
+        const engineerExpertise = engineer.expertise ? engineer.expertise.toLowerCase() : '';
+        const expertiseAreas = engineer.expertise || [];
         
         // Enhanced expertise matching logic aligned with actual service categories and subcategories
         const expertiseMap: { [key: string]: string[] } = {
@@ -1021,7 +1021,7 @@ export class OrdersController {
         );
         
         if (!expertiseMatch) {
-          const displayExpertise = expertiseAreas.length > 0 ? expertiseAreas.join(', ') : engineer.expert;
+          const displayExpertise = expertiseAreas.length > 0 ? expertiseAreas.join(', ') : engineer.expertise;
           expertiseWarning = ` (Note: Engineer expertise '${displayExpertise}' may not match service category '${categoryResult.rows[0].name}')`;
         }
       }
@@ -1089,7 +1089,7 @@ export class OrdersController {
           engineer_details: {
             id: engineer.id,
             name: engineer.name,
-            expertise: engineer.expert,
+            expertise: engineer.expertise,
             phone: engineer.phone,
             current_workload: currentLoad
           },
@@ -1175,7 +1175,7 @@ export class OrdersController {
         try {
           // Validate engineer exists and is active (handle both UUID and string IDs)
           const engineerResult = await client.query(
-            'SELECT id, name, expert FROM employees WHERE (id::text = $1 OR employee_id = $1) AND is_active = true',
+            'SELECT id, name, expertise FROM engineers WHERE (id::text = $1 OR employee_id = $1) AND is_active = true',
             [assignment.engineer_id]
           );
           
@@ -1512,7 +1512,7 @@ export class OrdersController {
                      -- Fallback: any active engineer gets minimal score (ONLY if no domain expert available)
                      ELSE 1
                    END as expertise_score
-            FROM employees e
+            FROM engineers e
             LEFT JOIN order_items oi ON e.id = oi.assigned_engineer_id 
                                       AND oi.item_status = 'pending'
             WHERE e.is_active = true
@@ -1586,7 +1586,7 @@ export class OrdersController {
             itemId: item.id,
             service_name: item.service_name,
             engineer_name: engineer.name,
-            engineer_expertise: engineer.expert,
+            engineer_expertise: engineer.expertise,
             current_load: parseInt(engineer.current_load)
           });
           
@@ -1993,7 +1993,7 @@ export class OrdersController {
             ) FILTER (WHERE oi.id IS NOT NULL AND oi.item_status = 'scheduled'),
             '[]'::json
           ) as active_assignments
-        FROM employees e
+        FROM engineers e
         LEFT JOIN order_items oi ON e.id = oi.assigned_engineer_id
         LEFT JOIN orders o ON oi.order_id = o.id
         WHERE e.is_active = true

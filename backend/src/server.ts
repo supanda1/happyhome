@@ -92,16 +92,16 @@ app.get('/admin/system/containers', async (req, res) => {
     // This is a simple implementation - in production you might want to use Docker API
     const containers = [
       {
-        name: 'household_services_postgres',
+        name: 'myapp_db',
         status: 'running',
         image: 'postgres:15-alpine',
         uptime: '2d 14h 35m',
         ports: ['5432:5432']
       },
       {
-        name: 'household_services_api',
+        name: 'myapp_api',
         status: 'running',
-        image: 'household-services-api:latest',
+        image: 'myapp-api:latest',
         uptime: '2d 14h 33m',
         ports: ['8001:8001']
       }
@@ -230,7 +230,7 @@ async function initializeServer() {
     const { validateAndRestoreData } = require('../scripts/startup-data-validator');
     await validateAndRestoreData();
   } catch (error) {
-    console.warn('⚠️  Startup data validation failed, continuing anyway:', error.message);
+    console.warn('⚠️  Startup data validation failed, continuing anyway:', error instanceof Error ? error.message : String(error));
   }
   
   // Start server

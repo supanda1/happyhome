@@ -5,7 +5,7 @@
 
 import { Router, Request, Response } from 'express';
 import { Pool } from 'pg';
-import { authMiddleware } from '../middleware/auth';
+import { authenticateToken } from '../middleware/auth';
 import { body, param, query, validationResult } from 'express-validator';
 
 const router = Router();
@@ -14,7 +14,7 @@ const router = Router();
  * Get all notifications with filtering and pagination
  * GET /api/notifications?page=1&limit=10&type=sms&status=pending&event_type=order_placed
  */
-router.get('/', authMiddleware, [
+router.get('/', authenticateToken, [
   query('page').optional().isInt({ min: 1 }).toInt(),
   query('limit').optional().isInt({ min: 1, max: 100 }).toInt(),
   query('type').optional().isIn(['sms', 'email', 'push']),
@@ -196,7 +196,7 @@ router.get('/', authMiddleware, [
  * Get notification by ID
  * GET /api/notifications/:id
  */
-router.get('/:id', authMiddleware, [
+router.get('/:id', authenticateToken, [
   param('id').isUUID()
 ], async (req: Request, res: Response) => {
   try {
@@ -271,7 +271,7 @@ router.get('/:id', authMiddleware, [
  * Create new notification
  * POST /api/notifications
  */
-router.post('/', authMiddleware, [
+router.post('/', authenticateToken, [
   body('customer_id').isString().notEmpty(),
   body('customer_name').isString().notEmpty(),
   body('customer_phone').optional().isMobilePhone('any'),
@@ -360,7 +360,7 @@ router.post('/', authMiddleware, [
  * Update notification status
  * PUT /api/notifications/:id/status
  */
-router.put('/:id/status', authMiddleware, [
+router.put('/:id/status', authenticateToken, [
   param('id').isUUID(),
   body('status').isIn(['pending', 'sent', 'delivered', 'failed', 'cancelled']),
   body('provider_name').optional().isString(),
@@ -459,7 +459,7 @@ router.put('/:id/status', authMiddleware, [
  * Add log entry to notification
  * POST /api/notifications/:id/logs
  */
-router.post('/:id/logs', authMiddleware, [
+router.post('/:id/logs', authenticateToken, [
   param('id').isUUID(),
   body('log_level').isIn(['debug', 'info', 'warn', 'error']),
   body('message').isString().notEmpty(),
@@ -518,7 +518,7 @@ router.post('/:id/logs', authMiddleware, [
  * Retry failed notification
  * POST /api/notifications/:id/retry
  */
-router.post('/:id/retry', authMiddleware, [
+router.post('/:id/retry', authenticateToken, [
   param('id').isUUID()
 ], async (req: Request, res: Response) => {
   try {
@@ -600,7 +600,7 @@ router.post('/:id/retry', authMiddleware, [
  * Get notification analytics
  * GET /api/notifications/analytics/summary
  */
-router.get('/analytics/summary', authMiddleware, [
+router.get('/analytics/summary', authenticateToken, [
   query('period').optional().isIn(['24h', '7d', '30d', '90d']),
   query('notification_type').optional().isIn(['sms', 'email', 'push']),
   query('event_type').optional().isString()
@@ -724,7 +724,7 @@ router.get('/analytics/summary', authMiddleware, [
  * Bulk operations on notifications
  * POST /api/notifications/bulk
  */
-router.post('/bulk', authMiddleware, [
+router.post('/bulk', authenticateToken, [
   body('action').isIn(['cancel', 'retry', 'delete']),
   body('notification_ids').isArray({ min: 1 }),
   body('notification_ids.*').isUUID()

@@ -69,7 +69,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onCategoryChange, onContactChan
   const menuCategories: MenuCategory[] = [
     {
       id: 'dashboard',
-      name: 'Dashboard',
+      name: 'Overview',
       color: 'blue',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -79,7 +79,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onCategoryChange, onContactChan
       items: [
         { 
           id: 'dashboard', 
-          name: 'Dashboard', 
+          name: 'Overview', 
           color: 'blue', 
           component: DashboardStats,
           icon: (
@@ -101,7 +101,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onCategoryChange, onContactChan
         },
         { 
           id: 'analytics', 
-          name: 'Dashboard Analytics', 
+          name: 'Analytics', 
           color: 'violet', 
           component: AnalyticsDashboard,
           icon: (

@@ -3,15 +3,22 @@ import { useServices } from '../../contexts/ServiceContext';
 import { Card, CardContent, Button } from '../../components/ui';
 import { formatPriceWithDiscount } from '../../utils/priceFormatter';
 import { cartService } from '../../utils/services/cart.service';
+import CartSidebarFixed from '../../components/cart/CartSidebarFixed';
 
 interface HomePageProps {
   navigateToServiceDetail: (serviceId: string) => void;
+  navigateToCheckout?: () => void;
 }
 
-const HomePage: React.FC<HomePageProps> = ({ navigateToServiceDetail }) => {
+const HomePage: React.FC<HomePageProps> = ({ 
+  navigateToServiceDetail,
+  navigateToCheckout = () => window.location.href = '/#checkout'
+}) => {
   const { categories, services, loadCategories, loadServices, loading } = useServices();
   const [addingToCart, setAddingToCart] = useState<string | null>(null);
   const [cartMessages, setCartMessages] = useState<{[serviceId: string]: string}>({});
+  const [isCartCollapsed, setIsCartCollapsed] = useState(false);
+  const [cartRefreshTrigger, setCartRefreshTrigger] = useState(0);
   
   const featuredServices = services.filter(service => service.isFeatured).slice(0, 6);
   const allServices = services.slice(0, 12); // Show first 12 services in the all services section
@@ -34,6 +41,9 @@ const HomePage: React.FC<HomePageProps> = ({ navigateToServiceDetail }) => {
         [serviceId]: `${serviceName} added to cart!`
       }));
       
+      // Trigger cart refresh
+      setCartRefreshTrigger(prev => prev + 1);
+      
       // Clear message after 2 seconds
       setTimeout(() => {
         setCartMessages(prev => {
@@ -53,8 +63,14 @@ const HomePage: React.FC<HomePageProps> = ({ navigateToServiceDetail }) => {
     }
   };
 
+  const updateCartCount = () => {
+    // Trigger cart refresh
+    setCartRefreshTrigger(prev => prev + 1);
+  };
+
   return (
-    <div className="min-h-screen">
+    <div className="flex min-h-screen">
+      <div className="flex-1 min-h-screen">
       {/* ULTRA MEGA OBVIOUS TEST BANNER - IMPOSSIBLE TO MISS */}
       <div className="fixed top-0 left-0 right-0 bg-red-600 text-white text-center py-8 text-3xl font-black z-[9999] animate-pulse border-8 border-yellow-400">
         🚨🚨🚨 URGENT TEST: IF YOU SEE THIS, CHANGES ARE WORKING! 🚨🚨🚨
@@ -458,6 +474,17 @@ const HomePage: React.FC<HomePageProps> = ({ navigateToServiceDetail }) => {
           </Button>
         </div>
       </section>
+      </div>
+      
+      {/* Cart Sidebar */}
+      <CartSidebarFixed
+        isCollapsed={isCartCollapsed}
+        onToggleCollapse={() => setIsCartCollapsed(!isCartCollapsed)}
+        onCheckout={navigateToCheckout}
+        onCartUpdate={updateCartCount}
+        refreshTrigger={cartRefreshTrigger}
+        isOfferPage={false}
+      />
     </div>
   );
 };

@@ -106,15 +106,15 @@ export function CheckoutPayment({
       },
       items: orderItems,
       total_amount: (() => {
-        const hasOfferPlan = !!localStorage.getItem('selectedOfferPlan');
+        const hasOfferPlan = !!localStorage.getItem('selectedOfferPlan') && !cart.appliedCoupon && cart.discountAmount === 0;
         return hasOfferPlan ? cart.subtotal - Math.round(cart.subtotal * 0.20) : cart.subtotal;
       })(),
       discount_amount: (() => {
-        const hasOfferPlan = !!localStorage.getItem('selectedOfferPlan');
+        const hasOfferPlan = !!localStorage.getItem('selectedOfferPlan') && !cart.appliedCoupon && cart.discountAmount === 0;
         return hasOfferPlan ? Math.round(cart.subtotal * 0.20) : (cart.discountAmount || 0);
       })(),
       gst_amount: (() => {
-        const hasOfferPlan = !!localStorage.getItem('selectedOfferPlan');
+        const hasOfferPlan = !!localStorage.getItem('selectedOfferPlan') && !cart.appliedCoupon && cart.discountAmount === 0;
         if (hasOfferPlan) {
           const discountedSubtotal = cart.subtotal - Math.round(cart.subtotal * 0.20);
           return Math.round(discountedSubtotal * 0.18);
@@ -123,7 +123,7 @@ export function CheckoutPayment({
       })(),
       service_charge: cart.serviceChargeAmount || 0,
       final_amount: (() => {
-        const hasOfferPlan = !!localStorage.getItem('selectedOfferPlan');
+        const hasOfferPlan = !!localStorage.getItem('selectedOfferPlan') && !cart.appliedCoupon && cart.discountAmount === 0;
         if (hasOfferPlan) {
           const discountedSubtotal = cart.subtotal - Math.round(cart.subtotal * 0.20);
           const discountedGST = Math.round(discountedSubtotal * 0.18);
@@ -241,7 +241,7 @@ export function CheckoutPayment({
         <PaymentForm
           amount={(() => {
             // Apply offer plan discount if available
-            const hasOfferPlan = !!localStorage.getItem('selectedOfferPlan');
+            const hasOfferPlan = !!localStorage.getItem('selectedOfferPlan') && !cart.appliedCoupon && cart.discountAmount === 0;
             if (hasOfferPlan) {
               const discountedSubtotal = cart.subtotal - Math.round(cart.subtotal * 0.20);
               const discountedGST = Math.round(discountedSubtotal * 0.18);

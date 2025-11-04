@@ -18,6 +18,7 @@ interface CartSidebarFixedProps {
   onCheckout: () => void;
   onCartUpdate?: () => void;
   refreshTrigger?: number; // Add refresh trigger prop
+  isOfferPage?: boolean; // Flag to determine if we're on the offer page
 }
 
 export const CartSidebarFixed: React.FC<CartSidebarFixedProps> = ({ 
@@ -25,7 +26,8 @@ export const CartSidebarFixed: React.FC<CartSidebarFixedProps> = ({
   onToggleCollapse,
   onCheckout, 
   onCartUpdate,
-  refreshTrigger
+  refreshTrigger,
+  isOfferPage = false
 }) => {
   const { user } = useAuth();
   const [cart, setCart] = useState<Cart | null>(null);
@@ -58,9 +60,17 @@ export const CartSidebarFixed: React.FC<CartSidebarFixedProps> = ({
       const coupons = await getActiveCoupons();
       const currentDate = new Date();
       
+      // Debug: Log all raw coupons from database
+      console.log('🔍 CartSidebarFixed - Raw coupons from database:', coupons.map(c => ({ code: c.code, name: c.name, is_active: c.is_active })));
+      
       // Filter out expired and inactive coupons
       const validCoupons = coupons.filter((coupon: Coupon) => {
-        if (!coupon.is_active) return false;
+        console.log('🔍 CartSidebarFixed - Processing coupon:', { code: coupon.code, is_active: coupon.is_active, isOfferPage });
+        
+        if (!coupon.is_active) {
+          console.log('❌ CartSidebarFixed - Coupon inactive:', coupon.code);
+          return false;
+        }
         
         // Check if coupon has not expired
         const expiryDate = new Date(coupon.valid_until);
@@ -70,7 +80,53 @@ export const CartSidebarFixed: React.FC<CartSidebarFixedProps> = ({
         const startDate = new Date(coupon.valid_from);
         const hasStarted = currentDate >= startDate;
         
-        return isNotExpired && hasStarted;
+        if (!isNotExpired || !hasStarted) {
+          console.log('❌ CartSidebarFixed - Coupon expired or not started:', coupon.code);
+          return false;
+        }
+        
+        // Filter offer-specific coupons based on page context
+        // These are the EXACT offer plan coupons that should only appear on OfferPage
+        const offerOnlyCoupons = ['STARTER20', 'PREMIUM25', 'ELITE30'];
+        
+        // General coupons that should appear on ALL pages
+        const generalCoupons = ['WELCOME50', 'NEWUSER25', 'PLUMBING20'];
+        
+        const couponCodeUpper = coupon.code.toUpperCase();
+        const isOfferOnlyCoupon = offerOnlyCoupons.includes(couponCodeUpper);
+        const isGeneralCoupon = generalCoupons.includes(couponCodeUpper);
+        
+        console.log('🔍 CartSidebarFixed - Coupon analysis:', {
+          code: coupon.code,
+          isOfferOnlyCoupon,
+          isGeneralCoupon,
+          isOfferPage,
+          shouldExclude: isOfferOnlyCoupon && !isOfferPage
+        });
+        
+        // Logic: 
+        // 1. Always show general coupons (WELCOME50, SAVE100, etc.) on ALL pages
+        // 2. Only show offer coupons (STARTER20, PREMIUM25, ELITE30) on OfferPage
+        // 3. Hide offer coupons on non-offer pages
+        
+        if (isGeneralCoupon) {
+          console.log('✅ CartSidebarFixed - Including general coupon on all pages:', coupon.code);
+          return true;
+        }
+        
+        if (isOfferOnlyCoupon) {
+          if (!isOfferPage) {
+            console.log('❌ CartSidebarFixed - Excluding offer coupon on non-offer page:', coupon.code);
+            return false;
+          } else {
+            console.log('✅ CartSidebarFixed - Including offer coupon on offer page:', coupon.code);
+            return true;
+          }
+        }
+        
+        // For any other coupons not in our lists, show them on all pages by default
+        console.log('✅ CartSidebarFixed - Including unknown coupon (default behavior):', coupon.code);
+        return true;
       });
       
       // Transform API format to match display format
@@ -87,6 +143,8 @@ export const CartSidebarFixed: React.FC<CartSidebarFixedProps> = ({
       
       setAvailableCoupons(formattedCoupons);
       console.log('🛒 CartSidebarFixed - Available coupons loaded:', formattedCoupons.length);
+      console.log('🛒 CartSidebarFixed - Coupon details:', formattedCoupons);
+      console.log('🛒 CartSidebarFixed - Is offer page:', isOfferPage);
       
     } catch (error) {
       console.error('🛒 CartSidebarFixed - Failed to load coupons:', error);
@@ -142,11 +200,21 @@ export const CartSidebarFixed: React.FC<CartSidebarFixedProps> = ({
 
     try {
       setUpdatingItems(prev => new Set(prev).add(itemId));
-      await updateCartItemQuantity(itemId, newQuantity);
-      await loadCart(); // Refresh cart data
-      onCartUpdate?.(); // Update global cart count
+      console.log('🛒 CartSidebarFixed - Updating quantity:', { itemId, newQuantity });
+      
+      const success = await updateCartItemQuantity(itemId, newQuantity);
+      
+      if (success) {
+        console.log('✅ CartSidebarFixed - Quantity updated successfully');
+        await loadCart(); // Refresh cart data
+        onCartUpdate?.(); // Update global cart count
+      } else {
+        console.error('❌ CartSidebarFixed - Failed to update quantity');
+        throw new Error('Failed to update quantity');
+      }
     } catch (error) {
-      console.error('Error updating quantity:', error);
+      console.error('❌ CartSidebarFixed - Error updating quantity:', error);
+      // Could add a toast notification here for user feedback
     } finally {
       setUpdatingItems(prev => {
         const newSet = new Set(prev);
@@ -160,11 +228,20 @@ export const CartSidebarFixed: React.FC<CartSidebarFixedProps> = ({
   const handleRemoveItem = async (itemId: string) => {
     try {
       setUpdatingItems(prev => new Set(prev).add(itemId));
-      await removeFromCart(itemId);
-      await loadCart(); // Refresh cart data
-      onCartUpdate?.(); // Update global cart count
+      console.log('🗑️ CartSidebarFixed - Removing item:', itemId);
+      
+      const success = await removeFromCart(itemId);
+      
+      if (success) {
+        console.log('✅ CartSidebarFixed - Item removed successfully');
+        await loadCart(); // Refresh cart data
+        onCartUpdate?.(); // Update global cart count
+      } else {
+        console.error('❌ CartSidebarFixed - Failed to remove item');
+        throw new Error('Failed to remove item');
+      }
     } catch (error) {
-      console.error('Error removing item:', error);
+      console.error('❌ CartSidebarFixed - Error removing item:', error);
     } finally {
       setUpdatingItems(prev => {
         const newSet = new Set(prev);
@@ -295,16 +372,19 @@ export const CartSidebarFixed: React.FC<CartSidebarFixedProps> = ({
                 {/* Cart Items */}
                 <div className="space-y-3 mb-4">
                   <h3 className="text-xs font-semibold text-purple-900">Items</h3>
-                  {cart.items.map((item) => (
-                    <div key={item.serviceId} className="bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 border border-purple-200 rounded-lg p-2 shadow-sm">
+                  {cart.items.map((item) => {
+                    console.log('📋 CartSidebarFixed - Cart item:', { item, itemId: item.id });
+                    
+                    return (
+                    <div key={item.id} className="bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 border border-purple-200 rounded-lg p-2 shadow-sm">
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex-1 pr-2">
                           <h4 className="text-xs font-medium text-purple-900 leading-tight">{item.serviceName}</h4>
                           <div className="text-xs text-purple-600">{formatPrice(item.basePrice)} each</div>
                         </div>
                         <button
-                          onClick={() => handleRemoveItem(item.serviceId)}
-                          disabled={updatingItems.has(item.serviceId)}
+                          onClick={() => handleRemoveItem(item.id)}
+                          disabled={updatingItems.has(item.id)}
                           className="text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full p-1 text-xs transition-all"
                         >
                           ×
@@ -315,18 +395,24 @@ export const CartSidebarFixed: React.FC<CartSidebarFixedProps> = ({
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-1">
                           <button
-                            onClick={() => handleQuantityUpdate(item.serviceId, item.quantity - 1)}
-                            disabled={updatingItems.has(item.serviceId) || item.quantity <= 1}
+                            onClick={() => {
+                              console.log('➖ CartSidebarFixed - Decrease quantity clicked:', { itemId: item.id, currentQuantity: item.quantity });
+                              handleQuantityUpdate(item.id, item.quantity - 1);
+                            }}
+                            disabled={updatingItems.has(item.id) || item.quantity <= 1}
                             className="w-6 h-6 rounded border border-purple-300 bg-purple-50 flex items-center justify-center hover:bg-purple-100 disabled:opacity-50 text-xs text-purple-700 transition-all"
                           >
                             −
                           </button>
                           <span className="w-6 text-center text-xs font-medium text-purple-900">
-                            {updatingItems.has(item.serviceId) ? '...' : item.quantity}
+                            {updatingItems.has(item.id) ? '...' : item.quantity}
                           </span>
                           <button
-                            onClick={() => handleQuantityUpdate(item.serviceId, item.quantity + 1)}
-                            disabled={updatingItems.has(item.serviceId)}
+                            onClick={() => {
+                              console.log('➕ CartSidebarFixed - Increase quantity clicked:', { itemId: item.id, currentQuantity: item.quantity });
+                              handleQuantityUpdate(item.id, item.quantity + 1);
+                            }}
+                            disabled={updatingItems.has(item.id)}
                             className="w-6 h-6 rounded border border-purple-300 bg-purple-50 flex items-center justify-center hover:bg-purple-100 disabled:opacity-50 text-xs text-purple-700 transition-all"
                           >
                             +
@@ -337,7 +423,8 @@ export const CartSidebarFixed: React.FC<CartSidebarFixedProps> = ({
                         </div>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {/* Applied Coupon Display */}
@@ -478,8 +565,8 @@ export const CartSidebarFixed: React.FC<CartSidebarFixedProps> = ({
                       <span>{formatPrice(cart.subtotal || cart.totalAmount)}</span>
                     </div>
                     
-                    {/* Offer Plan Discount */}
-                    {localStorage.getItem('selectedOfferPlan') && !cart.appliedCoupon && (
+                    {/* Offer Plan Discount - Only show when NO coupon is applied */}
+                    {localStorage.getItem('selectedOfferPlan') && !cart.appliedCoupon && cart.discountAmount === 0 && (
                       <div className="flex justify-between text-green-600">
                         <span>💰 20% Discount</span>
                         <span>-{formatPrice(Math.round((cart.subtotal || cart.totalAmount) * 0.20))}</span>
@@ -494,8 +581,8 @@ export const CartSidebarFixed: React.FC<CartSidebarFixedProps> = ({
                     )}
                     
 {(() => {
-                      // Calculate GST and Total with offer plan discount
-                      const hasOfferPlan = !!localStorage.getItem('selectedOfferPlan') && !cart.appliedCoupon;
+                      // Calculate GST and Total with offer plan discount - Only if NO coupon applied
+                      const hasOfferPlan = !!localStorage.getItem('selectedOfferPlan') && !cart.appliedCoupon && cart.discountAmount === 0;
                       const subtotal = cart.subtotal || cart.totalAmount;
                       const discountAmount = hasOfferPlan ? Math.round(subtotal * 0.20) : 0;
                       const discountedSubtotal = subtotal - discountAmount;
@@ -540,8 +627,8 @@ export const CartSidebarFixed: React.FC<CartSidebarFixedProps> = ({
           {cart && cart.items.length > 0 && (
             <div className="border-t bg-gray-50 p-2">
 {(() => {
-                // Calculate total for checkout button
-                const hasOfferPlan = !!localStorage.getItem('selectedOfferPlan') && !cart.appliedCoupon;
+                // Calculate total for checkout button - Only apply offer plan if NO coupon
+                const hasOfferPlan = !!localStorage.getItem('selectedOfferPlan') && !cart.appliedCoupon && cart.discountAmount === 0;
                 const subtotal = cart.subtotal || cart.totalAmount;
                 const discountAmount = hasOfferPlan ? Math.round(subtotal * 0.20) : 0;
                 const discountedSubtotal = subtotal - discountAmount;

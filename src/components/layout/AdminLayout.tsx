@@ -12,7 +12,7 @@ const AdminLayout: React.FC = () => {
   };
 
   const navigation = [
-    { name: 'Dashboard', href: '/admin', icon: '📊' },
+    { name: 'Overview', href: '/admin', icon: '📊' },
     { name: 'Services', href: '/admin/services', icon: '🔧' },
     { name: 'Bookings', href: '/admin/bookings', icon: '📅' },
     { name: 'Coupons', href: '/admin/coupons', icon: '🎟️' },

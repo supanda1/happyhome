@@ -5,7 +5,7 @@
 
 import { Router, Request, Response } from 'express';
 import { Pool } from 'pg';
-import { authMiddleware } from '../middleware/auth';
+import { authenticateToken } from '../middleware/auth';
 import { body, param, query, validationResult } from 'express-validator';
 
 const router = Router();
@@ -14,7 +14,7 @@ const router = Router();
  * Get all bookings with filtering and pagination
  * GET /api/bookings?page=1&limit=10&status=pending&search=
  */
-router.get('/', authMiddleware, [
+router.get('/', authenticateToken, [
   query('page').optional().isInt({ min: 1 }).toInt(),
   query('limit').optional().isInt({ min: 1, max: 100 }).toInt(),
   query('status').optional().isIn(['pending', 'confirmed', 'in_progress', 'completed', 'cancelled', 'refunded']),
@@ -159,7 +159,7 @@ router.get('/', authMiddleware, [
  * Get booking by ID
  * GET /api/bookings/:id
  */
-router.get('/:id', authMiddleware, [
+router.get('/:id', authenticateToken, [
   param('id').isUUID()
 ], async (req: Request, res: Response) => {
   try {
@@ -230,7 +230,7 @@ router.get('/:id', authMiddleware, [
  * Create new booking
  * POST /api/bookings
  */
-router.post('/', authMiddleware, [
+router.post('/', authenticateToken, [
   body('user_id').isUUID(),
   body('service_id').isUUID(),
   body('address_id').isUUID(),
@@ -312,7 +312,7 @@ router.post('/', authMiddleware, [
  * Update booking status
  * PUT /api/bookings/:id/status
  */
-router.put('/:id/status', authMiddleware, [
+router.put('/:id/status', authenticateToken, [
   param('id').isUUID(),
   body('status').isIn(['pending', 'confirmed', 'in_progress', 'completed', 'cancelled', 'refunded']),
   body('admin_notes').optional().isString(),
@@ -396,7 +396,7 @@ router.put('/:id/status', authMiddleware, [
  * Delete booking
  * DELETE /api/bookings/:id
  */
-router.delete('/:id', authMiddleware, [
+router.delete('/:id', authenticateToken, [
   param('id').isUUID()
 ], async (req: Request, res: Response) => {
   try {
@@ -451,7 +451,7 @@ router.delete('/:id', authMiddleware, [
  * Get booking analytics
  * GET /api/bookings/analytics/summary
  */
-router.get('/analytics/summary', authMiddleware, [
+router.get('/analytics/summary', authenticateToken, [
   query('period').optional().isIn(['7d', '30d', '90d', '1y']),
   query('date_from').optional().isISO8601(),
   query('date_to').optional().isISO8601()

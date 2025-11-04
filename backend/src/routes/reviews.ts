@@ -5,7 +5,7 @@
 
 import { Router, Request, Response } from 'express';
 import { Pool } from 'pg';
-import { authMiddleware } from '../middleware/auth';
+import { authenticateToken } from '../middleware/auth';
 import { body, param, query, validationResult } from 'express-validator';
 
 const router = Router();
@@ -14,7 +14,7 @@ const router = Router();
  * Get all reviews with filtering and pagination
  * GET /api/reviews?page=1&limit=10&status=pending&rating=5&service_id=
  */
-router.get('/', authMiddleware, [
+router.get('/', authenticateToken, [
   query('page').optional().isInt({ min: 1 }).toInt(),
   query('limit').optional().isInt({ min: 1, max: 100 }).toInt(),
   query('status').optional().isIn(['pending', 'approved', 'rejected']),
@@ -184,7 +184,7 @@ router.get('/', authMiddleware, [
  * Get review by ID
  * GET /api/reviews/:id
  */
-router.get('/:id', authMiddleware, [
+router.get('/:id', authenticateToken, [
   param('id').isUUID()
 ], async (req: Request, res: Response) => {
   try {
@@ -252,7 +252,7 @@ router.get('/:id', authMiddleware, [
  * Create new review
  * POST /api/reviews
  */
-router.post('/', authMiddleware, [
+router.post('/', authenticateToken, [
   body('user_id').isUUID(),
   body('service_id').isUUID(),
   body('order_id').optional().isUUID(),
@@ -330,7 +330,7 @@ router.post('/', authMiddleware, [
  * Approve or reject review
  * PUT /api/reviews/:id/moderate
  */
-router.put('/:id/moderate', authMiddleware, [
+router.put('/:id/moderate', authenticateToken, [
   param('id').isUUID(),
   body('action').isIn(['approve', 'reject']),
   body('admin_notes').optional().isString()
@@ -347,7 +347,7 @@ router.put('/:id/moderate', authMiddleware, [
 
     const { id } = req.params;
     const { action, admin_notes } = req.body;
-    const adminId = req.user?.id; // Assuming user ID is available from auth middleware
+    const adminId = req.user?.userId; // Assuming user ID is available from auth middleware
     const db = req.app.get('db') as Pool;
 
     const updateQuery = `
@@ -393,7 +393,7 @@ router.put('/:id/moderate', authMiddleware, [
  * Add photo to existing review
  * POST /api/reviews/:id/photos
  */
-router.post('/:id/photos', authMiddleware, [
+router.post('/:id/photos', authenticateToken, [
   param('id').isUUID(),
   body('photo_url').isURL(),
   body('caption').optional().isString()
@@ -456,7 +456,7 @@ router.post('/:id/photos', authMiddleware, [
  * Mark review as helpful/not helpful
  * POST /api/reviews/:id/helpfulness
  */
-router.post('/:id/helpfulness', authMiddleware, [
+router.post('/:id/helpfulness', authenticateToken, [
   param('id').isUUID(),
   body('is_helpful').isBoolean()
 ], async (req: Request, res: Response) => {
@@ -472,7 +472,7 @@ router.post('/:id/helpfulness', authMiddleware, [
 
     const { id } = req.params;
     const { is_helpful } = req.body;
-    const userId = req.user?.id; // Assuming user ID is available from auth middleware
+    const userId = req.user?.userId; // Assuming user ID is available from auth middleware
     const db = req.app.get('db') as Pool;
 
     // Insert or update helpfulness record
@@ -505,7 +505,7 @@ router.post('/:id/helpfulness', authMiddleware, [
  * Get review analytics
  * GET /api/reviews/analytics/summary
  */
-router.get('/analytics/summary', authMiddleware, [
+router.get('/analytics/summary', authenticateToken, [
   query('period').optional().isIn(['7d', '30d', '90d', '1y']),
   query('service_id').optional().isUUID(),
   query('category_id').optional().isUUID()
@@ -569,8 +569,8 @@ router.get('/analytics/summary', authMiddleware, [
 
     if (totalReviews > 0) {
       Object.keys(ratingDistribution).forEach(rating => {
-        const count = ratingDistribution[rating as keyof typeof ratingDistribution].count;
-        ratingDistribution[rating as keyof typeof ratingDistribution].percentage = 
+        const count = ratingDistribution[parseInt(rating) as keyof typeof ratingDistribution].count;
+        ratingDistribution[parseInt(rating) as keyof typeof ratingDistribution].percentage = 
           parseFloat((count / totalReviews * 100).toFixed(2));
       });
     }
@@ -601,7 +601,7 @@ router.get('/analytics/summary', authMiddleware, [
  * Delete review
  * DELETE /api/reviews/:id
  */
-router.delete('/:id', authMiddleware, [
+router.delete('/:id', authenticateToken, [
   param('id').isUUID()
 ], async (req: Request, res: Response) => {
   try {

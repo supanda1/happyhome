@@ -93,21 +93,23 @@ const App: React.FC = () => {
   const [services, setServices] = useState<any[]>([]);
   const [servicesLoading, setServicesLoading] = useState(false);
 
-  // Helper function to convert Service[] to BackendService[]
-  const convertToBackendServices = (frontendServices: typeof services): BackendService[] => {
-    if (!frontendServices || !Array.isArray(frontendServices)) {
+  // Memoized helper function to convert Service[] to BackendService[]
+  const convertedBackendServices = useMemo(() => {
+    if (!services || !Array.isArray(services)) {
       return [];
     }
     
     try {
-      return frontendServices.filter(service => {
+      const filteredServices = services.filter(service => {
         return service && 
                typeof service === 'object' && 
                (service as any).category_name && 
                (service as any).id;
-      }).map(service => {      
+      });
+      
+      const convertedServices = filteredServices.map(service => {      
         const apiService = service as any; // Type assertion for API response structure
-        return ({
+        return {
           id: apiService.id || '',
           name: apiService.name || 'Unnamed Service',
           category_id: apiService.category_id || '',
@@ -118,16 +120,76 @@ const App: React.FC = () => {
           base_price: Number(apiService.base_price) || 0,
           discounted_price: apiService.discounted_price ? Number(apiService.discounted_price) : undefined,
           rating: apiService.rating ? Number(apiService.rating) : undefined,
+          review_count: apiService.review_count ? Number(apiService.review_count) : undefined,
+          booking_count: apiService.booking_count ? Number(apiService.booking_count) : undefined,
           is_active: Boolean(apiService.is_active),
-          duration: apiService.duration,
+          tags: apiService.tags,
           inclusions: apiService.inclusions,
-          exclusions: apiService.exclusions
-        });
+          exclusions: apiService.exclusions,
+          requirements: apiService.requirements,
+          services: apiService.services,
+          notes: apiService.notes,
+          warranty: apiService.warranty,
+          gallery_images: apiService.gallery_images,
+          images: apiService.images,
+          faq: apiService.faq
+        };
       });
+      
+      // Log only when services array changes
+      if (convertedServices.length > 0) {
+        console.log('✅ Services converted successfully:', convertedServices.length);
+      }
+      
+      return convertedServices;
     } catch (error) {
-      console.error('Error converting backend services:', error);
+      console.error('❌ Error converting backend services:', error);
       return [];
     }
+  }, [services]); // Only recalculate when services array changes
+
+  // Helper function for backward compatibility
+  const convertToBackendServices = (frontendServices: typeof services): BackendService[] => {
+    // Use memoized version when possible, fallback for direct calls
+    if (frontendServices === services) {
+      return convertedBackendServices;
+    }
+    
+    // For direct calls with different data, do minimal conversion without logging
+    if (!frontendServices || !Array.isArray(frontendServices)) {
+      return [];
+    }
+    
+    return frontendServices
+      .filter(service => service && typeof service === 'object' && (service as any).category_name && (service as any).id)
+      .map(service => {
+        const apiService = service as any;
+        return {
+          id: apiService.id || '',
+          name: apiService.name || 'Unnamed Service',
+          category_id: apiService.category_id || '',
+          category_name: apiService.category_name || '',
+          subcategory_name: apiService.subcategory_name || '',
+          description: apiService.description || '',
+          short_description: apiService.short_description || '',
+          base_price: Number(apiService.base_price) || 0,
+          discounted_price: apiService.discounted_price ? Number(apiService.discounted_price) : undefined,
+          rating: apiService.rating ? Number(apiService.rating) : undefined,
+          review_count: apiService.review_count ? Number(apiService.review_count) : undefined,
+          booking_count: apiService.booking_count ? Number(apiService.booking_count) : undefined,
+          is_active: Boolean(apiService.is_active),
+          tags: apiService.tags,
+          inclusions: apiService.inclusions,
+          exclusions: apiService.exclusions,
+          requirements: apiService.requirements,
+          services: apiService.services,
+          notes: apiService.notes,
+          warranty: apiService.warranty,
+          gallery_images: apiService.gallery_images,
+          images: apiService.images,
+          faq: apiService.faq
+        };
+      });
   };
 
   // Helper function to show success message for a specific service and expand cart sidebar
@@ -208,12 +270,21 @@ const App: React.FC = () => {
   }, []);
 
   // Load categories, subcategories and services from admin data (REAL-TIME API)
-  const loadCategoriesAndServices = async () => {
+  const loadCategoriesAndServices = async (forceRefresh = false) => {
     try {
       setServicesLoading(true);
+      console.log('🔄 Loading categories and services...', { forceRefresh });
+      
       const allCategories = await getCategories();
       const allSubcategories = await getSubcategories();
       const allServices = await getServices();
+      
+      console.log('📊 Raw API data:', {
+        categories: allCategories?.length || 0,
+        subcategories: allSubcategories?.length || 0,
+        services: allServices?.length || 0,
+        sampleService: allServices?.[0]
+      });
       
       // Check if we received valid arrays
       if (!Array.isArray(allCategories)) {
@@ -232,6 +303,12 @@ const App: React.FC = () => {
       const activeCategories = allCategories.filter(cat => cat && typeof cat === 'object' && cat.is_active);
       const activeSubcategories = allSubcategories.filter(sub => sub && typeof sub === 'object' && sub.is_active);
       const activeServices = allServices.filter(service => service && typeof service === 'object' && service.is_active);
+      
+      console.log('✅ Filtered active data:', {
+        activeCategories: activeCategories.length,
+        activeSubcategories: activeSubcategories.length,  
+        activeServices: activeServices.length
+      });
       
       setCategories(activeCategories);
       setSubcategories(activeSubcategories);
@@ -326,12 +403,20 @@ const App: React.FC = () => {
   const navigateToServiceDetail = useCallback((serviceId: string) => {
     console.log('🚀 Navigation triggered to service detail:', serviceId);
     console.log('🚀 Current page before change:', currentPage);
+    console.log('🚀 Service ID type:', typeof serviceId);
+    console.log('🚀 Service ID length:', serviceId?.length);
+    
+    // Check if this service exists in our current services array
+    const serviceExists = convertedBackendServices?.find(s => s.id === serviceId);
+    console.log('🚀 Service exists in current data:', !!serviceExists);
+    console.log('🚀 Total services available:', convertedBackendServices?.length || 0);
+    
     setSelectedServiceId(serviceId);
     setCurrentPage('service-detail');
     setShowServicesDropdown(false);
     console.log('📄 Page changed to: service-detail');
     console.log('📄 Selected service ID set to:', serviceId);
-  }, [currentPage]);
+  }, [currentPage, services]);
 
 
   const navigateToMyBookings = () => {
@@ -369,8 +454,8 @@ const App: React.FC = () => {
 
   // Search function - use real backend services from useServices hook
   const searchServices = (query: string, category: string): BackendService[] => {
-    // Use real backend services from the component's useServices hook
-    const allServices = convertToBackendServices(services) || [];
+    // Use memoized backend services for better performance
+    const allServices = convertedBackendServices || [];
     let filteredServices = allServices.filter((service) => service.is_active);
 
     // Filter by category if not "All Services"
@@ -700,7 +785,7 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
     if (!services || servicesLoading) return null;
     
     // Find matching service by category and service name
-    const matchingService = convertToBackendServices(services).find((service) => {
+    const matchingService = convertedBackendServices.find((service) => {
       const categoryMatch = service.category_name?.toLowerCase() === categoryName.toLowerCase();
       const serviceNameMatch = service.name?.toLowerCase().includes(serviceName.toLowerCase()) ||
                              service.subcategory_name?.toLowerCase().includes(serviceName.toLowerCase());
@@ -731,15 +816,52 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
   // ServiceDetailPageRoute component - works with adminDataManager system
   const ServiceDetailPageRoute = ({ serviceId }: { serviceId: string }) => {
     // Find the service from the loaded services
-    const service = convertToBackendServices(services)?.find(s => s.id === serviceId);
+    const service = convertedBackendServices?.find(s => s.id === serviceId);
+    
+    // Debug logging for service detail issues
+    console.log('🔍 ServiceDetailPageRoute Debug:', {
+      serviceId,
+      servicesLoading,
+      totalServices: services?.length || 0,
+      convertedServicesCount: convertedBackendServices?.length || 0,
+      serviceFound: !!service,
+      allServiceIds: convertedBackendServices?.map(s => ({ id: s.id, name: s.name })) || [],
+      matchingService: service ? { id: service.id, name: service.name } : null
+    });
     
     if (!service || servicesLoading) {
       return (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
           <div className="text-center">
             <div className="text-6xl mb-4 animate-pulse">🔄</div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Loading Service...</h2>
-            <p className="text-gray-600">Please wait while we load the service details.</p>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              {servicesLoading ? 'Loading Service...' : 'Service Not Found'}
+            </h2>
+            <p className="text-gray-600">
+              {servicesLoading 
+                ? 'Please wait while we load the service details.' 
+                : `Service with ID ${serviceId} could not be found.`
+              }
+            </p>
+            {!servicesLoading && (
+              <div className="mt-4 text-sm text-gray-500">
+                <p>Available services: {convertedBackendServices?.length || 0}</p>
+                <div className="flex gap-2 justify-center mt-2">
+                  <button 
+                    onClick={() => loadCategoriesAndServices(true)}
+                    className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
+                  >
+                    Refresh Data
+                  </button>
+                  <button 
+                    onClick={navigateToHome}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+                  >
+                    Back to Home
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       );
@@ -784,7 +906,7 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
     
     // Find the real backend service that matches this page (only when not loading)
     const adminService: BackendService | null = !servicesLoading ? (
-      convertToBackendServices(services)?.find((service) => {
+      convertedBackendServices?.find((service) => {
         // Match by service name and category
         const nameMatch = service.name?.toLowerCase().includes(serviceName.toLowerCase());
         const subcategoryMatch = service.subcategory_name?.toLowerCase().includes(serviceName.toLowerCase());
@@ -1417,27 +1539,35 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
   };
 
   // Home Page Component
-  const HomePage = ({ navigateToServiceDetail }: { navigateToServiceDetail: (serviceId: string) => void }) => {
+  const HomePage = ({ 
+    navigateToServiceDetail, 
+    navigateToCheckout 
+  }: { 
+    navigateToServiceDetail: (serviceId: string) => void;
+    navigateToCheckout: () => void;
+  }) => {
     // Get all active categories (show all, even if no services yet) - memoized to prevent re-renders
     const activeCategories = useMemo(() => categories.filter(cat => cat.is_active), [categories]);
     
     // Get featured services for display on homepage
     const featuredServices = useMemo(() => {
-      return convertToBackendServices(services)
+      return convertedBackendServices
         ?.filter(service => service.is_active && (service as any).is_featured)
         ?.slice(0, 6) || [];
-    }, [services]);
+    }, [convertedBackendServices]);
     
     // Get all services for the new all services section
     const allServices = useMemo(() => {
-      return convertToBackendServices(services)
+      return convertedBackendServices
         ?.filter(service => service.is_active)
         ?.slice(0, 12) || [];
-    }, [services]);
+    }, [convertedBackendServices]);
     
     // Cart functionality state
     const [addingToCart, setAddingToCart] = useState<string | null>(null);
     const [cartMessages, setCartMessages] = useState<{[serviceId: string]: string}>({});
+    const [isCartCollapsed, setIsCartCollapsed] = useState(false);
+    const [cartRefreshTrigger, setCartRefreshTrigger] = useState(0);
     
     // Handle add to cart
     const handleAddToCart = async (serviceId: string, serviceName: string) => {
@@ -1449,6 +1579,9 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
           ...prev,
           [serviceId]: `${serviceName} added to cart!`
         }));
+        
+        // Trigger cart refresh
+        setCartRefreshTrigger(prev => prev + 1);
         
         // Clear message after 2 seconds
         setTimeout(() => {
@@ -1469,8 +1602,14 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
       }
     };
     
+    const updateCartCount = () => {
+      // Trigger cart refresh
+      setCartRefreshTrigger(prev => prev + 1);
+    };
+    
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+      <div className="flex min-h-screen">
+        <div className="flex-1 min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
         
         
         {/* Hero Section */}
@@ -1675,7 +1814,7 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {activeCategories.map((category, categoryIndex) => {
                 // Check if this category has services
-                const hasServices = convertToBackendServices(services)?.some((service) => 
+                const hasServices = convertedBackendServices?.some((service) => 
                   service.category_name === category.name && service.is_active
                 );
                 
@@ -1830,6 +1969,17 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
             </div>
           </div>
         </section>
+        </div>
+        
+        {/* Cart Sidebar */}
+        <CartSidebarFixed
+          isCollapsed={isCartCollapsed}
+          onToggleCollapse={() => setIsCartCollapsed(!isCartCollapsed)}
+          onCheckout={navigateToCheckout}
+          onCartUpdate={updateCartCount}
+          refreshTrigger={cartRefreshTrigger}
+          isOfferPage={false}
+        />
       </div>
     );
   };
@@ -1838,9 +1988,9 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
   const AllServicesPage = () => {
     // Get all active services
     const allActiveServices = useMemo(() => {
-      return convertToBackendServices(services)
+      return convertedBackendServices
         ?.filter(service => service.is_active) || [];
-    }, [services]);
+    }, [convertedBackendServices]);
     
     // Cart functionality state
     const [addingToCart, setAddingToCart] = useState<string | null>(null);
@@ -2137,7 +2287,7 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {categorySubcategories.map((subcategory, subcategoryIndex) => {
                 // Find the service for this subcategory
-                const subcategoryService = convertToBackendServices(services)?.find((service) => 
+                const subcategoryService = convertedBackendServices?.find((service) => 
                   service.subcategory_name === subcategory.name && 
                   service.category_name === categoryName &&
                   service.is_active
@@ -2230,7 +2380,15 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                                 setCurrentPage('plumbing-toilets');
                               }
                             } else {
-                              navigateToSubcategory(categoryName, subcategory.name);
+                              // For regular services, navigate to service detail if available
+                              if (subcategoryService && subcategoryService.id) {
+                                console.log('🔍 Navigating to service detail for:', subcategoryService.name, 'ID:', subcategoryService.id);
+                                navigateToServiceDetail(subcategoryService.id);
+                              } else {
+                                // Fallback to subcategory page for services without specific service data
+                                console.log('🔍 No service found, navigating to subcategory page:', categoryName, subcategory.name);
+                                navigateToSubcategory(categoryName, subcategory.name);
+                              }
                             }
                           }}
                           className="flex-1 bg-white border border-purple-300 text-purple-700 hover:bg-purple-50 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
@@ -2382,7 +2540,7 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                   >
                     <option value="All Services">All Services</option>
                     {categories.filter(cat => cat.is_active).map(category => {
-                      const hasServices = convertToBackendServices(services)?.some((service) => 
+                      const hasServices = convertedBackendServices?.some((service) => 
                         service.category_name === category.name && service.is_active
                       );
                       return (
@@ -2408,7 +2566,7 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                     className="bg-orange-500 hover:bg-orange-600 text-white px-4 md:px-6 py-2 md:py-3 rounded-r-md transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m21 21-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m21 21-6-6m2-5a7 7 0 1 1-14 0 7 7 0 0 1 14 0z" />
                     </svg>
                   </button>
                 </form>
@@ -2563,7 +2721,7 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
               
               {/* Render all active categories in navigation */}
               {categories.filter(cat => cat.is_active).map(category => {
-                const hasServices = convertToBackendServices(services)?.some((service) => 
+                const hasServices = convertedBackendServices?.some((service) => 
                   service.category_name === category.name && service.is_active
                 );
                 const categoryPageName = category.name.toLowerCase().replace(/\s+/g, '-').replace('&', '&');
@@ -2856,6 +3014,7 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                 onCheckout={navigateToCheckout}
                 onCartUpdate={updateGlobalCartCount}
                 refreshTrigger={cartRefreshTrigger}
+                isOfferPage={false}
               />
             </div>
           );
@@ -2863,7 +3022,12 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
           // Normal layout for non-category pages (Home, Login, Cart, etc.)
           return (
             <main className="transition-all duration-300">
-              {currentPage === 'home' && <HomePage navigateToServiceDetail={navigateToServiceDetail} />}
+              {currentPage === 'home' && (
+                <HomePage 
+                  navigateToServiceDetail={navigateToServiceDetail} 
+                  navigateToCheckout={navigateToCheckout}
+                />
+              )}
               {currentPage === 'all-services' && <AllServicesPage />}
               {currentPage === 'search-results' && <SearchResultsPage />}
               {currentPage === 'login' && <LoginPage navigateHome={navigateToHome} navigateToSignup={navigateToSignup} />}

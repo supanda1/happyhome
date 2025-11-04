@@ -2,7 +2,7 @@ services:
   # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
-    container_name: household_services_postgres
+    container_name: myapp_db
     environment:
       POSTGRES_DB: household_services
       POSTGRES_USER: postgres
@@ -14,7 +14,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/migrations/final_complete_setup.sql:/docker-entrypoint-initdb.d/01-complete-setup.sql
     networks:
-      - household_services_network
+      - myapp_network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d household_services"]
       interval: 30s
@@ -28,7 +28,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.node
-    container_name: household_services_api
+    container_name: myapp_api
     environment:
       - NODE_ENV=development
       - DB_HOST=postgres
@@ -50,7 +50,7 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - household_services_network
+      - myapp_network
     restart: unless-stopped
     develop:
       watch:
@@ -65,7 +65,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: household_services_frontend
+    container_name: myapp_frontend
     environment:
       - NODE_ENV=production
       - VITE_API_BASE_URL=/api
@@ -79,7 +79,7 @@ services:
     depends_on:
       - api
     networks:
-      - household_services_network
+      - myapp_network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:80/health"]
@@ -91,7 +91,7 @@ services:
   # pgAdmin for database management (development only)
   pgadmin:
     image: dpage/pgadmin4:latest
-    container_name: household_services_pgadmin
+    container_name: myapp_pgadmin
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@admin.com
       PGADMIN_DEFAULT_PASSWORD: admin
@@ -103,7 +103,7 @@ services:
     depends_on:
       - postgres
     networks:
-      - household_services_network
+      - myapp_network
     profiles:
       - development
     restart: unless-stopped
@@ -111,13 +111,13 @@ services:
   # Redis for caching (optional)
   redis:
     image: redis:7-alpine
-    container_name: household_services_redis
+    container_name: myapp_redis
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
     networks:
-      - household_services_network
+      - myapp_network
     restart: unless-stopped
     profiles:
       - development
@@ -137,6 +137,6 @@ volumes:
     driver: local
 
 networks:
-  household_services_network:
+  myapp_network:
     driver: bridge
-    name: household_services_net
+    name: myapp_net

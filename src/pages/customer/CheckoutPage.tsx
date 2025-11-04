@@ -666,7 +666,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
                   className="w-full bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 text-white py-3 px-4 rounded-lg text-lg font-semibold hover:from-orange-600 hover:via-purple-700 hover:to-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-300 shadow-lg hover:shadow-xl"
                 >
                   Proceed to Payment • {cart ? formatPrice((() => {
-                    const hasOfferPlan = !!localStorage.getItem('selectedOfferPlan');
+                    const hasOfferPlan = !!localStorage.getItem('selectedOfferPlan') && !cart.appliedCoupon && cart.discountAmount === 0;
                     if (hasOfferPlan) {
                       const discountedSubtotal = cart.subtotal - Math.round(cart.subtotal * 0.20);
                       const discountedGST = Math.round(discountedSubtotal * 0.18);
@@ -972,11 +972,13 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
                   <span className="font-medium">{formatPrice(cart.subtotal)}</span>
                 </div>
                 
-                {/* Offer Plan Discount - ALWAYS SHOW FOR TESTING */}
-                <div className="flex justify-between text-green-600">
-                  <span>💰 20% Discount</span>
-                  <span>-{formatPrice(Math.round(cart.subtotal * 0.20))}</span>
-                </div>
+                {/* Offer Plan Discount - Only show when NO coupon is applied */}
+                {localStorage.getItem('selectedOfferPlan') && !cart.appliedCoupon && cart.discountAmount === 0 && (
+                  <div className="flex justify-between text-green-600">
+                    <span>💰 20% Discount</span>
+                    <span>-{formatPrice(Math.round(cart.subtotal * 0.20))}</span>
+                  </div>
+                )}
                 
                 {cart.discountAmount > 0 && (!offerPlan || cart.appliedCoupon !== offerPlan.coupon_code) && (
                   <div className="space-y-1">
@@ -1002,7 +1004,10 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
                 
                 <div className="flex justify-between">
                   <span className="text-gray-600">GST (18%)</span>
-                  <span className="font-medium">{formatPrice(Math.round((cart.subtotal - Math.round(cart.subtotal * 0.20)) * 0.18))}</span>
+                  <span className="font-medium">{formatPrice((() => {
+                    const hasOfferPlan = !!localStorage.getItem('selectedOfferPlan') && !cart.appliedCoupon && cart.discountAmount === 0;
+                    return hasOfferPlan ? Math.round((cart.subtotal - Math.round(cart.subtotal * 0.20)) * 0.18) : cart.gstAmount;
+                  })())}</span>
                 </div>
                 
                 <div className="flex justify-between text-sm">
@@ -1024,9 +1029,13 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
                 <div className="flex justify-between text-lg font-bold">
                   <span>Total</span>
                   <span>{formatPrice((() => {
-                    const discountedSubtotal = cart.subtotal - Math.round(cart.subtotal * 0.20);
-                    const discountedGST = Math.round(discountedSubtotal * 0.18);
-                    return discountedSubtotal + discountedGST + cart.serviceChargeAmount;
+                    const hasOfferPlan = !!localStorage.getItem('selectedOfferPlan') && !cart.appliedCoupon && cart.discountAmount === 0;
+                    if (hasOfferPlan) {
+                      const discountedSubtotal = cart.subtotal - Math.round(cart.subtotal * 0.20);
+                      const discountedGST = Math.round(discountedSubtotal * 0.18);
+                      return discountedSubtotal + discountedGST + cart.serviceChargeAmount;
+                    }
+                    return cart.finalAmount;
                   })())}</span>
                 </div>
               </div>
@@ -1038,7 +1047,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
                   className="w-full mt-6 bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 text-white py-3 px-4 rounded-lg text-lg font-semibold hover:from-orange-600 hover:via-purple-700 hover:to-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-300 shadow-lg hover:shadow-xl"
                 >
                   Proceed to Payment • {formatPrice((() => {
-                    const hasOfferPlan = !!localStorage.getItem('selectedOfferPlan');
+                    const hasOfferPlan = !!localStorage.getItem('selectedOfferPlan') && !cart.appliedCoupon && cart.discountAmount === 0;
                     if (hasOfferPlan) {
                       const discountedSubtotal = cart.subtotal - Math.round(cart.subtotal * 0.20);
                       const discountedGST = Math.round(discountedSubtotal * 0.18);

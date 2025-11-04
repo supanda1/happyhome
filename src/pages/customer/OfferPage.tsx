@@ -4,6 +4,7 @@ import type { Service } from '../../types';
 import { addToCart } from '../../utils/adminDataManager';
 import { formatPrice } from '../../utils/priceFormatter';
 import { Card, CardContent, CardHeader, Button } from '../../components/ui';
+import CartSidebarFixed from '../../components/cart/CartSidebarFixed';
 
 interface OfferPlan {
   id: string;
@@ -29,7 +30,8 @@ interface OfferPageProps {
 
 const OfferPage: React.FC<OfferPageProps> = ({
   navigateHome = () => window.location.href = '/',
-  navigateToCart = () => window.location.href = '/#cart'
+  navigateToCart = () => window.location.href = '/#cart',
+  navigateToCheckout = () => window.location.href = '/#checkout'
 }) => {
   const {
     services,
@@ -85,6 +87,8 @@ const OfferPage: React.FC<OfferPageProps> = ({
   const [selectedServices, setSelectedServices] = useState<Record<string, {quantity: number; customizations?: string[]}>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const [isCartCollapsed, setIsCartCollapsed] = useState(false);
+  const [cartRefreshTrigger, setCartRefreshTrigger] = useState(0);
   const [totals, setTotals] = useState<{
     originalAmount: number;
     discountAmount: number;
@@ -238,11 +242,13 @@ const OfferPage: React.FC<OfferPageProps> = ({
         duration_months: selectedPlan.duration_months
       }));
       
-      console.log(`✅ Services added to cart. Checkout will apply ${selectedPlan.title} coupon: ${selectedPlan.coupon_code} (${selectedPlan.discount_percentage}%)`);
+      console.log(`✅ Services added to cart. Checkout will apply ${selectedPlan.title} coupon: ${selectedPlan.coupon_code} (${selectedPlan.discount_percentage}%)`);      
+      // Trigger cart refresh
+      setCartRefreshTrigger(prev => prev + 1);
       
-      // Navigate to cart to show added items with discount
-      console.log('🧭 Navigating to cart for checkout...');
-      navigateToCart();
+      // Navigate to checkout to show added items with discount
+      console.log('🧭 Navigating to checkout...');
+      navigateToCheckout();
       
     } catch (error) {
       console.error('❌ Error during checkout:', error);
@@ -282,81 +288,105 @@ const OfferPage: React.FC<OfferPageProps> = ({
     );
   }
 
-  return (
-    <div className="min-h-screen">
-      {/* Simple Back to Home Link */}
-      <div className="px-4 sm:px-6 lg:px-8 py-4">
-        <button onClick={navigateHome} className="text-blue-600 hover:text-blue-800 flex items-center space-x-1 text-sm font-medium">
-          <span>←</span>
-          <span>Back to Home</span>
-        </button>
-      </div>
+  const updateCartCount = () => {
+    // Trigger cart refresh
+    setCartRefreshTrigger(prev => prev + 1);
+  };
 
-      {/* Hero Section */}
+  return (
+    <div className="flex min-h-screen">
+      <div className="flex-1 min-h-screen">
+      {/* Hero Section with Back Navigation */}
       <section className="bg-gradient-to-br from-orange-500 via-purple-600 to-blue-600 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+          {/* Back to Home - Integrated into Hero */}
+          <div className="mb-8">
+            <button onClick={navigateHome} className="text-orange-100 hover:text-white flex items-center space-x-2 text-sm font-medium transition-colors duration-200">
+              <span className="text-lg">←</span>
+              <span>Back to Home</span>
+            </button>
+          </div>
+          
           <div className="text-center">
-            <h1 className="text-2xl md:text-3xl font-bold mb-4">
+            <h1 className="text-4xl md:text-6xl font-bold mb-6">
               🎁 Special Combo Offers
-              <span className="block text-orange-200 text-xl md:text-2xl">Save Up to 30%</span>
+              <span className="block text-orange-200 text-3xl md:text-4xl mt-2">Save Up to 30%</span>
             </h1>
-            <p className="text-sm md:text-base text-orange-100 font-medium">
+            <p className="text-xl md:text-2xl mb-8 text-orange-100 max-w-3xl mx-auto">
               Choose your plan, book services instantly, and enjoy amazing discounts on every service!
             </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Button size="lg" variant="secondary" className="w-full sm:w-auto">
+                View All Plans
+              </Button>
+              <Button size="lg" variant="outline" className="w-full sm:w-auto text-white border-white hover:bg-white hover:text-orange-600">
+                How Plans Work
+              </Button>
+            </div>
           </div>
         </div>
       </section>
 
 
       {/* Offer Plans Section */}
-      <section className="py-8 bg-gray-50">
+      <section className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+              Choose Your Perfect Plan
+            </h2>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              Select the best plan for your needs and start saving on all services
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {offerPlans.map((plan, index) => {
               
               return (
                 <Card
                   key={plan.id}
-                  variant="elevated"
                   hover
-                  className={`relative cursor-pointer transition-all duration-300 transform hover:scale-105 bg-white shadow-lg hover:shadow-2xl ${
+                  className={`relative cursor-pointer transition-all duration-500 transform ${
                     selectedPlan?.id === plan.id 
-                      ? 'ring-4 ring-orange-500 bg-gradient-to-br from-orange-50 to-purple-50 border-orange-300 scale-105 shadow-2xl' 
-                      : 'hover:ring-2 hover:ring-orange-300'
-                  } ${index === 1 ? 'md:scale-108 z-10 shadow-xl' : ''}`}
+                      ? 'ring-4 ring-orange-500 bg-gradient-to-br from-orange-50 to-purple-50 border-orange-300 scale-105 shadow-card-elevated' 
+                      : 'hover:ring-2 hover:ring-orange-300 hover:scale-105'
+                  }`}
                   onClick={() => setSelectedPlan(plan)}
                 >
                   {/* Selection Indicator */}
                   {selectedPlan?.id === plan.id && (
-                    <div className="absolute top-4 left-4 w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center">
-                      <div className="w-3 h-3 bg-white rounded-full"></div>
+                    <div className="absolute top-4 left-4 w-8 h-8 bg-gradient-to-r from-orange-500 to-purple-600 rounded-full flex items-center justify-center shadow-soft">
+                      <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
                     </div>
                   )}
                 {/* Popular Badge for 6-month plan */}
                 {plan.duration_months === 6 && (
-                  <div className="absolute -top-4 -right-4 bg-gradient-to-r from-pink-500 to-rose-500 text-white text-sm font-bold px-4 py-2 rounded-full shadow-lg animate-pulse z-20">
+                  <div className="absolute -top-3 -right-3 bg-gradient-to-r from-orange-500 to-purple-600 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-soft animate-pulse z-20">
                     🔥 MOST POPULAR
                   </div>
                 )}
                 
                 {/* Best Value Badge for 12-month plan */}
                 {plan.duration_months === 12 && (
-                  <div className="absolute -top-4 -right-4 bg-gradient-to-r from-yellow-400 to-amber-500 text-white text-sm font-bold px-4 py-2 rounded-full shadow-lg z-20">
+                  <div className="absolute -top-3 -right-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-soft z-20">
                     👑 BEST VALUE
                   </div>
                 )}
 
                 {/* New Customer Badge for 3-month plan */}
                 {plan.duration_months === 3 && (
-                  <div className="absolute -top-4 -right-4 bg-gradient-to-r from-green-500 to-emerald-500 text-white text-sm font-bold px-4 py-2 rounded-full shadow-lg z-20">
+                  <div className="absolute -top-3 -right-3 bg-gradient-to-r from-blue-500 to-orange-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-soft z-20">
                     🌟 STARTER
                   </div>
                 )}
 
-                <CardContent className="p-4">
+                <CardContent className="p-6">
                   <div className="text-center">
                     {/* Duration with Icon */}
-                    <div className="text-2xl font-bold mb-2 text-transparent bg-gradient-to-r from-orange-600 to-purple-600 bg-clip-text">
+                    <div className="text-3xl font-bold mb-3 bg-gradient-to-r from-orange-600 via-purple-600 to-blue-600 bg-clip-text text-transparent">
                       {plan.duration_months === 3 && '📅'} 
                       {plan.duration_months === 6 && '🗓️'} 
                       {plan.duration_months === 12 && '📆'} 
@@ -364,24 +394,24 @@ const OfferPage: React.FC<OfferPageProps> = ({
                     </div>
                     
                     {/* Plan Title */}
-                    <h3 className="text-lg font-bold mb-3 text-gray-900">
+                    <h3 className="text-xl font-bold mb-4 text-gray-900">
                       {plan.title}
                     </h3>
                     
                     {/* Discount Badge - Prominent */}
-                    <div className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-bold bg-gradient-to-r from-green-500 to-emerald-500 text-white mb-4 shadow-lg">
+                    <div className="inline-flex items-center px-4 py-2 rounded-full text-sm font-bold bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 text-white mb-4 shadow-soft">
                       🎁 {plan.discount_percentage}% OFF
                     </div>
 
                     {/* Price Display */}
-                    <div className="mb-4">
+                    <div className="mb-6">
                       <div className="text-sm text-gray-500 line-through mb-1">
                         ₹{plan.original_price?.toLocaleString('en-IN')}
                       </div>
-                      <div className="text-xl font-bold text-purple-600 mb-1">
+                      <div className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-purple-600 bg-clip-text text-transparent mb-1">
                         ₹{plan.discounted_price?.toLocaleString('en-IN')}
                       </div>
-                      <div className="text-xs text-gray-600 font-medium">
+                      <div className="text-sm text-gray-600 font-medium">
                         Only ₹{Math.round((plan.discounted_price || 0) / plan.duration_months).toLocaleString('en-IN')}/month
                       </div>
                     </div>
@@ -392,13 +422,13 @@ const OfferPage: React.FC<OfferPageProps> = ({
                     </p>
 
                     {/* Key Benefits */}
-                    <div className="text-left bg-gray-50 rounded-lg p-2">
-                      <h4 className="font-semibold text-gray-900 mb-2 text-center text-xs">✨ Key Benefits</h4>
-                      <ul className="text-xs text-gray-700 space-y-1">
+                    <div className="text-left bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-4">
+                      <h4 className="font-semibold text-gray-900 mb-3 text-center text-sm">✨ Key Benefits</h4>
+                      <ul className="text-sm text-gray-700 space-y-2">
                         {plan.benefits.slice(0, 3).map((benefit, idx) => (
                           <li key={idx} className="flex items-start">
-                            <span className="text-green-500 mr-2 font-bold">✓</span>
-                            {benefit}
+                            <span className="text-orange-500 mr-2 font-bold text-base">✓</span>
+                            <span className="leading-relaxed">{benefit}</span>
                           </li>
                         ))}
                       </ul>
@@ -415,19 +445,24 @@ const OfferPage: React.FC<OfferPageProps> = ({
 
 
       {/* Service Selection & Order Summary */}
-      <section className="py-6 bg-white">
+      <section className="py-16 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             
             {/* Service Selection */}
             <div className="lg:col-span-2">
-              <Card>
-                <CardHeader title="Select Services" subtitle="Choose services to add to your plan" />
+              <Card className="h-fit">
+                <CardHeader>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-2">Select Services</h3>
+                  <p className="text-gray-600">Choose services to add to your plan and see instant pricing</p>
+                </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-80 overflow-y-auto">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto">
                     {services.length === 0 && (
-                      <div className="col-span-2 text-center py-8 text-gray-500">
-                        No active services available. Please check with administrator.
+                      <div className="col-span-2 text-center py-12 text-gray-500">
+                        <div className="text-4xl mb-4">😕</div>
+                        <div className="text-lg font-medium">No active services available</div>
+                        <div className="text-sm">Please check with administrator.</div>
                       </div>
                     )}
                     {services.map((service) => {
@@ -438,51 +473,50 @@ const OfferPage: React.FC<OfferPageProps> = ({
                       return (
                         <Card
                           key={service.id}
-                          variant={quantity > 0 ? "elevated" : "default"}
-                          className={`transition-all duration-200 ${
+                          hover
+                          className={`transition-all duration-300 transform ${
                             quantity > 0
-                              ? 'border-orange-500 bg-orange-50'
-                              : 'hover:border-gray-300'
+                              ? 'border-orange-500 bg-gradient-to-br from-orange-50 to-purple-50 scale-102 shadow-card-elevated'
+                              : 'hover:border-orange-300 hover:scale-102'
                           }`}
                         >
-                          <CardContent className="p-2">
-                            <div className="flex items-start space-x-2">
+                          <CardContent className="p-4">
+                            <div className="flex items-start space-x-3">
                               <div className="flex items-center space-x-2 mt-1">
                                 <Button
                                   size="xs"
                                   variant="outline"
                                   onClick={() => handleServiceDecrement(service.id)}
                                   disabled={quantity === 0}
-                                  className="w-6 h-6 p-0 rounded-full text-xs"
+                                  className="w-8 h-8 p-0 rounded-full text-sm font-medium border-2 border-orange-500 text-orange-600 bg-transparent hover:bg-orange-50 hover:border-orange-600"
                                 >
                                   -
                                 </Button>
                                 
-                                <div className="w-8 h-6 flex items-center justify-center bg-gray-100 rounded border text-xs font-medium">
+                                <div className="w-10 h-8 flex items-center justify-center bg-white rounded-lg border-2 border-gray-200 text-sm font-bold shadow-soft">
                                   {quantity}
                                 </div>
                                 
                                 <Button
                                   size="xs"
-                                  variant="outline"
                                   onClick={() => handleServiceIncrement(service.id)}
-                                  className="w-6 h-6 p-0 rounded-full text-xs"
+                                  className="w-8 h-8 p-0 rounded-full text-sm font-medium bg-gradient-to-r from-orange-500 to-purple-600 hover:from-orange-600 hover:to-purple-700 border-none text-white shadow-soft hover:shadow-button-hover transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
                                 >
                                   +
                                 </Button>
                               </div>
                               
                               <div className="flex-1">
-                                <h4 className="font-medium text-gray-900 text-xs">{service.name}</h4>
-                                <p className="text-xs text-gray-600 mt-0.5">{service.shortDescription}</p>
-                                <div className="flex items-center space-x-2 mt-1">
-                                  <span className="text-sm font-bold text-green-600">{formatPrice(discountedPrice)}</span>
+                                <h4 className="font-semibold text-gray-900 text-sm mb-1">{service.name}</h4>
+                                <p className="text-xs text-gray-600 mb-2 line-clamp-2">{service.shortDescription}</p>
+                                <div className="flex items-center flex-wrap gap-2">
+                                  <span className="text-lg font-bold bg-gradient-to-r from-orange-600 to-purple-600 bg-clip-text text-transparent">{formatPrice(discountedPrice)}</span>
                                   {quantity > 1 && (
-                                    <span className="text-xs font-medium text-orange-600">×{quantity}</span>
+                                    <span className="text-sm font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full">×{quantity}</span>
                                   )}
-                                  <span className="text-xs text-gray-500 line-through">{formatPrice(originalPrice)}</span>
+                                  <span className="text-sm text-gray-500 line-through">{formatPrice(originalPrice)}</span>
                                   {selectedPlan && (
-                                    <span className="text-xs bg-green-100 text-green-800 px-1.5 py-0.5 rounded-full font-medium">
+                                    <span className="text-xs bg-gradient-to-r from-orange-100 to-purple-100 text-orange-800 px-2 py-1 rounded-full font-medium shadow-soft">
                                       {selectedPlan.discount_percentage}% OFF
                                     </span>
                                   )}
@@ -500,20 +534,23 @@ const OfferPage: React.FC<OfferPageProps> = ({
 
             {/* Order Summary Sidebar */}
             <div className="lg:col-span-1">
-              <Card className="sticky top-4">
-                <CardHeader title="Order Summary" />
+              <Card className="sticky top-4 shadow-card-elevated">
+                <CardHeader>
+                  <h3 className="text-xl font-bold text-gray-900 mb-1">Order Summary</h3>
+                  <p className="text-sm text-gray-600">Review your selected plan and services</p>
+                </CardHeader>
                 <CardContent>
                   {selectedPlan && (
                     <>
                       {/* Selected Plan */}
-                      <div className="bg-gradient-to-br from-orange-100 via-purple-100 to-blue-100 rounded-lg p-4 mb-4">
-                        <div className="text-sm font-medium text-orange-800 mb-1">Selected Plan</div>
-                        <div className="font-semibold text-purple-900">{selectedPlan.title}</div>
-                        <div className="text-sm text-purple-700 mt-1">
+                      <div className="bg-gradient-to-br from-orange-50 via-purple-50 to-blue-50 rounded-xl p-6 mb-6 border border-orange-200">
+                        <div className="text-sm font-semibold text-orange-800 mb-2">✨ Selected Plan</div>
+                        <div className="text-xl font-bold text-gray-900 mb-1">{selectedPlan.title}</div>
+                        <div className="text-sm text-gray-700 mb-3">
                           {selectedPlan.duration_months} months • {selectedPlan.discount_percentage}% discount at checkout
                         </div>
-                        <div className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full mt-2 inline-block">
-                          🎯 Discount applied during checkout
+                        <div className="text-sm bg-gradient-to-r from-orange-100 to-purple-100 text-orange-800 px-3 py-2 rounded-full font-medium shadow-soft inline-flex items-center">
+                          🎯 Discount applied automatically
                         </div>
                       </div>
 
@@ -531,74 +568,96 @@ const OfferPage: React.FC<OfferPageProps> = ({
 
                       {/* Pricing Breakdown */}
                       {totals && Object.keys(selectedServices).length > 0 && (
-                        <div className="space-y-3 mb-6">
-                          <div className="flex justify-between">
-                            <span className="text-gray-600">Services Subtotal</span>
-                            <span className="font-medium">{formatPrice(totals.originalAmount)}</span>
-                          </div>
-                          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                            <div className="text-sm text-yellow-800">
-                              <span className="font-semibold">💰 {selectedPlan.discount_percentage}% Discount</span>
-                              <br />
-                              <span className="text-xs">Applied automatically at checkout</span>
+                        <div className="space-y-4 mb-8">
+                          <div className="bg-white rounded-xl p-4 border border-gray-200">
+                            <div className="flex justify-between items-center mb-3">
+                              <span className="text-gray-700 font-medium">Services Subtotal</span>
+                              <span className="text-lg font-bold text-gray-900">{formatPrice(totals.originalAmount)}</span>
                             </div>
-                            <div className="text-lg font-bold text-green-600 mt-2">
-                              Final Amount: {formatPrice(totals.finalAmount)}
+                            <div className="border-t border-gray-200 pt-3">
+                              <div className="flex justify-between items-center">
+                                <span className="text-orange-700 font-semibold">Plan Discount ({selectedPlan.discount_percentage}%)</span>
+                                <span className="text-orange-600 font-bold">-{formatPrice(totals.discountAmount)}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="bg-gradient-to-r from-orange-50 to-purple-50 border-2 border-orange-200 rounded-xl p-4">
+                            <div className="text-center">
+                              <div className="text-sm text-orange-700 font-medium mb-1">🎉 Your Total Savings</div>
+                              <div className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-purple-600 bg-clip-text text-transparent mb-2">
+                                {formatPrice(totals.finalAmount)}
+                              </div>
+                              <div className="text-xs text-orange-600">
+                                Save {formatPrice(totals.discountAmount)} with this plan!
+                              </div>
                             </div>
                           </div>
                         </div>
                       )}
 
                       {/* Plan Benefits */}
-                      <div className="mb-6">
-                        <h4 className="font-semibold text-gray-900 mb-3">Plan Benefits</h4>
-                        <div className="space-y-2">
+                      <div className="mb-8">
+                        <h4 className="font-bold text-gray-900 mb-4 text-lg">✨ Plan Benefits</h4>
+                        <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-4 space-y-3">
                           {selectedPlan.benefits.slice(0, 4).map((benefit, index) => (
-                            <div key={index} className="flex items-start space-x-2 text-sm">
-                              <span className="text-green-500 mt-0.5">✓</span>
-                              <span className="text-gray-700">{benefit}</span>
+                            <div key={index} className="flex items-start space-x-3">
+                              <div className="w-6 h-6 bg-gradient-to-r from-orange-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                                <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                              </div>
+                              <span className="text-sm text-gray-700 leading-relaxed">{benefit}</span>
                             </div>
                           ))}
                         </div>
                       </div>
 
                       {/* Checkout Buttons */}
-                      <div className="space-y-3">
+                      <div className="space-y-4">
                         <Button
                           onClick={handleProceedToCheckout}
                           disabled={Object.keys(selectedServices).length === 0 || isAddingToCart}
-                          variant="primary"
                           size="lg"
                           fullWidth
-                          className="text-base"
+                          className="text-base font-bold bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 hover:from-orange-600 hover:via-purple-700 hover:to-blue-700 text-white border-none px-8 py-4 rounded-xl transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 shadow-lg hover:shadow-xl"
                         >
                           {isAddingToCart
                             ? '🔄 Adding to Cart...'
                             : Object.keys(selectedServices).length === 0 
-                            ? '🛒 Select Services First'
-                            : `🛒 Proceed to Checkout (${selectedPlan.discount_percentage}% discount applied)`
+                            ? '🛍 Select Services First'
+                            : `🛍 Proceed to Checkout (${selectedPlan.discount_percentage}% OFF)`
                           }
                         </Button>
 
                         <Button
                           onClick={handlePlanPurchase}
-                          variant="secondary"
-                          size="md"
+                          size="lg"
                           fullWidth
-                          className="text-sm"
+                          className="text-base font-bold bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 hover:from-orange-600 hover:via-purple-700 hover:to-blue-700 text-white border-none px-8 py-4 rounded-xl transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 shadow-lg hover:shadow-xl"
                         >
                           💳 Buy Plan Only - {selectedPlan ? formatPrice(selectedPlan.discounted_price || 0) : 'Select Plan'}
                         </Button>
                       </div>
 
                       {/* Terms */}
-                      <div className="mt-4 text-xs text-gray-500">
-                        <div className="font-medium mb-1">Plan Details:</div>
-                        <div className="space-y-1">
-                          <div className="text-blue-700 font-medium">• {selectedPlan.discount_percentage}% discount applied at checkout</div>
-                          <div className="text-orange-700 font-medium">• No other coupons can be combined with offer plans</div>
+                      <div className="mt-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                        <div className="text-sm font-semibold text-gray-700 mb-3">📄 Plan Details</div>
+                        <div className="space-y-2 text-xs text-gray-600">
+                          <div className="flex items-start space-x-2">
+                            <span className="text-orange-500 font-bold">•</span>
+                            <span>{selectedPlan.discount_percentage}% discount applied automatically at checkout</span>
+          
+
+                          </div>
+                          <div className="flex items-start space-x-2">
+                            <span className="text-purple-500 font-bold">•</span>
+                            <span>Cannot be combined with other coupons</span>
+                          </div>
                           {selectedPlan.terms_conditions.slice(0, 1).map((term, index) => (
-                            <div key={index}>• {term}</div>
+                            <div key={index} className="flex items-start space-x-2">
+                              <span className="text-blue-500 font-bold">•</span>
+                              <span>{term}</span>
+                            </div>
                           ))}
                         </div>
                       </div>
@@ -606,9 +665,10 @@ const OfferPage: React.FC<OfferPageProps> = ({
                   )}
 
                   {!selectedPlan && (
-                    <div className="text-center py-8 text-gray-500">
-                      <div className="text-lg mb-1 text-sm">👆</div>
-                      <div>Select a plan above to see details</div>
+                    <div className="text-center py-12 text-gray-500">
+                      <div className="text-4xl mb-4">👆</div>
+                      <div className="text-lg font-medium mb-2">Choose Your Plan</div>
+                      <div className="text-sm">Select a plan above to see pricing and benefits</div>
                     </div>
                   )}
                 </CardContent>
@@ -619,57 +679,57 @@ const OfferPage: React.FC<OfferPageProps> = ({
       </section>
 
       {/* FAQ Section */}
-      <section className="py-8 bg-gray-50">
+      <section className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-6">
-            <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-1 text-sm">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
               Frequently Asked Questions
             </h2>
-            <p className="text-sm text-gray-600 max-w-2xl mx-auto">
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
               Everything you need to know about our combo plans
             </p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
-            <Card hover>
-              <CardContent>
-                <h4 className="font-bold text-blue-600 mb-1 text-sm">🤔 How do the discount plans work?</h4>
-                <p className="text-gray-600 text-xs">Purchase any plan and get the discount automatically applied to all your future service bookings during the plan period.</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            <Card hover className="transition-transform duration-300 hover:scale-105">
+              <CardContent className="p-6">
+                <h4 className="font-bold text-orange-600 mb-3 text-base">🤔 How do the discount plans work?</h4>
+                <p className="text-gray-600 text-sm leading-relaxed">Purchase any plan and get the discount automatically applied to all your future service bookings during the plan period.</p>
               </CardContent>
             </Card>
             
-            <Card hover>
-              <CardContent>
-                <h4 className="font-bold text-green-600 mb-1 text-sm">💳 Can I upgrade my plan later?</h4>
-                <p className="text-gray-600 text-xs">Yes! You can upgrade from a shorter plan to a longer one anytime. We'll adjust the pricing and extend your benefits accordingly.</p>
+            <Card hover className="transition-transform duration-300 hover:scale-105">
+              <CardContent className="p-6">
+                <h4 className="font-bold text-purple-600 mb-3 text-base">💳 Can I upgrade my plan later?</h4>
+                <p className="text-gray-600 text-sm leading-relaxed">Yes! You can upgrade from a shorter plan to a longer one anytime. We'll adjust the pricing and extend your benefits accordingly.</p>
               </CardContent>
             </Card>
 
-            <Card hover>
-              <CardContent>
-                <h4 className="font-bold text-purple-600 mb-1 text-sm">🔄 What if I don't use all services?</h4>
-                <p className="text-gray-600 text-xs">No worries! Your plan benefits carry forward. Unused discounts don't expire during your plan period.</p>
+            <Card hover className="transition-transform duration-300 hover:scale-105">
+              <CardContent className="p-6">
+                <h4 className="font-bold text-purple-600 mb-3 text-base">🔄 What if I don't use all services?</h4>
+                <p className="text-gray-600 text-sm leading-relaxed">No worries! Your plan benefits carry forward. Unused discounts don't expire during your plan period.</p>
               </CardContent>
             </Card>
 
-            <Card hover>
-              <CardContent>
-                <h4 className="font-bold text-orange-600 mb-1 text-sm">🚨 Are emergency services included?</h4>
-                <p className="text-gray-600 text-xs">Premium Care Plus and Elite Home Guard include free emergency callouts. Smart Start gets priority scheduling.</p>
+            <Card hover className="transition-transform duration-300 hover:scale-105">
+              <CardContent className="p-6">
+                <h4 className="font-bold text-orange-600 mb-3 text-base">🚨 Are emergency services included?</h4>
+                <p className="text-gray-600 text-sm leading-relaxed">Premium Care and Elite Guard include free emergency callouts. Smart Start gets priority scheduling.</p>
               </CardContent>
             </Card>
 
-            <Card hover>
-              <CardContent>
-                <h4 className="font-bold text-yellow-600 mb-1 text-sm">🏠 Multiple properties support?</h4>
-                <p className="text-gray-600 text-xs">Elite Home Guard plan is transferable within family and can be used for multiple properties.</p>
+            <Card hover className="transition-transform duration-300 hover:scale-105">
+              <CardContent className="p-6">
+                <h4 className="font-bold text-purple-600 mb-3 text-base">🏠 Multiple properties support?</h4>
+                <p className="text-gray-600 text-sm leading-relaxed">Elite Guard plan is transferable within family and can be used for multiple properties.</p>
               </CardContent>
             </Card>
 
-            <Card hover>
-              <CardContent>
-                <h4 className="font-bold text-teal-600 mb-1 text-sm">📞 How do I contact my coordinator?</h4>
-                <p className="text-gray-600 text-xs">Premium and Elite members get direct contact details for their dedicated service coordinator.</p>
+            <Card hover className="transition-transform duration-300 hover:scale-105">
+              <CardContent className="p-6">
+                <h4 className="font-bold text-orange-600 mb-3 text-base">📞 How do I contact my coordinator?</h4>
+                <p className="text-gray-600 text-sm leading-relaxed">Premium and Elite members get direct contact details for their dedicated service coordinator.</p>
               </CardContent>
             </Card>
           </div>
@@ -678,21 +738,21 @@ const OfferPage: React.FC<OfferPageProps> = ({
       </section>
 
       {/* Contact Support Section */}
-      <section className="py-8 bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 text-white">
+      <section className="py-16 bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h2 className="text-xl md:text-2xl font-bold mb-3">💬 Still have questions?</h2>
-            <p className="text-sm text-orange-100 mb-4 max-w-2xl mx-auto">
+            <h2 className="text-3xl md:text-4xl font-bold mb-6">💬 Still have questions?</h2>
+            <p className="text-xl text-orange-100 mb-8 max-w-2xl mx-auto">
               Our customer support team is here to help you choose the perfect plan
             </p>
-            <div className="flex flex-wrap justify-center gap-2">
-              <Button variant="secondary" size="sm">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Button variant="secondary" size="lg" className="w-full sm:w-auto">
                 📱 WhatsApp Support
               </Button>
-              <Button variant="outline" size="sm" className="text-white border-white hover:bg-white hover:text-purple-600">
+              <Button variant="outline" size="lg" className="w-full sm:w-auto text-white border-white hover:bg-white hover:text-purple-600">
                 📞 Call Now
               </Button>
-              <Button variant="secondary" size="sm">
+              <Button variant="secondary" size="lg" className="w-full sm:w-auto">
                 💬 Live Chat
               </Button>
             </div>
@@ -700,15 +760,26 @@ const OfferPage: React.FC<OfferPageProps> = ({
         </div>
       </section>
 
-      {/* Bottom Back to Home Link */}
-      <div className="px-4 sm:px-6 lg:px-8 py-8 border-t border-gray-200 bg-white">
+      {/* Bottom Navigation */}
+      <div className="px-4 sm:px-6 lg:px-8 py-12 border-t border-gray-200 bg-gray-50">
         <div className="max-w-7xl mx-auto text-center">
-          <button onClick={navigateHome} className="text-blue-600 hover:text-blue-800 flex items-center space-x-1 text-sm font-medium mx-auto">
-            <span>←</span>
+          <button onClick={navigateHome} className="inline-flex items-center space-x-2 text-orange-600 hover:text-orange-800 font-semibold transition-colors duration-200 group">
+            <span className="text-lg transform group-hover:-translate-x-1 transition-transform duration-200">←</span>
             <span>Back to Home</span>
           </button>
         </div>
       </div>
+      </div>
+      
+      {/* Cart Sidebar */}
+      <CartSidebarFixed
+        isCollapsed={isCartCollapsed}
+        onToggleCollapse={() => setIsCartCollapsed(!isCartCollapsed)}
+        onCheckout={navigateToCheckout}
+        onCartUpdate={updateCartCount}
+        refreshTrigger={cartRefreshTrigger}
+        isOfferPage={true}
+      />
     </div>
   );
 };

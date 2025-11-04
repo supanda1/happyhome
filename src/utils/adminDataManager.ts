@@ -219,7 +219,7 @@ interface Coupon {
   code: string;
   name: string;
   description: string;
-  type: 'percentage' | 'fixed';
+  type: 'percentage' | 'fixed' | 'free_service';
   value: number;
   minimum_order_amount?: number;
   maximum_discount_amount?: number;
@@ -235,6 +235,7 @@ interface Coupon {
 }
 
 interface CartItem {
+  id: string; // Cart item ID (needed for updates/removals)
   serviceId: string;
   serviceName: string;
   categoryId: string;
