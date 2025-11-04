@@ -59,6 +59,7 @@ const ServicesManagement: React.FC<ServicesManagementProps> = ({ onServiceChange
   const [showForm, setShowForm] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [activeTab, setActiveTab] = useState<'basic' | 'pricing' | 'services' | 'included' | 'notes' | 'images'>('basic');
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -123,6 +124,15 @@ const ServicesManagement: React.FC<ServicesManagementProps> = ({ onServiceChange
   const filteredSubcategories = subcategories.filter(
     sub => sub.category_id === formData.category_id
   );
+
+  // Filter services by category and status
+  const filteredServices = services.filter(service => {
+    const categoryMatch = !selectedCategory || service.category_id === selectedCategory;
+    const statusMatch = statusFilter === 'all' || 
+                       (statusFilter === 'active' && service.is_active) ||
+                       (statusFilter === 'inactive' && !service.is_active);
+    return categoryMatch && statusMatch;
+  });
 
   // Parse validation errors from API response
   const parseValidationErrors = (errorMessage: string): FormErrors => {
@@ -601,22 +611,37 @@ const ServicesManagement: React.FC<ServicesManagementProps> = ({ onServiceChange
           </div>
         </div>
 
-      {/* Filter by Category */}
+      {/* Filters */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-        <div className="flex flex-wrap items-center gap-4">
-          <label className="text-sm font-semibold text-gray-700">Filter by Category:</label>
-          <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
-          >
-            <option value="">All Categories</option>
-            {categories.filter(cat => cat.is_active).map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
-          </select>
+        <div className="flex flex-wrap items-center gap-6">
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-semibold text-gray-700">Category:</label>
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
+            >
+              <option value="">All Categories</option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name} {!category.is_active ? '(Inactive)' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-semibold text-gray-700">Status:</label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'inactive')}
+              className="px-4 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
+            >
+              <option value="all">All Services</option>
+              <option value="active">Active Only</option>
+              <option value="inactive">Inactive Only</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -1425,14 +1450,14 @@ const ServicesManagement: React.FC<ServicesManagementProps> = ({ onServiceChange
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-xl font-bold text-gray-900">All Services</h3>
-              <p className="text-gray-600 mt-1">{services.filter(s => !selectedCategory || s.category_id === selectedCategory).length} services • {services.filter(s => s.is_active && (!selectedCategory || s.category_id === selectedCategory)).length} active</p>
+              <p className="text-gray-600 mt-1">{filteredServices.length} services • {filteredServices.filter(s => s.is_active).length} active</p>
             </div>
             <div className="flex space-x-2">
               <div className="bg-green-100 text-green-800 px-3 py-2 rounded-lg text-sm font-medium">
-                {services.filter(s => s.is_active && (!selectedCategory || s.category_id === selectedCategory)).length} Active
+                {filteredServices.filter(s => s.is_active).length} Active
               </div>
               <div className="bg-gray-100 text-gray-800 px-3 py-2 rounded-lg text-sm font-medium">
-                {services.filter(s => !s.is_active && (!selectedCategory || s.category_id === selectedCategory)).length} Inactive
+                {filteredServices.filter(s => !s.is_active).length} Inactive
               </div>
             </div>
           </div>
@@ -1460,9 +1485,7 @@ const ServicesManagement: React.FC<ServicesManagementProps> = ({ onServiceChange
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
-              {services
-                .filter(service => !selectedCategory || service.category_id === selectedCategory)
-                .map((service) => (
+              {filteredServices.map((service) => (
                 <tr key={service.id} className="hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-300">
                   <td className="px-8 py-6">
                     <div>
