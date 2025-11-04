@@ -44,9 +44,10 @@ interface MenuCategory {
 interface AdminPanelProps {
   onCategoryChange?: () => void;
   onContactChange?: () => void;
+  navigateToHome: () => void;
 }
 
-const AdminPanel: React.FC<AdminPanelProps> = ({ onCategoryChange, onContactChange }) => {
+const AdminPanel: React.FC<AdminPanelProps> = ({ onCategoryChange, onContactChange, navigateToHome }) => {
   const { user, logout } = useAuth();
   const [activeCategory, setActiveCategory] = useState('dashboard');
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -475,7 +476,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onCategoryChange, onContactChan
         {/* Back to Home Navigation */}
         <div className="fixed top-4 right-4 z-50">
           <button 
-            onClick={() => window.location.href = '/'}
+            onClick={navigateToHome}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all"
           >
             <span>←</span>

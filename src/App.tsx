@@ -3045,6 +3045,7 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                 <AdminPanel 
                   onCategoryChange={refreshCategoriesData} 
                   onContactChange={refreshContactSettings}
+                  navigateToHome={navigateToHome}
                 />
               )}
             </main>
