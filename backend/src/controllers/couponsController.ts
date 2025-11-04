@@ -9,21 +9,21 @@ export const getCoupons = async (req: Request, res: Response) => {
       SELECT 
         id,
         code,
-        name as title,
+        title,
         description,
         discount_type,
         discount_value,
-        minimum_amount as minimum_order_amount,
-        maximum_discount as maximum_discount_amount,
+        minimum_order_amount,
+        maximum_discount_amount,
         valid_from,
         valid_until,
         usage_limit,
-        used_count as usage_count,
-        usage_limit as usage_limit_per_user,
+        usage_count,
+        usage_limit_per_user,
         is_active,
-        false as first_time_users_only,
-        '[]'::jsonb as applicable_categories,
-        '[]'::jsonb as applicable_services,
+        first_time_users_only,
+        applicable_categories,
+        applicable_services,
         created_at,
         updated_at
       FROM coupons
@@ -51,21 +51,21 @@ export const getActiveCoupons = async (req: Request, res: Response) => {
       SELECT 
         id,
         code,
-        name,
+        title as name,
         description,
         discount_type as type,
         discount_value as value,
-        minimum_amount as minimum_order_amount,
-        maximum_discount as maximum_discount_amount,
+        minimum_order_amount,
+        maximum_discount_amount,
         valid_from,
         valid_until,
         usage_limit,
-        used_count,
-        usage_limit as usage_limit_per_user,
+        usage_count,
+        usage_limit_per_user,
         is_active,
-        false as first_time_users_only,
-        '[]'::jsonb as applicable_categories,
-        '[]'::jsonb as applicable_services,
+        first_time_users_only,
+        applicable_categories,
+        applicable_services,
         created_at,
         updated_at
       FROM coupons
@@ -126,32 +126,13 @@ export const createCoupon = async (req: Request, res: Response) => {
       });
     }
     
-    // Ensure arrays are properly serialized as JSON for PostgreSQL
-    const serializedCategories = Array.isArray(applicable_categories) 
-      ? JSON.stringify(applicable_categories) 
-      : applicable_categories || '[]';
-    const serializedServices = Array.isArray(applicable_services) 
-      ? JSON.stringify(applicable_services) 
-      : applicable_services || '[]';
-
-    // Use flexible column names to support different schema versions
-    const schemaCheckResult = await pool.query(`
-      SELECT column_name FROM information_schema.columns 
-      WHERE table_name = 'coupons' AND column_name IN ('title', 'name', 'discount_type', 'type', 'discount_value', 'value', 'usage_count', 'used_count', 'usage_limit_per_user', 'per_user_limit')
-    `);
-    const availableColumns = schemaCheckResult.rows.map(row => row.column_name);
-    
-    const titleCol = availableColumns.includes('title') ? 'title' : 'name';
-    const discountTypeCol = availableColumns.includes('discount_type') ? 'discount_type' : 'type';
-    const discountValueCol = availableColumns.includes('discount_value') ? 'discount_value' : 'value';
-    const usageCountCol = availableColumns.includes('usage_count') ? 'usage_count' : 'used_count';
-    const usageLimitPerUserCol = availableColumns.includes('usage_limit_per_user') ? 'usage_limit_per_user' : 'per_user_limit';
+    // Note: Using standardized column names that match frontend expectations
 
     const result = await pool.query(`
       INSERT INTO coupons (
-        id, code, ${titleCol}, description, ${discountTypeCol}, ${discountValueCol}, 
+        id, code, title, description, discount_type, discount_value, 
         minimum_order_amount, maximum_discount_amount, valid_from, valid_until,
-        usage_limit, ${usageCountCol}, ${usageLimitPerUserCol}, applicable_categories,
+        usage_limit, usage_count, usage_limit_per_user, applicable_categories,
         applicable_services, is_active, created_at, updated_at
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW(), NOW())
@@ -159,8 +140,8 @@ export const createCoupon = async (req: Request, res: Response) => {
     `, [
       id, code, title, description, discount_type, discount_value,
       minimum_order_amount, maximum_discount_amount, valid_from, valid_until,
-      usage_limit, usage_count, usage_limit_per_user, serializedCategories,
-      serializedServices, is_active
+      usage_limit, usage_count, usage_limit_per_user, JSON.stringify(applicable_categories || []),
+      JSON.stringify(applicable_services || []), is_active
     ]);
     
     res.status(201).json({
@@ -212,40 +193,22 @@ export const updateCoupon = async (req: Request, res: Response) => {
       }
     }
     
-    // Ensure arrays are properly serialized as JSON for PostgreSQL
-    const serializedCategories = Array.isArray(applicable_categories) 
-      ? JSON.stringify(applicable_categories) 
-      : applicable_categories || '[]';
-    const serializedServices = Array.isArray(applicable_services) 
-      ? JSON.stringify(applicable_services) 
-      : applicable_services || '[]';
-
-    // Use flexible column names to support different schema versions
-    const schemaCheckResult = await pool.query(`
-      SELECT column_name FROM information_schema.columns 
-      WHERE table_name = 'coupons' AND column_name IN ('title', 'name', 'discount_type', 'type', 'discount_value', 'value', 'usage_limit_per_user', 'per_user_limit')
-    `);
-    const availableColumns = schemaCheckResult.rows.map(row => row.column_name);
-    
-    const titleCol = availableColumns.includes('title') ? 'title' : 'name';
-    const discountTypeCol = availableColumns.includes('discount_type') ? 'discount_type' : 'type';
-    const discountValueCol = availableColumns.includes('discount_value') ? 'discount_value' : 'value';
-    const usageLimitPerUserCol = availableColumns.includes('usage_limit_per_user') ? 'usage_limit_per_user' : 'per_user_limit';
+    // Note: Using standardized column names that match frontend expectations
 
     const result = await pool.query(`
       UPDATE coupons 
       SET 
         code = $1,
-        ${titleCol} = $2,
+        title = $2,
         description = $3,
-        ${discountTypeCol} = $4,
-        ${discountValueCol} = $5,
+        discount_type = $4,
+        discount_value = $5,
         minimum_order_amount = $6,
         maximum_discount_amount = $7,
         valid_from = $8,
         valid_until = $9,
         usage_limit = $10,
-        ${usageLimitPerUserCol} = $11,
+        usage_limit_per_user = $11,
         applicable_categories = $12,
         applicable_services = $13,
         is_active = $14,
@@ -255,8 +218,8 @@ export const updateCoupon = async (req: Request, res: Response) => {
     `, [
       code, title, description, discount_type, discount_value,
       minimum_order_amount, maximum_discount_amount, valid_from, valid_until,
-      usage_limit, usage_limit_per_user, serializedCategories,
-      serializedServices, is_active, id
+      usage_limit, usage_limit_per_user, JSON.stringify(applicable_categories || []),
+      JSON.stringify(applicable_services || []), is_active, id
     ]);
     
     if (result.rows.length === 0) {
@@ -329,18 +292,19 @@ export const getCouponById = async (req: Request, res: Response) => {
       SELECT 
         id,
         code,
-        COALESCE(title, name) as title,
+        title,
         description,
-        COALESCE(discount_type, type) as discount_type,
-        COALESCE(discount_value, value) as discount_value,
+        discount_type,
+        discount_value,
         minimum_order_amount,
         maximum_discount_amount,
         valid_from,
         valid_until,
         usage_limit,
-        COALESCE(usage_count, used_count) as usage_count,
-        COALESCE(usage_limit_per_user, per_user_limit) as usage_limit_per_user,
+        usage_count,
+        usage_limit_per_user,
         is_active,
+        first_time_users_only,
         applicable_categories,
         applicable_services,
         created_at,
@@ -387,18 +351,19 @@ export const validateCoupon = async (req: Request, res: Response) => {
       SELECT 
         id,
         code,
-        COALESCE(title, name) as title,
+        title,
         description,
-        COALESCE(discount_type, type) as discount_type,
-        COALESCE(discount_value, value) as discount_value,
+        discount_type,
+        discount_value,
         minimum_order_amount,
         maximum_discount_amount,
         valid_from,
         valid_until,
         usage_limit,
-        COALESCE(usage_count, used_count) as usage_count,
-        COALESCE(usage_limit_per_user, per_user_limit) as usage_limit_per_user,
+        usage_count,
+        usage_limit_per_user,
         is_active,
+        first_time_users_only,
         applicable_categories,
         applicable_services,
         created_at,

@@ -260,9 +260,16 @@ export const businessValidations = {
       .optional()
       .custom((value, { req }) => {
         const minOrderAmount = parseFloat(req.body.minimum_order_amount) || 0;
-        const maxDiscount = parseFloat(value) || 0;
         
-        if (maxDiscount > 0 && maxDiscount > minOrderAmount) {
+        // Skip validation if maximum_discount_amount is null, undefined, or empty
+        if (value === null || value === undefined || value === '') {
+          return true;
+        }
+        
+        const maxDiscount = parseFloat(value);
+        
+        // Only validate if maxDiscount is a valid positive number
+        if (!isNaN(maxDiscount) && maxDiscount > 0 && maxDiscount > minOrderAmount) {
           throw new Error('Maximum discount amount cannot exceed minimum order amount');
         }
         
@@ -340,7 +347,18 @@ export const validationChains = {
       commonValidations.discountType(),
       commonValidations.positiveNumber('discount_value'),
       commonValidations.positiveNumber('minimum_order_amount'),
-      body('maximum_discount_amount').optional().isFloat({ min: 0 }),
+      body('maximum_discount_amount')
+        .optional({ nullable: true })
+        .custom((value) => {
+          if (value === null || value === undefined || value === '') {
+            return true; // Allow null/undefined/empty for no cap
+          }
+          const num = parseFloat(value);
+          if (isNaN(num) || num < 0) {
+            throw new Error('Maximum discount amount must be a positive number or null');
+          }
+          return true;
+        }),
       commonValidations.date('valid_from'),
       commonValidations.date('valid_until'),
       body('usage_limit').optional().isInt({ min: 1 }),

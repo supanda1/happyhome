@@ -138,19 +138,21 @@ CREATE TABLE public.contact_settings (
 CREATE TABLE public.coupons (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     code character varying(50) NOT NULL,
-    name character varying(100) NOT NULL,
+    title character varying(200) NOT NULL,
     description text,
     discount_type character varying(20) DEFAULT 'percentage'::character varying,
     discount_value double precision NOT NULL,
-    minimum_amount double precision DEFAULT 0.0,
-    maximum_discount double precision,
+    minimum_order_amount double precision DEFAULT 0.0,
+    maximum_discount_amount double precision,
     usage_limit integer,
-    used_count integer DEFAULT 0,
+    usage_count integer DEFAULT 0,
     usage_limit_per_user integer,
     first_time_users_only boolean DEFAULT false NOT NULL,
     is_active boolean DEFAULT true NOT NULL,
     valid_from date NOT NULL,
     valid_until date NOT NULL,
+    applicable_categories JSONB DEFAULT '[]'::JSONB,
+    applicable_services JSONB DEFAULT '[]'::JSONB,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
 );
@@ -1100,32 +1102,32 @@ INSERT INTO public.services (id, name, category_id, subcategory_id, description,
 ('750e8400-e29b-41d4-a716-446655440063', 'General Home Repairs', '550e8400-e29b-41d4-a716-446655440007', '650e8400-e29b-41d4-a716-446655440063', 'Comprehensive home repair and maintenance services', 'Home repairs', 899.00, 799.00, '4-8 hours', true, false);
 
 -- Insert Coupons
-INSERT INTO public.coupons (id, code, name, description, discount_type, discount_value, minimum_amount, maximum_discount, usage_limit, used_count, is_active, valid_from, valid_until) VALUES 
-('54615e55-a281-422e-9e11-1f54bb03c2c7', 'WELCOME50', 'Welcome Offer', 'Get 50% off on your first service booking', 'percentage', 50.00, 199.00, NULL, 1000, 0, true, '2025-10-29', '2025-11-28'),
-('1430ecdb-14dc-4130-9068-49e81022276f', 'NEWUSER25', 'New User Discount', '25% off for new customers', 'percentage', 25.00, 299.00, NULL, 2000, 0, true, '2025-10-29', '2026-01-27'),
-('7f636c64-f83b-4003-9e88-f11d1a4f3ef5', 'PLUMBING20', 'Plumbing Special', '20% off on all plumbing services', 'percentage', 20.00, 199.00, NULL, 300, 0, true, '2025-10-29', '2025-12-13'),
--- OFFER PLAN COUPONS (MISSING - CAUSING 404 ERRORS)
-('a1b2c3d4-e5f6-7890-1234-567890abcdef', 'STARTER20', 'Smart Start Offer', '20% discount for Smart Start plan subscribers', 'percentage', 20.00, 0.00, NULL, 10000, 0, true, '2025-01-01', '2026-12-31'),
-('b2c3d4e5-f6a7-8901-2345-678901bcdef0', 'PREMIUM25', 'Premium Care Offer', '25% discount for Premium Care plan subscribers', 'percentage', 25.00, 0.00, NULL, 10000, 0, true, '2025-01-01', '2026-12-31'),
-('c3d4e5f6-a7b8-9012-3456-789012cdef01', 'ELITE30', 'Elite Guard Offer', '30% discount for Elite Guard plan subscribers', 'percentage', 30.00, 0.00, NULL, 10000, 0, true, '2025-01-01', '2026-12-31');
+INSERT INTO public.coupons (id, code, title, description, discount_type, discount_value, minimum_order_amount, maximum_discount_amount, usage_limit, usage_count, is_active, valid_from, valid_until, applicable_categories, applicable_services) VALUES 
+('54615e55-a281-422e-9e11-1f54bb03c2c7', 'WELCOME50', 'Welcome Offer', 'Get 50% off on your first service booking', 'percentage', 50.00, 199.00, NULL, 1000, 0, true, '2025-10-29', '2025-11-28', '[]'::JSONB, '[]'::JSONB),
+('1430ecdb-14dc-4130-9068-49e81022276f', 'NEWUSER25', 'New User Discount', '25% off for new customers', 'percentage', 25.00, 299.00, NULL, 2000, 0, true, '2025-10-29', '2026-01-27', '[]'::JSONB, '[]'::JSONB),
+('7f636c64-f83b-4003-9e88-f11d1a4f3ef5', 'PLUMBING20', 'Plumbing Special', '20% off on all plumbing services', 'percentage', 20.00, 199.00, NULL, 300, 0, true, '2025-10-29', '2025-12-13', '[]'::JSONB, '[]'::JSONB),
+-- OFFER PLAN COUPONS - UPDATED TO MATCH CURRENT DATABASE STATE
+('a1b2c3d4-e5f6-7890-1234-567890abcdef', 'STARTER10', 'Smart Start Offer', '10% discount for Smart Start plan subscribers', 'percentage', 10.00, 0.00, NULL, 10000, 0, true, '2025-01-01', '2026-12-31', '[]'::JSONB, '[]'::JSONB),
+('b2c3d4e5-f6a7-8901-2345-678901bcdef0', 'PREMIUM15', 'Premium Care Offer', '15% discount for Premium Care plan subscribers', 'percentage', 15.00, 0.00, NULL, 10000, 0, true, '2025-01-01', '2026-12-31', '[]'::JSONB, '[]'::JSONB),
+('c3d4e5f6-a7b8-9012-3456-789012cdef01', 'ELITE20', 'Elite Guard Offer', '20% discount for Elite Guard plan subscribers', 'percentage', 20.00, 0.00, NULL, 10000, 0, true, '2025-01-01', '2026-12-31', '[]'::JSONB, '[]'::JSONB);
 
--- Insert Offer Plans
+-- Insert Offer Plans - UPDATED TO MATCH CURRENT DATABASE STATE
 INSERT INTO public.offer_plans (id, title, description, duration_months, discount_percentage, combo_coupon_code, is_active, sort_order, benefits, terms_conditions) VALUES 
-('d4e5f6a7-b8c9-0123-4567-890123defabc', 'Smart Start', '20% discount at checkout with priority support', 3, 20.00, 'STARTER20', true, 1, 
-'["20% discount at checkout", "Priority customer support", "Quick response time", "Basic service guarantee"]',
+('d4e5f6a7-b8c9-0123-4567-890123defabc', 'Smart Start', '10% discount at checkout with priority support', 3, 10.00, 'STARTER10', true, 1, 
+'["10% discount at checkout", "Priority customer support", "Quick response time", "Basic service guarantee"]',
 '["Valid for 3 months from activation", "Applies to all regular services", "Cannot be combined with other offers", "Service charges may apply"]'),
-('e5f6a7b8-c9d0-1234-5678-901234efabcd', 'Premium Care', '25% discount at checkout with enhanced benefits', 6, 25.00, 'PREMIUM25', true, 2,
-'["25% discount at checkout", "Premium customer support", "Extended warranty", "Free home consultations"]',
+('e5f6a7b8-c9d0-1234-5678-901234efabcd', 'Premium Care', '15% discount at checkout with enhanced benefits', 6, 15.00, 'PREMIUM15', true, 2,
+'["15% discount at checkout", "Premium customer support", "Extended warranty", "Free home consultations"]',
 '["Valid for 6 months from activation", "Includes premium services", "Priority booking slots", "Service charges may apply"]'),
-('f6a7b8c9-d0e1-2345-6789-012345fabcde', 'Elite Guard', '30% discount at checkout with VIP treatment', 12, 30.00, 'ELITE30', true, 3,
-'["30% discount at checkout", "VIP customer support", "Dedicated service manager", "Emergency service priority", "Annual maintenance plans"]',
+('f6a7b8c9-d0e1-2345-6789-012345fabcde', 'Elite Guard', '20% discount at checkout with VIP treatment', 12, 20.00, 'ELITE20', true, 3,
+'["20% discount at checkout", "VIP customer support", "Dedicated service manager", "Emergency service priority", "Annual maintenance plans"]',
 '["Valid for 12 months from activation", "Includes all premium features", "24/7 priority support", "Exclusive member benefits"]);
 
--- Insert Banners
-INSERT INTO public.banners (id, title, subtitle, description, button_text, button_link, background_color, text_color, "position", sort_order, is_active) VALUES 
-('ebc273fa-6735-4a38-90bf-f2029750b723', 'Professional Home Services', 'At Your Doorstep', 'Get reliable, professional services for your home. From plumbing to cleaning, we connect you with trusted professionals in your area.', 'Browse Services', '/services', '#ffffff', '#000000', 'hero', 1, true),
-('375a8d6e-1fcb-46fe-866f-821648963968', 'Special Offer', 'Up to 50% Off', 'Limited time offer on all services. Book now and save big on your home maintenance needs.', 'Get Offer', '/offers', '#ffffff', '#000000', 'promotional', 1, true),
-('4dfc2218-27dd-4a57-9099-c0ae32d16ee3', '24/7 Service Support', 'We Are Always Here', 'Round the clock customer support for all your service needs. Call us anytime for assistance.', 'Contact Us', '/contact', '#ffffff', '#000000', 'secondary', 1, true);
+-- Insert Banners (Default Reference Banners for Admin)
+INSERT INTO public.banners (id, title, subtitle, description, button_text, button_link, image_url, background_color, text_color, "position", sort_order, is_active) VALUES 
+('ebc273fa-6735-4a38-90bf-f2029750b723', 'Professional Home Services at Your Doorstep', 'Your Trusted Partner for Quality Care', 'Get expert plumbing, electrical, cleaning, and maintenance services delivered by certified professionals. Book now for same-day service availability.', 'Book Service Now', '/services', 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=1200&h=600&fit=crop&crop=center', '#3B82F6', '#FFFFFF', 'hero', 1, true),
+('375a8d6e-1fcb-46fe-866f-821648963968', 'Emergency Services Available 24/7', 'Fast Response When You Need It Most', 'Plumbing leaks, electrical issues, or urgent repairs? Our emergency team is ready to help you anytime, day or night.', 'Get Emergency Help', '/emergency', NULL, '#059669', '#FFFFFF', 'secondary', 1, false),
+('4dfc2218-27dd-4a57-9099-c0ae32d16ee3', 'Special Offer: 20% Off First Service', 'New Customer Discount', 'Welcome to Happy Homes! Enjoy 20% off your first service booking. Professional quality guaranteed.', 'Claim Offer', '/offers', NULL, '#DC2626', '#FFFFFF', 'promotional', 1, false);
 
 -- Insert Contact Settings  
 INSERT INTO public.contact_settings (id, company_name, tagline, phone, emergency_phone, whatsapp_number, email, address, facebook_url) VALUES 

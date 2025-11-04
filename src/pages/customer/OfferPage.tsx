@@ -12,13 +12,18 @@ interface OfferPlan {
   description: string;
   duration_months: number;
   discount_percentage: number;
-  original_price: number;
-  discounted_price: number;
+  combo_coupon_code: string; // Backend field name
+  is_active: boolean;
+  sort_order: number;
   benefits: string[];
   terms_conditions: string[];
-  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+  // Computed fields for UI compatibility
+  original_price?: number;
+  discounted_price?: number;
   is_featured?: boolean;
-  coupon_code: string; // Default coupon for this plan
+  coupon_code?: string; // Alias for combo_coupon_code
 }
 
 interface OfferPageProps {
@@ -39,50 +44,7 @@ const OfferPage: React.FC<OfferPageProps> = ({
     loadServices,
     loadCategories
   } = useServices();
-  const [offerPlans] = useState<OfferPlan[]>([
-    {
-      id: '3-month-plan',
-      title: 'Smart Start',
-      description: 'Perfect for trying our services with 20% savings',
-      duration_months: 3,
-      discount_percentage: 20,
-      original_price: 6000,
-      discounted_price: 4800,
-      benefits: ['Monthly priority booking', 'Basic maintenance tips', '24/7 support'],
-      terms_conditions: ['Valid for 3 months from purchase', 'Non-transferable', 'Cannot be combined with other offers'],
-      is_active: true,
-      is_featured: false,
-      coupon_code: 'STARTER20'
-    },
-    {
-      id: '6-month-plan',
-      title: 'Premium Care',
-      description: 'Best value for regular homes with 25% savings',
-      duration_months: 6,
-      discount_percentage: 25,
-      original_price: 12000,
-      discounted_price: 9000,
-      benefits: ['Dedicated coordinator', 'Free emergency calls', 'Monthly inspections'],
-      terms_conditions: ['Valid for 6 months from purchase', 'Transferable within family', 'Priority customer support'],
-      is_active: true,
-      is_featured: true,
-      coupon_code: 'PREMIUM25'
-    },
-    {
-      id: '12-month-plan',
-      title: 'Elite Guard',
-      description: 'Maximum savings guaranteed with 30% off',
-      duration_months: 12,
-      discount_percentage: 30,
-      original_price: 24000,
-      discounted_price: 16800,
-      benefits: ['Personal care manager', 'Unlimited emergency calls', 'Free minor repairs'],
-      terms_conditions: ['Valid for 12 months from purchase', 'Transferable within family', 'Premium customer care'],
-      is_active: true,
-      is_featured: false,
-      coupon_code: 'ELITE30'
-    }
-  ]);
+  const [offerPlans, setOfferPlans] = useState<OfferPlan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<OfferPlan | null>(null);
   const [selectedServices, setSelectedServices] = useState<Record<string, {quantity: number; customizations?: string[]}>>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -137,21 +99,87 @@ const OfferPage: React.FC<OfferPageProps> = ({
     calculateTotals();
   }, [selectedPlan, selectedServices, services]);
 
+  // Fetch offer plans from API
+  const fetchOfferPlans = async (): Promise<OfferPlan[]> => {
+    try {
+      console.log('📊 Fetching offer plans from API...');
+      
+      const response = await fetch('/api/offer-plans/active');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to fetch offer plans');
+      }
+      
+      console.log('✅ Offer plans fetched successfully:', data.data?.length || 0, 'plans');
+      
+      // Transform and enrich offer plans with computed fields for UI compatibility
+      const enrichedPlans = data.data.map((plan: any, index: number) => ({
+        ...plan,
+        // Add UI compatibility fields
+        coupon_code: plan.combo_coupon_code, // Alias for existing code
+        is_featured: plan.duration_months === 6, // Mark 6-month plan as featured
+        original_price: plan.duration_months * 2000, // Compute original price based on duration
+        discounted_price: Math.round((plan.duration_months * 2000) * (1 - plan.discount_percentage / 100)), // Apply discount
+      }));
+      
+      console.log('📊 Enriched offer plans:', enrichedPlans);
+      return enrichedPlans;
+      
+    } catch (error) {
+      console.error('❌ Error fetching offer plans:', error);
+      
+      // Return fallback plans if API fails
+      console.warn('⚠️ Using fallback offer plans due to API error');
+      return [
+        {
+          id: 'fallback-3-month',
+          title: 'Smart Start (Fallback)',
+          description: 'API unavailable - contact support',
+          duration_months: 3,
+          discount_percentage: 20,
+          combo_coupon_code: 'STARTER20',
+          is_active: true,
+          sort_order: 1,
+          benefits: ['API connection required'],
+          terms_conditions: ['Contact support for current plans'],
+          original_price: 6000,
+          discounted_price: 4800,
+          is_featured: false,
+          coupon_code: 'STARTER20'
+        }
+      ];
+    }
+  };
+
   const loadData = async () => {
     setIsLoading(true);
     try {
-      console.log('📊 Loading services and categories via ServiceContext...');
+      console.log('📊 Loading services, categories, and offer plans...');
       
-      // Load services and categories using ServiceContext
-      await Promise.all([loadServices(), loadCategories()]);
+      // Load all data in parallel
+      const [, , fetchedPlans] = await Promise.all([
+        loadServices(),
+        loadCategories(),
+        fetchOfferPlans()
+      ]);
       
-      console.log('✅ Services and categories loaded via ServiceContext');
+      console.log('✅ Data loaded successfully');
       console.log('📊 Services count:', services?.length || 0);
       console.log('📊 Categories count:', categories?.length || 0);
+      console.log('📊 Offer plans count:', fetchedPlans.length);
       
-      // Auto-select first plan
-      if (offerPlans.length > 0) {
-        setSelectedPlan(offerPlans[0]);
+      // Set offer plans
+      setOfferPlans(fetchedPlans);
+      
+      // Auto-select first active plan
+      if (fetchedPlans.length > 0) {
+        const firstPlan = fetchedPlans[0];
+        setSelectedPlan(firstPlan);
+        console.log('✅ Auto-selected first plan:', firstPlan.title, `(${firstPlan.discount_percentage}%)`);
       } else {
         console.warn('⚠️ No active offer plans found');
       }
@@ -237,12 +265,12 @@ const OfferPage: React.FC<OfferPageProps> = ({
       localStorage.setItem('selectedOfferPlan', JSON.stringify({
         id: selectedPlan.id,
         title: selectedPlan.title,
-        coupon_code: selectedPlan.coupon_code,
+        coupon_code: selectedPlan.combo_coupon_code,
         discount_percentage: selectedPlan.discount_percentage,
         duration_months: selectedPlan.duration_months
       }));
       
-      console.log(`✅ Services added to cart. Checkout will apply ${selectedPlan.title} coupon: ${selectedPlan.coupon_code} (${selectedPlan.discount_percentage}%)`);      
+      console.log(`✅ Services added to cart. Checkout will apply ${selectedPlan.title} coupon: ${selectedPlan.combo_coupon_code} (${selectedPlan.discount_percentage}%)`);      
       // Trigger cart refresh
       setCartRefreshTrigger(prev => prev + 1);
       
