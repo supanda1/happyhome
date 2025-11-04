@@ -473,16 +473,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onCategoryChange, onContactChan
     <>
       <style>{customStyles}</style>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex animate-fade-in">
-        {/* Back to Home Navigation */}
-        <div className="fixed top-4 right-4 z-50">
-          <button 
-            onClick={navigateToHome}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 shadow-lg hover:shadow-xl transition-all"
-          >
-            <span>←</span>
-            <span>Back to Home</span>
-          </button>
-        </div>
 
         {/* Sidebar */}
         <div className={`bg-white/80 backdrop-blur-sm shadow-2xl transition-all duration-500 relative border-r border-white/50 ${sidebarOpen ? 'w-72' : 'w-20'} hover:shadow-3xl`}>
@@ -685,6 +675,16 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onCategoryChange, onContactChan
           <div className="absolute -bottom-1 -left-1 w-16 h-16 bg-gradient-to-r from-orange-400/10 to-pink-400/10 rounded-full blur-xl"></div>
           <div className="flex items-center justify-between relative z-10">
             <div>
+              {/* Back to Home Navigation - Integrated */}
+              <div className="mb-4">
+                <button 
+                  onClick={navigateToHome}
+                  className="text-blue-600 hover:text-blue-800 flex items-center space-x-1 text-sm font-medium transition-colors"
+                >
+                  <span>←</span>
+                  <span>Back to Home</span>
+                </button>
+              </div>
               <h2 className="text-3xl font-bold bg-gradient-to-r from-gray-800 via-blue-700 to-purple-700 bg-clip-text text-transparent capitalize animate-fade-in">{activeTab.replace('-', ' ')}</h2>
               <p className="text-gray-600 text-base font-medium mt-1">Manage your {activeTab.replace('-', ' ')} efficiently</p>
             </div>
