@@ -563,10 +563,11 @@ export const getSubcategoriesByCategorySync = (categoryId: string): Subcategory[
 /**
  * Get all services from PostgreSQL database
  */
-export const getServicesFromAPI = async (): Promise<Service[]> => {
+export const getServicesFromAPI = async (includeInactive: boolean = false): Promise<Service[]> => {
   try {
-    const services = await apiCall('/services');
-    console.log('✅ Services loaded from PostgreSQL database:', services.length);
+    const endpoint = includeInactive ? '/services?include_inactive=true' : '/services';
+    const services = await apiCall(endpoint);
+    console.log('✅ Services loaded from PostgreSQL database:', services.length, includeInactive ? '(including inactive)' : '(active only)');
     return services;
   } catch (error) {
     console.error('❌ Failed to load services from database:', error);
@@ -685,8 +686,8 @@ export const toggleServiceStatus = async (serviceId: string): Promise<Service | 
 /**
  * Get services (main function used by components)
  */
-export const getServices = async (): Promise<Service[]> => {
-  return getServicesFromAPI();
+export const getServices = async (includeInactive: boolean = false): Promise<Service[]> => {
+  return getServicesFromAPI(includeInactive);
 };
 
 /**
@@ -1892,7 +1893,7 @@ export const forceRefreshAdminData = async (): Promise<boolean> => {
     const [categories, subcategories, services, employees] = await Promise.all([
       getCategoriesFromAPI().catch(() => []),
       getSubcategories().catch(() => []),
-      getServicesFromAPI().catch(() => []),
+      getServicesFromAPI(true).catch(() => []), // Include inactive services for admin refresh
       // DISABLED: Don't auto-fetch coupons for public users (admin-only data)
       // getCoupons().catch(() => []),
       getEngineers().catch(() => [])

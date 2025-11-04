@@ -5,11 +5,16 @@ import pool from '../config/database';
 export const getServices = async (req: Request, res: Response) => {
   try {
     // Check for query parameters
-    const { subcategory, category, featured, limit } = req.query;
+    const { subcategory, category, featured, limit, include_inactive } = req.query;
     
-    const conditions: string[] = ['s.is_active = true'];
+    const conditions: string[] = [];
     const params: any[] = [];
     let paramIndex = 1;
+    
+    // Only filter by active if include_inactive is not set
+    if (include_inactive !== 'true') {
+      conditions.push('s.is_active = true');
+    }
     
     // Add WHERE conditions based on query parameters
     if (subcategory) {
@@ -63,7 +68,7 @@ export const getServices = async (req: Request, res: Response) => {
       FROM services s
       LEFT JOIN service_categories sc ON s.category_id = sc.id
       LEFT JOIN service_subcategories ss ON s.subcategory_id = ss.id
-      WHERE ${conditions.join(' AND ')}
+      ${conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''}
       ORDER BY sc.sort_order ASC, ss.sort_order ASC, s.name ASC
     `;
     

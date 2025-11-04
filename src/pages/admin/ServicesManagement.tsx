@@ -94,10 +94,10 @@ const ServicesManagement: React.FC<ServicesManagementProps> = ({ onServiceChange
       // Initialize admin data if not exists
       initializeAdminData();
       
-      // Get data from API
+      // Get data from API (include inactive services for admin)
       const categoriesData = await getCategories();
       const subcategoriesData = await getSubcategories();
-      const servicesData = await getServices();
+      const servicesData = await getServices(true);
       
       setCategories(categoriesData);
       setSubcategories(subcategoriesData);
