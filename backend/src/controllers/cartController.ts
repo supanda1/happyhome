@@ -495,16 +495,16 @@ export const applyCoupon = async (req: Request, res: Response) => {
       SELECT 
         id,
         code,
-        name,
+        title,
         description,
         discount_type,
         discount_value,
-        minimum_amount as minimum_order_amount,
-        maximum_discount as maximum_discount_amount,
+        minimum_order_amount,
+        maximum_discount_amount,
         valid_from,
         valid_until,
         usage_limit,
-        used_count as usage_count,
+        usage_count,
         is_active
       FROM coupons 
       WHERE code = $1 AND is_active = true 
