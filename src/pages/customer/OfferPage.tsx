@@ -611,12 +611,12 @@ const OfferPage: React.FC<OfferPageProps> = ({
                           </div>
                           <div className="bg-gradient-to-r from-orange-50 to-purple-50 border-2 border-orange-200 rounded-xl p-4">
                             <div className="text-center">
-                              <div className="text-sm text-orange-700 font-medium mb-1">🎉 Your Total Savings</div>
+                              <div className="text-sm text-orange-700 font-medium mb-1">💰 Final Amount</div>
                               <div className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-purple-600 bg-clip-text text-transparent mb-2">
                                 {formatPrice(totals.finalAmount)}
                               </div>
                               <div className="text-xs text-orange-600">
-                                Save {formatPrice(totals.discountAmount)} with this plan!
+                                🎉 You save {formatPrice(totals.discountAmount)} with this plan!
                               </div>
                             </div>
                           </div>
