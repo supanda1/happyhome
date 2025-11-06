@@ -87,7 +87,10 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
   // Check for offer plan and auto-apply coupon immediately
   const checkAndApplyOfferPlanCoupon = useCallback(async () => {
     try {
+      console.log('🔍 CheckoutPage: Starting checkAndApplyOfferPlanCoupon function');
       const offerPlanData = localStorage.getItem('selectedOfferPlan');
+      console.log('🔍 CheckoutPage: localStorage selectedOfferPlan:', offerPlanData);
+      
       if (offerPlanData) {
         const planData = JSON.parse(offerPlanData);
         console.log('🎯 CheckoutPage: Found offer plan in localStorage:', planData);
@@ -96,6 +99,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
         // Always try to apply the offer plan coupon if it exists
         if (planData.coupon_code) {
           console.log('🎁 CheckoutPage: Auto-applying offer plan coupon:', planData.coupon_code);
+          console.log('🔍 CheckoutPage: Coupon details - Discount:', planData.discount_percentage, '% Duration:', planData.duration_months, 'months');
           
           // Auto-apply the offer plan coupon (this will replace any existing coupon)
           const result = await applyCouponToCart(planData.coupon_code);
@@ -103,6 +107,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
           
           if (result.success) {
             console.log('✅ CheckoutPage: Offer plan coupon applied successfully');
+            console.log('🔄 CheckoutPage: Reloading cart to show updated totals...');
             // Wait a moment for backend to process, then reload cart to show updated totals
             setTimeout(async () => {
               await loadCart();
@@ -110,15 +115,22 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
           } else {
             console.error('❌ CheckoutPage: Failed to auto-apply offer plan coupon:', result.error);
           }
+        } else {
+          console.warn('⚠️ CheckoutPage: Offer plan data exists but no coupon_code found:', planData);
         }
+      } else {
+        console.log('ℹ️ CheckoutPage: No offer plan data found in localStorage');
       }
     } catch (error) {
       console.error('❌ CheckoutPage: Error checking offer plan coupon:', error);
+      console.error('❌ CheckoutPage: Error stack:', error instanceof Error ? error.stack : error);
     }
   }, []);
 
   // Load cart, coupons, addresses, and time slots on component mount
   const initializeCheckout = useCallback(async () => {
+    console.log('🚀 CheckoutPage: initializeCheckout called, user:', user ? 'authenticated' : 'not authenticated');
+    
     // Check authentication first
     if (!user) {
       const shouldLogin = confirm('🔐 Login Required\n\nYou need to be logged in to access checkout.\n\nWould you like to login now?');
@@ -131,15 +143,30 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
       return;
     }
     
+    console.log('📋 CheckoutPage: User authenticated, starting initialization sequence...');
+    
     // Add small delay to ensure session is fully established after login
     await new Promise(resolve => setTimeout(resolve, 100));
     
+    console.log('🛒 CheckoutPage: Loading initial cart data...');
     await loadCart();
+    
+    console.log('🎁 CheckoutPage: Checking for offer plan coupon auto-application...');
     await checkAndApplyOfferPlanCoupon();
+    
+    console.log('🎟️ CheckoutPage: Loading available coupons...');
     loadAvailableCoupons();
+    
+    console.log('🏠 CheckoutPage: Loading user addresses...');
     await loadAddresses();
+    
+    console.log('⏰ CheckoutPage: Loading time slots...');
     loadTimeSlots(); // Load time slots from backend
+    
+    console.log('📞 CheckoutPage: Loading contact settings...');
     loadContactSettings();
+    
+    console.log('✅ CheckoutPage: Initialization complete!');
   }, [user, navigateToLogin, navigateToCart, loadAddresses, checkAndApplyOfferPlanCoupon]);
 
   useEffect(() => {
@@ -150,13 +177,21 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
     setIsLoading(true);
     try {
       const cartData = await getCart();
-      console.log('🛒 CheckoutPage: Loaded cart data:', {
-        appliedCoupon: cartData.appliedCoupon,
-        discountAmount: cartData.discountAmount,
-        subtotal: cartData.subtotal,
-        finalAmount: cartData.finalAmount
-      });
-      setCart(cartData);
+      if (cartData) {
+        console.log('🛒 CheckoutPage: Loaded cart data (FULL):', JSON.stringify(cartData, null, 2));
+        console.log('🛒 CheckoutPage: Key cart properties:', {
+          appliedCoupon: cartData.appliedCoupon,
+          discountAmount: cartData.discountAmount,
+          subtotal: cartData.subtotal,
+          finalAmount: cartData.finalAmount,
+          totalItems: cartData.totalItems,
+          items: cartData.items?.length || 0
+        });
+        setCart(cartData);
+      } else {
+        console.warn('⚠️ CheckoutPage: Cart data is null');
+        setCart(null);
+      }
     } catch (error) {
       console.error('Failed to load cart:', error);
       setCart(null);
@@ -972,7 +1007,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
                   <span className="font-medium">{formatPrice(cart.subtotal)}</span>
                 </div>
                 
-                {/* Offer Plan Discount - Only show when NO coupon is applied */}
+                {/* Offer Plan Discount - Only show when NO coupon is applied and no actual discount yet */}
                 {offerPlan && !cart.appliedCoupon && cart.discountAmount === 0 && (
                   <div className="flex justify-between text-green-600">
                     <span>💰 {offerPlan.discount_percentage}% Discount</span>
@@ -980,7 +1015,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
                   </div>
                 )}
                 
-                {cart.discountAmount > 0 && (!offerPlan || cart.appliedCoupon !== offerPlan.coupon_code) && (
+                {cart.discountAmount > 0 && (
                   <div className="space-y-1">
                     <div className="flex justify-between text-green-600">
                       <span>

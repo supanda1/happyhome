@@ -262,13 +262,16 @@ const OfferPage: React.FC<OfferPageProps> = ({
 
       // Store the selected plan info for checkout to apply the specific coupon
       // The checkout page will automatically apply the plan coupon and disable other coupon options
-      localStorage.setItem('selectedOfferPlan', JSON.stringify({
+      const offerPlanData = {
         id: selectedPlan.id,
         title: selectedPlan.title,
         coupon_code: selectedPlan.combo_coupon_code,
         discount_percentage: selectedPlan.discount_percentage,
         duration_months: selectedPlan.duration_months
-      }));
+      };
+      
+      console.log('🎯 OfferPage: Storing offer plan data for checkout:', offerPlanData);
+      localStorage.setItem('selectedOfferPlan', JSON.stringify(offerPlanData));
       
       console.log(`✅ Services added to cart. Checkout will apply ${selectedPlan.title} coupon: ${selectedPlan.combo_coupon_code} (${selectedPlan.discount_percentage}%)`);      
       // Trigger cart refresh

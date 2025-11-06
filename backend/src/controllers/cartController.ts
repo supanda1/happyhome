@@ -208,6 +208,14 @@ export const getCart = async (req: Request, res: Response) => {
       updatedAt: itemsResult.rows[0]?.updatedAt || new Date().toISOString()
     };
     
+    console.log('🛒 Backend: Returning cart data to frontend:', {
+      appliedCoupon: cart.appliedCoupon,
+      discountAmount: cart.discountAmount,
+      subtotal: cart.subtotal,
+      finalAmount: cart.finalAmount,
+      hasItems: cart.items.length > 0
+    });
+    
     res.json({
       success: true,
       data: cart
