@@ -44,7 +44,7 @@ class DatabaseAdapter {
     const tables = [
       'services', 'service_categories', 'service_subcategories',
       'categories', 'subcategories', 'users', 'orders', 'order_items',
-      'coupons', 'reviews', 'employees'
+      'coupons', 'reviews', 'engineers'
     ];
     
     for (const tableName of tables) {

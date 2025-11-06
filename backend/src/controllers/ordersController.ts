@@ -1299,7 +1299,7 @@ export class OrdersController {
         FROM order_items oi
         LEFT JOIN services s ON oi.service_id = s.id
         LEFT JOIN service_categories sc ON oi.category_id = sc.id
-        LEFT JOIN employees e ON oi.assigned_engineer_id = e.id
+        LEFT JOIN engineers e ON oi.assigned_engineer_id = e.id
         WHERE oi.order_id = $1
         ORDER BY oi.created_at ASC
       `;
@@ -1969,20 +1969,23 @@ export class OrdersController {
           e.id,
           e.employee_id,
           e.name,
-          e.expertise,
+          e.expertise as expertise_areas,
+          array_to_string(ARRAY(SELECT jsonb_array_elements_text(e.expertise)), ', ') as expert,
           e.phone,
           e.email,
           e.is_active,
-          COUNT(CASE WHEN oi.item_status = 'scheduled' THEN 1 END) as active_tasks,
+          -- Active tasks include pending, scheduled, and in_progress (not completed or cancelled)
+          COUNT(CASE WHEN oi.item_status IN ('pending', 'scheduled', 'in_progress') THEN 1 END) as active_tasks,
           COUNT(CASE WHEN oi.item_status = 'pending' THEN 1 END) as pending_tasks,
-          COUNT(CASE WHEN oi.item_status = 'confirmed' THEN 1 END) as confirmed_tasks,
           COUNT(CASE WHEN oi.item_status = 'scheduled' THEN 1 END) as scheduled_tasks,
+          COUNT(CASE WHEN oi.item_status = 'in_progress' THEN 1 END) as in_progress_tasks,
+          COUNT(CASE WHEN oi.item_status = 'completed' THEN 1 END) as completed_tasks,
           COUNT(CASE WHEN oi.item_status = 'postponed' THEN 1 END) as postponed_tasks,
           COUNT(CASE WHEN oi.item_status = 'cancelled' THEN 1 END) as cancelled_tasks,
           COALESCE(
             JSON_AGG(
               CASE 
-                WHEN oi.id IS NOT NULL AND oi.item_status = 'scheduled' 
+                WHEN oi.id IS NOT NULL AND oi.item_status IN ('pending', 'scheduled', 'in_progress') 
                 THEN JSON_BUILD_OBJECT(
                   'order_id', o.id,
                   'order_number', o.order_number,
@@ -1994,7 +1997,7 @@ export class OrdersController {
                   'priority', o.priority
                 )
               END
-            ) FILTER (WHERE oi.id IS NOT NULL AND oi.item_status = 'scheduled'),
+            ) FILTER (WHERE oi.id IS NOT NULL AND oi.item_status IN ('pending', 'scheduled', 'in_progress')),
             '[]'::json
           ) as active_assignments
         FROM engineers e
@@ -2002,7 +2005,7 @@ export class OrdersController {
         LEFT JOIN orders o ON oi.order_id = o.id
         WHERE e.is_active = true
         GROUP BY e.id, e.employee_id, e.name, e.expertise, e.phone, e.email, e.is_active
-        ORDER BY active_tasks DESC, e.name ASC
+        ORDER BY active_tasks DESC, completed_tasks DESC, e.name ASC
       `;
       
       const result = await pool.query(query);

@@ -7,7 +7,7 @@ import pool from './config/database';
 
 // Import routes
 import ordersRoutes from './routes/orders';
-import employeesRoutes from './routes/employees';
+import engineersRoutes from './routes/engineersRoutes';
 import categoriesRoutes from './routes/categories';
 import subcategoriesRoutes from './routes/subcategories';
 import couponsRoutes from './routes/coupons';
@@ -137,7 +137,7 @@ app.use('/api/cart', cartRoutes);
 app.use('/api/orders', ordersRoutes);
 app.use('/api/payments', paymentsRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/engineers', employeesRoutes);
+app.use('/api/engineers', engineersRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/banners', bannersRoutes);
@@ -155,7 +155,7 @@ app.use('/api/admin/subcategories', subcategoriesRoutes);
 app.use('/api/admin/services', servicesRoutes);
 app.use('/api/admin/coupons', couponsRoutes);
 app.use('/api/admin/orders', ordersRoutes);
-app.use('/api/admin/engineers', employeesRoutes);
+app.use('/api/admin/engineers', engineersRoutes);
 app.use('/api/admin/banners', bannersRoutes);
 app.use('/api/admin/contact-settings', contactSettingsRoutes);
 app.use('/api/admin/review-settings', reviewSettingsRoutes);

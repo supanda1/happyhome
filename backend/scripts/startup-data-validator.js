@@ -44,7 +44,7 @@ async function validateAndRestoreData() {
     
     // Check engineers
     const { rows: engineers } = await pool.query(
-      'SELECT employee_id FROM employees WHERE employee_id IN ($1, $2)',
+      'SELECT employee_id FROM engineers WHERE employee_id IN ($1, $2)',
       ['EPM001', 'EMP002']
     );
     
@@ -57,7 +57,7 @@ async function validateAndRestoreData() {
       
       for (const engineer of missingEngineers) {
         await pool.query(`
-          INSERT INTO employees (id, employee_id, name, expertise, phone, email, address, is_active, created_at, updated_at)
+          INSERT INTO engineers (id, employee_id, name, expertise, phone, email, address, is_active, created_at, updated_at)
           VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, true, NOW(), NOW())
           ON CONFLICT (employee_id) DO NOTHING
         `, [
@@ -74,7 +74,7 @@ async function validateAndRestoreData() {
     }
     
     // Validate final state
-    const { rows: finalCheck } = await pool.query('SELECT COUNT(*) as count FROM employees');
+    const { rows: finalCheck } = await pool.query('SELECT COUNT(*) as count FROM engineers');
     console.log(`✅ [STARTUP] Data validation completed. Engineers in database: ${finalCheck[0].count}`);
     
     return true;

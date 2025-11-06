@@ -33,7 +33,6 @@ DROP TABLE IF EXISTS service_subcategories CASCADE;
 DROP TABLE IF EXISTS service_categories CASCADE;
 DROP TABLE IF EXISTS subcategories CASCADE;
 DROP TABLE IF EXISTS categories CASCADE;
-DROP TABLE IF EXISTS employees CASCADE;
 DROP TABLE IF EXISTS coupon_usages CASCADE;
 DROP TABLE IF EXISTS coupons CASCADE;
 DROP TABLE IF EXISTS banners CASCADE;
@@ -250,24 +249,6 @@ CREATE TABLE public.user_admin_permissions (
 );
 
 -- Employees Table (Engineers)
-CREATE TABLE public.employees (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    user_id uuid,
-    employee_id character varying(50) NOT NULL,
-    name character varying(100) NOT NULL,
-    email character varying(100),
-    phone character varying(20) NOT NULL,
-    address text,
-    expertise text,
-    rating double precision DEFAULT 0.0,
-    total_jobs integer DEFAULT 0,
-    completed_jobs integer DEFAULT 0,
-    is_available boolean DEFAULT true NOT NULL,
-    is_active boolean DEFAULT true NOT NULL,
-    hire_date date,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
-    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
-);
 
 
 
@@ -770,7 +751,6 @@ ALTER TABLE ONLY public.service_categories ADD CONSTRAINT service_categories_pke
 ALTER TABLE ONLY public.contact_settings ADD CONSTRAINT contact_settings_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.coupons ADD CONSTRAINT coupons_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.coupon_usages ADD CONSTRAINT coupon_usages_pkey PRIMARY KEY (id);
-ALTER TABLE ONLY public.employees ADD CONSTRAINT employees_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.refresh_tokens ADD CONSTRAINT refresh_tokens_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.service_photos ADD CONSTRAINT service_photos_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.service_subcategories ADD CONSTRAINT service_subcategories_pkey PRIMARY KEY (id);
@@ -807,7 +787,6 @@ ALTER TABLE ONLY public.engineers ADD CONSTRAINT engineers_pkey PRIMARY KEY (id)
 
 -- Unique constraints
 ALTER TABLE ONLY public.coupons ADD CONSTRAINT coupons_code_key UNIQUE (code);
-ALTER TABLE ONLY public.employees ADD CONSTRAINT employees_employee_id_key UNIQUE (employee_id);
 ALTER TABLE ONLY public.orders ADD CONSTRAINT orders_order_number_key UNIQUE (order_number);
 ALTER TABLE ONLY public.users ADD CONSTRAINT users_email_key UNIQUE (email);
 ALTER TABLE ONLY public.admin_permissions ADD CONSTRAINT admin_permissions_permission_key_key UNIQUE (permission_key);
@@ -835,8 +814,6 @@ CREATE INDEX idx_cart_user_id ON public.cart USING btree (user_id);
 CREATE INDEX idx_coupon_usages_coupon_id ON public.coupon_usages USING btree (coupon_id);
 CREATE INDEX idx_coupon_usages_user_id ON public.coupon_usages USING btree (user_id);
 CREATE INDEX idx_coupon_usages_order_id ON public.coupon_usages USING btree (order_id);
-CREATE INDEX idx_employees_is_active ON public.employees USING btree (is_active);
-CREATE INDEX idx_employees_is_available ON public.employees USING btree (is_available);
 CREATE INDEX idx_refresh_tokens_user_id ON public.refresh_tokens USING btree (user_id);
 CREATE INDEX idx_service_photos_service_id ON public.service_photos USING btree (service_id);
 CREATE INDEX idx_service_subcategories_category_id ON public.service_subcategories USING btree (category_id);
@@ -935,7 +912,6 @@ ALTER TABLE ONLY public.cart_items ADD CONSTRAINT cart_items_service_id_fkey FOR
 ALTER TABLE ONLY public.coupon_usages ADD CONSTRAINT coupon_usages_coupon_id_fkey FOREIGN KEY (coupon_id) REFERENCES public.coupons(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.coupon_usages ADD CONSTRAINT coupon_usages_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.coupon_usages ADD CONSTRAINT coupon_usages_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id) ON DELETE SET NULL;
-ALTER TABLE ONLY public.employees ADD CONSTRAINT employees_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.order_items ADD CONSTRAINT order_items_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.order_items ADD CONSTRAINT order_items_service_id_fkey FOREIGN KEY (service_id) REFERENCES public.services(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.order_items ADD CONSTRAINT order_items_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.service_categories(id) ON DELETE CASCADE;
@@ -1195,18 +1171,6 @@ INSERT INTO public.review_settings (id, auto_approve_reviews, require_booking_fo
 ('22222222-2222-2222-2222-222222222222', false, true, 1, 1, true, true, true, false, '43942929-b0ef-4f4b-a910-3c4e5a14b002', NOW(), NOW())
 ON CONFLICT (id) DO NOTHING;
 
--- Insert Sample Employees
-INSERT INTO public.employees (id, employee_id, name, expertise, phone, email, address, is_active, created_at, updated_at) VALUES
--- Employee 1: Sunil Kumar (EPM001) - Multi-skilled technician
-(gen_random_uuid(), 'EPM001', 'Sunil Kumar', 
- '["AC Cleaning","Appliance Repair","Basin & Sink","Bath Fittings","Bathroom Cleaning","CAB Booking","Car Wash","Courier Service","Electrical Safety Check","Fan Installation","GST Registration","Grouting","Health Checkup"]', 
- '9731739111', 'sunil1@gmail.com', 'HNo 506 A Plus,Subhadra Apartement , Bhubaneswar , Odisha 24', true, NOW(), NOW()),
-
--- Employee 2: Debashis (EMP002) - Comprehensive service provider  
-(gen_random_uuid(), 'EMP002', 'Debashis', 
- '["Home Repairs","House Painting","ITR Filing","Lighting Solutions","Medicine Delivery","PAN Card Services","Photographer","Pipes","Salon at Home","Stamp Paper & Agreement","Septic Tank Cleaning","Switch & Socket","Tile Work","Toilets","Vehicle Breakdown","Water Purifier Cleaning","Water Tank","Water Tank Cleaning","Wiring Installation"]', 
- '9731739222', 'debasish@gmail.com', 'HNo 506 A Plus,Subhadra Apartement , Bhubaneswar , Odisha 24', true, NOW(), NOW())
-ON CONFLICT (employee_id) DO NOTHING;
 
 -- Insert SMS Templates
 INSERT INTO public.sms_templates (name, event_type, message_template, variables) VALUES

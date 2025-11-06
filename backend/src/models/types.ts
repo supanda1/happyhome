@@ -69,6 +69,34 @@ export interface Employee {
   updated_at: string;
 }
 
+export interface Engineer {
+  id: string;
+  user_id?: string;
+  employee_id: string;
+  name: string;
+  email?: string;
+  phone: string;
+  address?: string;
+  expertise: string[]; // JSONB array
+  specializations?: string[]; // JSONB array
+  rating?: number;
+  total_jobs?: number;
+  completed_jobs?: number;
+  cancelled_jobs?: number;
+  current_active_jobs?: number;
+  max_concurrent_jobs?: number;
+  is_available: boolean;
+  is_active: boolean;
+  hire_date?: string;
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
+  license_number?: string;
+  certification_details?: Record<string, any>; // JSONB object
+  work_schedule?: Record<string, any>; // JSONB object
+  created_at: string;
+  updated_at: string;
+}
+
 // Available expertise areas aligned with service categories and subcategories
 export const EXPERTISE_AREAS = [
   // Plumbing expertise (Category 1)
