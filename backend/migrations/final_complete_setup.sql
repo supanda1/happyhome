@@ -966,10 +966,10 @@ ALTER TABLE ONLY public.order_items ADD CONSTRAINT order_items_service_id_fkey F
 ALTER TABLE ONLY public.order_items ADD CONSTRAINT order_items_variant_id_fkey FOREIGN KEY (variant_id) REFERENCES public.service_variants(id) ON DELETE SET NULL;
 ALTER TABLE ONLY public.order_items ADD CONSTRAINT order_items_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.service_categories(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.order_items ADD CONSTRAINT order_items_subcategory_id_fkey FOREIGN KEY (subcategory_id) REFERENCES public.service_subcategories(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.order_items ADD CONSTRAINT order_items_assigned_engineer_id_fkey FOREIGN KEY (assigned_engineer_id) REFERENCES public.users(id) ON DELETE SET NULL;
+ALTER TABLE ONLY public.order_items ADD CONSTRAINT order_items_assigned_engineer_id_fkey FOREIGN KEY (assigned_engineer_id) REFERENCES public.engineers(id) ON DELETE SET NULL;
 ALTER TABLE ONLY public.assignment_history ADD CONSTRAINT assignment_history_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.assignment_history ADD CONSTRAINT assignment_history_item_id_fkey FOREIGN KEY (item_id) REFERENCES public.order_items(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.assignment_history ADD CONSTRAINT assignment_history_engineer_id_fkey FOREIGN KEY (engineer_id) REFERENCES public.users(id) ON DELETE SET NULL;
+ALTER TABLE ONLY public.assignment_history ADD CONSTRAINT assignment_history_engineer_id_fkey FOREIGN KEY (engineer_id) REFERENCES public.engineers(id) ON DELETE SET NULL;
 ALTER TABLE ONLY public.bookings ADD CONSTRAINT bookings_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.bookings ADD CONSTRAINT bookings_service_id_fkey FOREIGN KEY (service_id) REFERENCES public.services(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.bookings ADD CONSTRAINT bookings_variant_id_fkey FOREIGN KEY (variant_id) REFERENCES public.service_variants(id) ON DELETE SET NULL;
@@ -994,7 +994,8 @@ ALTER TABLE ONLY public.engineers ADD CONSTRAINT engineers_user_id_fkey FOREIGN 
 INSERT INTO public.users (id, created_at, updated_at, email, password_hash, first_name, last_name, phone, role, is_active, is_verified, profile_completed) VALUES 
 ('43942929-b0ef-4f4b-a910-3c4e5a14b002', NOW(), NOW(), 'superadmin@happyhomes.com', '$2a$10$L6NfFS.5G2ov.mKehJwg9uBreLryZf/NJ39j/hFVTcZds4t6s0Bpu', 'Super', 'Admin', '9437341234', 'super_admin', true, true, false),
 ('58e31fde-9500-42b8-a916-87cfe7ccccd1', NOW(), NOW(), 'admin@test.com', '$2a$10$L6NfFS.5G2ov.mKehJwg9uBreLryZf/NJ39j/hFVTcZds4t6s0Bpu', 'Test', 'Admin', '9437341235', 'admin', true, true, false),
-('f9ac9cfe-173d-4498-aa63-950412f53da5', NOW(), NOW(), 'admin@happyhomes.com', '$2a$10$L6NfFS.5G2ov.mKehJwg9uBreLryZf/NJ39j/hFVTcZds4t6s0Bpu', 'System', 'Administrator', '9437341236', 'super_admin', true, true, false);
+('f9ac9cfe-173d-4498-aa63-950412f53da5', NOW(), NOW(), 'admin@happyhomes.com', '$2a$10$L6NfFS.5G2ov.mKehJwg9uBreLryZf/NJ39j/hFVTcZds4t6s0Bpu', 'System', 'Administrator', '9437341236', 'super_admin', true, true, false)
+ON CONFLICT (id) DO NOTHING;
 
 -- Insert Service Categories
 INSERT INTO public.service_categories (id, name, description, icon, image_path, sort_order, is_active) VALUES 
@@ -1004,7 +1005,8 @@ INSERT INTO public.service_categories (id, name, description, icon, image_path, 
 ('550e8400-e29b-41d4-a716-446655440004', 'Call A Service', 'Transportation, delivery and professional services', '📞', '/images/categories/call-service-hero.jpg', 4, true),
 ('550e8400-e29b-41d4-a716-446655440005', 'Finance & Insurance', 'Financial documentation and insurance services', '💰', '/images/categories/finance-hero.jpg', 5, true),
 ('550e8400-e29b-41d4-a716-446655440006', 'Personal Care', 'Health, beauty and personal care services', '💆', '/images/categories/personal-care-hero.jpg', 6, true),
-('550e8400-e29b-41d4-a716-446655440007', 'Civil Work', 'Home renovation and construction services', '🏗️', '/images/categories/civil-work-hero.jpg', 7, true);
+('550e8400-e29b-41d4-a716-446655440007', 'Civil Work', 'Home renovation and construction services', '🏗️', '/images/categories/civil-work-hero.jpg', 7, true)
+ON CONFLICT (id) DO NOTHING;
 
 -- Insert Service Subcategories
 INSERT INTO public.service_subcategories (id, category_id, name, description, icon, sort_order, is_active) VALUES 
@@ -1046,10 +1048,11 @@ INSERT INTO public.service_subcategories (id, category_id, name, description, ic
 -- Civil Work Subcategories
 ('650e8400-e29b-41d4-a716-446655440061', '550e8400-e29b-41d4-a716-446655440007', 'House Painting', 'Interior and exterior house painting', '🎨', 1, true),
 ('650e8400-e29b-41d4-a716-446655440062', '550e8400-e29b-41d4-a716-446655440007', 'Tile Work', 'Tile and marble installation', '🏠', 2, true),
-('650e8400-e29b-41d4-a716-446655440063', '550e8400-e29b-41d4-a716-446655440007', 'Home Repairs', 'General home repair services', '🔨', 3, true);
+('650e8400-e29b-41d4-a716-446655440063', '550e8400-e29b-41d4-a716-446655440007', 'Home Repairs', 'General home repair services', '🔨', 3, true)
+ON CONFLICT (id) DO NOTHING;
 
 -- Copy subcategories to legacy table for compatibility
-INSERT INTO public.subcategories SELECT * FROM public.service_subcategories;
+INSERT INTO public.subcategories SELECT * FROM public.service_subcategories ON CONFLICT (id) DO NOTHING;
 
 -- Create alias table for backward compatibility (categories = service_categories)
 CREATE VIEW public.categories AS SELECT * FROM public.service_categories;
@@ -1099,7 +1102,8 @@ INSERT INTO public.services (id, name, category_id, subcategory_id, description,
 -- Civil Work Services (3 services)
 ('750e8400-e29b-41d4-a716-446655440061', 'House Painting Service', '550e8400-e29b-41d4-a716-446655440007', '650e8400-e29b-41d4-a716-446655440061', 'Professional interior and exterior house painting', 'House painting', 2999.00, 2499.00, '2-5 days', true, true),
 ('750e8400-e29b-41d4-a716-446655440062', 'Tile & Marble Work', '550e8400-e29b-41d4-a716-446655440007', '650e8400-e29b-41d4-a716-446655440062', 'Professional tile and marble installation services', 'Tile work', 1999.00, 1699.00, '1-3 days', true, false),
-('750e8400-e29b-41d4-a716-446655440063', 'General Home Repairs', '550e8400-e29b-41d4-a716-446655440007', '650e8400-e29b-41d4-a716-446655440063', 'Comprehensive home repair and maintenance services', 'Home repairs', 899.00, 799.00, '4-8 hours', true, false);
+('750e8400-e29b-41d4-a716-446655440063', 'General Home Repairs', '550e8400-e29b-41d4-a716-446655440007', '650e8400-e29b-41d4-a716-446655440063', 'Comprehensive home repair and maintenance services', 'Home repairs', 899.00, 799.00, '4-8 hours', true, false)
+ON CONFLICT (id) DO NOTHING;
 
 -- Insert Coupons
 INSERT INTO public.coupons (id, code, title, description, discount_type, discount_value, minimum_order_amount, maximum_discount_amount, usage_limit, usage_count, is_active, valid_from, valid_until, applicable_categories, applicable_services) VALUES 
@@ -1109,7 +1113,8 @@ INSERT INTO public.coupons (id, code, title, description, discount_type, discoun
 -- OFFER PLAN COUPONS - UPDATED TO MATCH CURRENT DATABASE STATE
 ('a1b2c3d4-e5f6-7890-1234-567890abcdef', 'STARTER10', 'Smart Start Offer', '10% discount for Smart Start plan subscribers', 'percentage', 10.00, 0.00, NULL, 10000, 0, true, '2025-01-01', '2026-12-31', '[]'::JSONB, '[]'::JSONB),
 ('b2c3d4e5-f6a7-8901-2345-678901bcdef0', 'PREMIUM15', 'Premium Care Offer', '15% discount for Premium Care plan subscribers', 'percentage', 15.00, 0.00, NULL, 10000, 0, true, '2025-01-01', '2026-12-31', '[]'::JSONB, '[]'::JSONB),
-('c3d4e5f6-a7b8-9012-3456-789012cdef01', 'ELITE20', 'Elite Guard Offer', '20% discount for Elite Guard plan subscribers', 'percentage', 20.00, 0.00, NULL, 10000, 0, true, '2025-01-01', '2026-12-31', '[]'::JSONB, '[]'::JSONB);
+('c3d4e5f6-a7b8-9012-3456-789012cdef01', 'ELITE20', 'Elite Guard Offer', '20% discount for Elite Guard plan subscribers', 'percentage', 20.00, 0.00, NULL, 10000, 0, true, '2025-01-01', '2026-12-31', '[]'::JSONB, '[]'::JSONB)
+ON CONFLICT (id) DO NOTHING;
 
 -- Insert Offer Plans - UPDATED TO MATCH CURRENT DATABASE STATE
 INSERT INTO public.offer_plans (id, title, description, duration_months, discount_percentage, combo_coupon_code, is_active, sort_order, benefits, terms_conditions) VALUES 
@@ -1121,17 +1126,20 @@ INSERT INTO public.offer_plans (id, title, description, duration_months, discoun
 '["Valid for 6 months from activation", "Includes premium services", "Priority booking slots", "Service charges may apply"]'),
 ('f6a7b8c9-d0e1-2345-6789-012345fabcde', 'Elite Guard', '20% discount at checkout with VIP treatment', 12, 20.00, 'ELITE20', true, 3,
 '["20% discount at checkout", "VIP customer support", "Dedicated service manager", "Emergency service priority", "Annual maintenance plans"]',
-'["Valid for 12 months from activation", "Includes all premium features", "24/7 priority support", "Exclusive member benefits"]);
+'["Valid for 12 months from activation", "Includes all premium features", "24/7 priority support", "Exclusive member benefits"]')
+ON CONFLICT (id) DO NOTHING;
 
 -- Insert Banners (Default Reference Banners for Admin)
 INSERT INTO public.banners (id, title, subtitle, description, button_text, button_link, image_url, background_color, text_color, "position", sort_order, is_active) VALUES 
-('ebc273fa-6735-4a38-90bf-f2029750b723', 'Professional Home Services at Your Doorstep', 'Your Trusted Partner for Quality Care', 'Get expert plumbing, electrical, cleaning, and maintenance services delivered by certified professionals. Book now for same-day service availability.', 'Book Service Now', '/services', 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=1200&h=600&fit=crop&crop=center', '#3B82F6', '#FFFFFF', 'hero', 1, true),
-('375a8d6e-1fcb-46fe-866f-821648963968', 'Emergency Services Available 24/7', 'Fast Response When You Need It Most', 'Plumbing leaks, electrical issues, or urgent repairs? Our emergency team is ready to help you anytime, day or night.', 'Get Emergency Help', '/emergency', NULL, '#059669', '#FFFFFF', 'secondary', 1, false),
-('4dfc2218-27dd-4a57-9099-c0ae32d16ee3', 'Special Offer: 20% Off First Service', 'New Customer Discount', 'Welcome to Happy Homes! Enjoy 20% off your first service booking. Professional quality guaranteed.', 'Claim Offer', '/offers', NULL, '#DC2626', '#FFFFFF', 'promotional', 1, false);
+('ebc273fa-6735-4a38-90bf-f2029750b723', 'Professional Home Services at Your Doorstep', 'Your Trusted Partner for Quality Care', 'Expert plumbing, electrical, cleaning, and maintenance services by certified professionals. Same-day service available.', 'Book Service Now', '/services', 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=1200&h=600&fit=crop&crop=center', '#3B82F6', '#FFFFFF', 'hero', 1, true),
+('375a8d6e-1fcb-46fe-866f-821648963968', 'Emergency Services Available 24/7', 'Fast Response When You Need It Most', 'Plumbing leaks, electrical issues, or urgent repairs? Our emergency team is ready to help anytime.', 'Get Emergency Help', '/emergency', NULL, '#059669', '#FFFFFF', 'secondary', 1, false),
+('4dfc2218-27dd-4a57-9099-c0ae32d16ee3', 'Special Offer: 20% Off First Service', 'New Customer Discount', 'Welcome to Happy Homes! Enjoy 20% off your first service booking. Professional quality guaranteed.', 'Claim Offer', '/offers', NULL, '#DC2626', '#FFFFFF', 'promotional', 1, false)
+ON CONFLICT (id) DO NOTHING;
 
 -- Insert Contact Settings  
 INSERT INTO public.contact_settings (id, company_name, tagline, phone, emergency_phone, whatsapp_number, email, address, facebook_url) VALUES 
-('998367c2-80f9-44a8-bded-f3b8cab2ee8f', 'Happy Homes', 'Your Trusted Home Service Partner', '9437341234', '9437341234', '9437341234', 'care@happyhomesworld.com', 'Bhubaneswar, Odisha 751001', 'https://www.facebook.com/happyhomes.official');
+('998367c2-80f9-44a8-bded-f3b8cab2ee8f', 'Happy Homes', 'Your Trusted Home Service Partner', '9437341234', '9437341234', '9437341234', 'care@happyhomesworld.com', 'Bhubaneswar, Odisha 751001', 'https://www.facebook.com/happyhomes.official')
+ON CONFLICT (id) DO NOTHING;
 
 -- Insert Admin Permissions
 INSERT INTO public.admin_permissions (id, permission_key, permission_name, permission_description, category, is_active, created_at, updated_at) VALUES
@@ -1179,11 +1187,13 @@ INSERT INTO public.admin_permissions (id, permission_key, permission_name, permi
 ('22222222-2222-2222-2222-222222222207', 'notifications.send', 'Send Notifications', 'Send SMS/email notifications', 'action', true, NOW(), NOW()),
 ('22222222-2222-2222-2222-222222222208', 'services.create', 'Create Services', 'Add new services', 'action', true, NOW(), NOW()),
 ('22222222-2222-2222-2222-222222222209', 'coupons.create', 'Create Coupons', 'Create discount coupons', 'action', true, NOW(), NOW()),
-('22222222-2222-2222-2222-222222222210', 'users.create', 'Create Users', 'Create admin/engineer accounts', 'action', true, NOW(), NOW());
+('22222222-2222-2222-2222-222222222210', 'users.create', 'Create Users', 'Create admin/engineer accounts', 'action', true, NOW(), NOW())
+ON CONFLICT (id) DO NOTHING;
 
 -- Insert Sample Review Settings (default configuration)
 INSERT INTO public.review_settings (id, auto_approve_reviews, require_booking_for_review, minimum_rating_threshold, maximum_reviews_per_user_per_service, review_moderation_enabled, display_average_rating, display_review_count, allow_anonymous_reviews, updated_by, created_at, updated_at) VALUES
-('22222222-2222-2222-2222-222222222222', false, true, 1, 1, true, true, true, false, '43942929-b0ef-4f4b-a910-3c4e5a14b002', NOW(), NOW());
+('22222222-2222-2222-2222-222222222222', false, true, 1, 1, true, true, true, false, '43942929-b0ef-4f4b-a910-3c4e5a14b002', NOW(), NOW())
+ON CONFLICT (id) DO NOTHING;
 
 -- Insert Sample Employees
 INSERT INTO public.employees (id, employee_id, name, expertise, phone, email, address, is_active, created_at, updated_at) VALUES
@@ -1195,7 +1205,8 @@ INSERT INTO public.employees (id, employee_id, name, expertise, phone, email, ad
 -- Employee 2: Debashis (EMP002) - Comprehensive service provider  
 (gen_random_uuid(), 'EMP002', 'Debashis', 
  '["Home Repairs","House Painting","ITR Filing","Lighting Solutions","Medicine Delivery","PAN Card Services","Photographer","Pipes","Salon at Home","Stamp Paper & Agreement","Septic Tank Cleaning","Switch & Socket","Tile Work","Toilets","Vehicle Breakdown","Water Purifier Cleaning","Water Tank","Water Tank Cleaning","Wiring Installation"]', 
- '9731739222', 'debasish@gmail.com', 'HNo 506 A Plus,Subhadra Apartement , Bhubaneswar , Odisha 24', true, NOW(), NOW());
+ '9731739222', 'debasish@gmail.com', 'HNo 506 A Plus,Subhadra Apartement , Bhubaneswar , Odisha 24', true, NOW(), NOW())
+ON CONFLICT (employee_id) DO NOTHING;
 
 -- Insert SMS Templates
 INSERT INTO public.sms_templates (name, event_type, message_template, variables) VALUES
@@ -1250,7 +1261,7 @@ INSERT INTO public.sms_providers (
     '{"simulate_failures": false, "failure_rate": 0.1}',
     0.0,
     'system'
-) ON CONFLICT DO NOTHING;
+) ON CONFLICT (name) DO NOTHING;
 
 -- Insert Notification Templates
 INSERT INTO public.notification_templates (name, event_type, notification_type, subject_template, message_template, variables, is_active, language) VALUES
@@ -1275,11 +1286,11 @@ INSERT INTO public.notification_templates (name, event_type, notification_type, 
  '["customer_name", "service_name", "order_number"]', true, 'en'),
 
 ('Order Placed Email', 'order_placed', 'email', 'Order Confirmation - #{order_number}',
- 'Dear {customer_name},\n\nThank you for your order!\n\nOrder Details:\n- Order Number: {order_number}\n- Services: {service_names}\n- Total Amount: ₹{final_amount}\n\nOur team will contact you soon to schedule the service.\n\nBest regards,\nHappy Homes Team', 
+ 'Dear {customer_name}, Thank you for your order! Order Details: Order Number: {order_number}, Services: {service_names}, Total Amount: ₹{final_amount}. Our team will contact you soon to schedule the service. Best regards, Happy Homes Team', 
  '["customer_name", "order_number", "service_names", "final_amount"]', true, 'en'),
 
 ('Order Confirmed Email', 'order_confirmed', 'email', 'Service Scheduled - #{order_number}',
- 'Dear {customer_name},\n\nYour service has been confirmed!\n\nScheduled Date: {scheduled_date}\nTime Slot: {time_slot}\nOrder Number: {order_number}\n\nOur expert will arrive at the scheduled time. Please ensure someone is available at the service location.\n\nBest regards,\nHappy Homes Team', 
+ 'Dear {customer_name}, Your service has been confirmed! Scheduled Date: {scheduled_date}, Time Slot: {time_slot}, Order Number: {order_number}. Our expert will arrive at the scheduled time. Please ensure someone is available at the service location. Best regards, Happy Homes Team', 
  '["customer_name", "order_number", "scheduled_date", "time_slot"]', true, 'en')
 
 ON CONFLICT (event_type, notification_type, language) DO NOTHING;

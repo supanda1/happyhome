@@ -1139,7 +1139,7 @@ export class OrdersController {
       const errors: Array<{orderId: string, itemId: string | null, error: string}> = [];
       
       // First validate all orders are in confirmed status
-      const uniqueOrderIds = [...new Set(assignments.map(a => a.orderId))];
+      const uniqueOrderIds = Array.from(new Set(assignments.map(a => a.orderId)));
       for (const orderId of uniqueOrderIds) {
         const orderResult = await client.query('SELECT status FROM orders WHERE id = $1', [orderId]);
         if (orderResult.rows.length === 0) {
@@ -1638,10 +1638,14 @@ export class OrdersController {
   // Auto-assign engineers based on expertise and workload (API endpoint)
   static async autoAssignEngineers(req: Request, res: Response) {
     try {
+      console.log('🔥 AUTO-ASSIGNMENT API CALLED:', req.params);
       const { orderId } = req.params;
+      console.log('🔥 Processing auto-assignment for order ID:', orderId);
       
       // Use the internal performAutoAssignment method
+      console.log('🔥 Calling performAutoAssignment...');
       const result = await OrdersController.performAutoAssignment(orderId);
+      console.log('🔥 performAutoAssignment result:', result);
       
       if (result.assigned === 0 && result.failed === 0) {
         const response: ApiResponse<{ successful_assignments: number; failed_assignments: number; total_processed: number }> = {

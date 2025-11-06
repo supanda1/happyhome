@@ -23,6 +23,27 @@ services:
       start_period: 60s
     restart: unless-stopped
 
+  # Migration Service - Ensures database has all required data
+  migrations:
+    image: postgres:15-alpine
+    container_name: myapp_migrations
+    environment:
+      - PGPASSWORD=password
+    volumes:
+      - ./backend/migrations:/migrations
+      - ./backend/scripts/run-migrations.sh:/run-migrations.sh
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - myapp_network
+    command: |
+      sh -c "
+        chmod +x /run-migrations.sh &&
+        /run-migrations.sh
+      "
+    restart: "no"  # Only run once per startup
+
   # Node.js TypeScript Backend API
   api:
     build:
@@ -50,6 +71,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
     networks:
       - myapp_network
     restart: unless-stopped

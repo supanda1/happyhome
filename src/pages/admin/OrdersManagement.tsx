@@ -700,11 +700,18 @@ const OrdersManagement: React.FC = () => {
         return;
       }
       
-      // Show success notification with assignment details
+      // Show notification based on assignment results
       if (result && result.successful_assignments > 0) {
+        const failedPart = result.failed_assignments > 0 ? ` (${result.failed_assignments} could not be assigned)` : '';
         setNotification({
           type: 'success',
-          message: `Successfully assigned ${result.successful_assignments} item${result.successful_assignments !== 1 ? 's' : ''} to engineers`
+          message: `Successfully assigned ${result.successful_assignments} item${result.successful_assignments !== 1 ? 's' : ''} to engineers${failedPart}`
+        });
+      } else if (result && result.failed_assignments > 0) {
+        // All assignments failed - provide helpful feedback
+        setNotification({
+          type: 'warning',
+          message: `Could not assign any items (${result.failed_assignments} items). No engineers available with required expertise or all engineers at capacity.`
         });
       }
       

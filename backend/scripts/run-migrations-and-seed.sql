@@ -3,16 +3,12 @@
 -- This script runs all necessary migrations and seeds data for PostgreSQL container startup
 -- ==============================================================================
 
--- First run the comprehensive setup
-\i /docker-entrypoint-initdb.d/02-complete-setup.sql
+-- Run the complete setup migration (contains all necessary schema and data)
+\i /app/migrations/final_complete_setup.sql
 
--- Then run any additional fix migrations
-\i /app/migrations/012_fix_user_addresses_schema.sql
-\i /app/migrations/013_fix_coupon_schema.sql
-\i /app/migrations/014_add_coupon_code_to_orders.sql
-\i /app/migrations/015_add_coupon_id_to_orders.sql
-\i /app/migrations/016_fix_order_items_schema.sql
-\i /app/migrations/017_comprehensive_python_models_setup.sql
+-- Run any additional enhancement migrations if they exist
+-- \i /app/migrations/enhance_services_table.sql  -- Uncomment if needed
+-- \i /app/migrations/fix_image_paths.sql         -- Uncomment if needed
 
 -- Log completion
-SELECT 'All migrations and seed data loaded successfully for Python models compatibility' as message;
+SELECT 'Database initialized successfully with corrected engineer foreign key constraints' as message;

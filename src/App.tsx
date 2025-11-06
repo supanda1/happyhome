@@ -92,6 +92,19 @@ const App: React.FC = () => {
   // const { services, loading: servicesLoading } = useServices();
   const [services, setServices] = useState<any[]>([]);
   const [servicesLoading, setServicesLoading] = useState(false);
+  
+  // Debug: Add effect to log services changes
+  useEffect(() => {
+    console.log('🔍 Services state changed:', {
+      servicesCount: services?.length || 0,
+      servicesLoading,
+      sampleService: services?.[0] ? {
+        name: services[0].name,
+        category_name: (services[0] as any).category_name,
+        is_active: (services[0] as any).is_active
+      } : null
+    });
+  }, [services, servicesLoading]);
 
   // Memoized helper function to convert Service[] to BackendService[]
   const convertedBackendServices = useMemo(() => {
@@ -139,6 +152,17 @@ const App: React.FC = () => {
       // Log only when services array changes
       if (convertedServices.length > 0) {
         console.log('✅ Services converted successfully:', convertedServices.length);
+        console.log('🔄 Converted services sample:', {
+          totalConverted: convertedServices.length,
+          firstConverted: convertedServices[0] ? {
+            id: convertedServices[0].id,
+            name: convertedServices[0].name,
+            category_name: convertedServices[0].category_name,
+            is_active: convertedServices[0].is_active
+          } : null,
+          categoriesInConverted: [...new Set(convertedServices.map(s => s.category_name))],
+          activeCount: convertedServices.filter(s => s.is_active).length
+        });
       }
       
       return convertedServices;
@@ -285,6 +309,18 @@ const App: React.FC = () => {
         services: allServices?.length || 0,
         sampleService: allServices?.[0]
       });
+
+      // Debug: Log detailed service data
+      console.log('🔍 All services raw data:', allServices);
+      if (allServices && allServices.length > 0) {
+        console.log('🔍 First service details:', {
+          name: allServices[0]?.name,
+          category_name: allServices[0]?.category_name,
+          category_id: allServices[0]?.category_id,
+          is_active: allServices[0]?.is_active,
+          keys: Object.keys(allServices[0] || {})
+        });
+      }
       
       // Check if we received valid arrays
       if (!Array.isArray(allCategories)) {
@@ -314,6 +350,20 @@ const App: React.FC = () => {
       setSubcategories(activeSubcategories);
       setServices(activeServices);
       setServicesLoading(false);
+
+      // Debug: Log what we're setting
+      console.log('🎯 Setting frontend state:', {
+        activeCategories: activeCategories.length,
+        activeSubcategories: activeSubcategories.length,
+        activeServices: activeServices.length,
+        categoryNames: activeCategories.map(c => c.name),
+        serviceCategories: activeServices.map(s => ({ name: (s as any).name, category_name: (s as any).category_name })),
+        firstActiveService: activeServices[0] ? {
+          name: activeServices[0].name,
+          category_name: (activeServices[0] as any).category_name,
+          is_active: (activeServices[0] as any).is_active
+        } : null
+      });
       
       // Build service categories object
       const serviceCategoriesObj: Record<string, string[]> = {
@@ -1818,6 +1868,19 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                   service.category_name === category.name && service.is_active
                 );
                 
+                // Debug: Log hasServices check for each category
+                const servicesInThisCategory = convertedBackendServices?.filter(s => s.category_name === category.name) || [];
+                const activeServicesInCategory = convertedBackendServices?.filter(s => s.category_name === category.name && s.is_active) || [];
+                
+                console.log(`🎯 Category "${category.name}" hasServices check:`, {
+                  categoryName: category.name,
+                  hasServices,
+                  convertedServicesCount: convertedBackendServices?.length || 0,
+                  servicesInThisCategory: servicesInThisCategory.map(s => ({ name: s.name, category_name: s.category_name, is_active: s.is_active })),
+                  activeServicesInCategory: activeServicesInCategory.map(s => ({ name: s.name, category_name: s.category_name, is_active: s.is_active })),
+                  allAvailableCategories: [...new Set(convertedBackendServices?.map(s => s.category_name) || [])]
+                });
+                
                 // Get first 2 subcategories for display
                 const categorySubcategories = subcategories.filter(sub => 
                   sub.category_id === category.id && sub.is_active
@@ -2726,6 +2789,13 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                 );
                 const categoryPageName = category.name.toLowerCase().replace(/\s+/g, '-').replace('&', '&');
                 const isActive = currentPage === categoryPageName || currentPage.startsWith(categoryPageName + '-');
+                
+                // Debug: Log navigation category check
+                console.log(`🚀 Nav Category "${category.name}":`, {
+                  hasServices,
+                  servicesForCategory: convertedBackendServices?.filter(s => s.category_name === category.name),
+                  totalServices: convertedBackendServices?.length || 0
+                });
                 
                 return (
                   <button 
