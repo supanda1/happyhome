@@ -287,8 +287,8 @@ const createTables = async () => {
     await client.query('CREATE INDEX IF NOT EXISTS idx_engineers_is_active ON engineers(is_active)');
     await client.query('CREATE INDEX IF NOT EXISTS idx_engineers_is_available ON engineers(is_available)');
     await client.query('CREATE INDEX IF NOT EXISTS idx_engineers_rating ON engineers(rating)');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_engineers_expertise USING GIN(expertise_areas)');
-    await client.query('CREATE INDEX IF NOT EXISTS idx_engineers_service_areas USING GIN(service_areas)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_engineers_expertise ON engineers USING GIN(expertise_areas)');
+    await client.query('CREATE INDEX IF NOT EXISTS idx_engineers_service_areas ON engineers USING GIN(service_areas)');
     
     // Cart items indexes
     await client.query('CREATE INDEX IF NOT EXISTS idx_cart_items_user_id ON cart_items(user_id)');

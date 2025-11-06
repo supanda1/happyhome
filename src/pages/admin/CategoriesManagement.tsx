@@ -213,21 +213,22 @@ const CategoriesManagement: React.FC<CategoriesManagementProps> = ({ onCategoryC
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
           {/* Enhanced Header Section */}
           <div className="relative overflow-hidden">
-            <div className="bg-gradient-to-r from-purple-600 to-indigo-700 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full transform translate-x-16 -translate-y-16 blur-2xl"></div>
-              <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full transform -translate-x-12 translate-y-12 blur-xl"></div>
+            <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 rounded-3xl p-8 text-white shadow-2xl">
+              <div className="absolute inset-0 bg-black/10"></div>
+              <div className="absolute -top-4 -right-4 w-24 h-24 bg-white/10 rounded-full blur-xl"></div>
+              <div className="absolute -bottom-6 -left-6 w-32 h-32 bg-white/5 rounded-full blur-2xl"></div>
               <div className="relative z-10">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="flex items-center space-x-3 mb-4">
-                      <div className="bg-white/20 rounded-2xl p-3">
+                    <div className="flex items-center space-x-4 mb-4">
+                      <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-sm">
                         <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                         </svg>
                       </div>
                       <div>
-                        <h1 className="text-4xl font-bold text-white tracking-tight">Categories Management</h1>
-                        <p className="text-purple-100 text-lg">Organize and manage your service categories</p>
+                        <h1 className="text-3xl font-bold mb-2 tracking-tight">Categories Management</h1>
+                        <p className="text-white/80 text-lg">Organize and manage your service categories</p>
                       </div>
                     </div>
                   </div>
@@ -235,12 +236,12 @@ const CategoriesManagement: React.FC<CategoriesManagementProps> = ({ onCategoryC
                     <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4">
                       <div className="text-center">
                         <div className="text-2xl font-bold text-white">{categories.length}</div>
-                        <div className="text-sm text-purple-100">Total Categories</div>
+                        <div className="text-sm text-white/80">Total Categories</div>
                       </div>
                     </div>
                   </div>
                 </div>
-                <p className="text-purple-100 text-xl leading-relaxed mt-4">The foundation of your customer portal</p>
+                <p className="text-white/80 text-xl leading-relaxed mt-4">The foundation of your customer portal</p>
               </div>
             </div>
           </div>

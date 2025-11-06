@@ -78,9 +78,19 @@ export const getServices = async (req: Request, res: Response) => {
     
     const result = await pool.query(query, params);
     
+    // Parse JSONB fields that come as strings from PostgreSQL
+    const parsedRows = result.rows.map(row => ({
+      ...row,
+      inclusions: typeof row.inclusions === 'string' ? JSON.parse(row.inclusions || '[]') : (row.inclusions || []),
+      exclusions: typeof row.exclusions === 'string' ? JSON.parse(row.exclusions || '[]') : (row.exclusions || []),
+      requirements: typeof row.requirements === 'string' ? JSON.parse(row.requirements || '[]') : (row.requirements || []),
+      tags: typeof row.tags === 'string' ? JSON.parse(row.tags || '[]') : (row.tags || []),
+      image_paths: typeof row.image_paths === 'string' ? JSON.parse(row.image_paths || '[]') : (row.image_paths || [])
+    }));
+    
     res.json({
       success: true,
-      data: result.rows
+      data: parsedRows
     });
   } catch (error) {
     console.error('Error fetching services:', error);
@@ -148,9 +158,20 @@ export const getServicesByCategory = async (req: Request, res: Response) => {
       ORDER BY s.name ASC
     `, [categoryId]);
     
+    // Parse JSONB fields that come as strings from PostgreSQL
+    const parsedRows = result.rows.map(row => ({
+      ...row,
+      inclusions: typeof row.inclusions === 'string' ? JSON.parse(row.inclusions || '[]') : (row.inclusions || []),
+      exclusions: typeof row.exclusions === 'string' ? JSON.parse(row.exclusions || '[]') : (row.exclusions || []),
+      requirements: typeof row.requirements === 'string' ? JSON.parse(row.requirements || '[]') : (row.requirements || []),
+      tags: typeof row.tags === 'string' ? JSON.parse(row.tags || '[]') : (row.tags || []),
+      image_paths: typeof row.image_paths === 'string' ? JSON.parse(row.image_paths || '[]') : (row.image_paths || []),
+      subcategory_images: typeof row.subcategory_images === 'string' ? JSON.parse(row.subcategory_images || '[]') : (row.subcategory_images || [])
+    }));
+    
     res.json({
       success: true,
-      data: result.rows
+      data: parsedRows
     });
   } catch (error) {
     console.error('Error fetching services by category:', error);
@@ -206,9 +227,19 @@ export const getServicesBySubcategory = async (req: Request, res: Response) => {
       ORDER BY s.name ASC
     `, [subcategoryId]);
     
+    // Parse JSONB fields that come as strings from PostgreSQL
+    const parsedRows = result.rows.map(row => ({
+      ...row,
+      inclusions: typeof row.inclusions === 'string' ? JSON.parse(row.inclusions || '[]') : (row.inclusions || []),
+      exclusions: typeof row.exclusions === 'string' ? JSON.parse(row.exclusions || '[]') : (row.exclusions || []),
+      requirements: typeof row.requirements === 'string' ? JSON.parse(row.requirements || '[]') : (row.requirements || []),
+      tags: typeof row.tags === 'string' ? JSON.parse(row.tags || '[]') : (row.tags || []),
+      image_paths: typeof row.image_paths === 'string' ? JSON.parse(row.image_paths || '[]') : (row.image_paths || [])
+    }));
+    
     res.json({
       success: true,
-      data: result.rows
+      data: parsedRows
     });
   } catch (error) {
     console.error('Error fetching services by subcategory:', error);
@@ -566,9 +597,21 @@ export const getServiceById = async (req: Request, res: Response) => {
       });
     }
     
+    // Parse JSONB fields that come as strings from PostgreSQL
+    const row = result.rows[0];
+    const parsedRow = {
+      ...row,
+      inclusions: typeof row.inclusions === 'string' ? JSON.parse(row.inclusions || '[]') : (row.inclusions || []),
+      exclusions: typeof row.exclusions === 'string' ? JSON.parse(row.exclusions || '[]') : (row.exclusions || []),
+      requirements: typeof row.requirements === 'string' ? JSON.parse(row.requirements || '[]') : (row.requirements || []),
+      tags: typeof row.tags === 'string' ? JSON.parse(row.tags || '[]') : (row.tags || []),
+      image_paths: typeof row.image_paths === 'string' ? JSON.parse(row.image_paths || '[]') : (row.image_paths || []),
+      subcategory_images: typeof row.subcategory_images === 'string' ? JSON.parse(row.subcategory_images || '[]') : (row.subcategory_images || [])
+    };
+    
     res.json({
       success: true,
-      data: result.rows[0]
+      data: parsedRow
     });
   } catch (error) {
     console.error('Error fetching service:', error);

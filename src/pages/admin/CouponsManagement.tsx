@@ -247,7 +247,7 @@ const CouponsManagement: React.FC = () => {
           discount_type: formData.discount_type,
           discount_value: Number(formData.discount_value),
           minimum_order_amount: Number(formData.minimum_order_amount) || 0,
-          maximum_discount_amount: formData.maximum_discount_amount ? Number(formData.maximum_discount_amount) : 99999, // Default to large number if no cap
+          maximum_discount_amount: formData.maximum_discount_amount ? Number(formData.maximum_discount_amount) : undefined, // Allow undefined for no cap
           valid_from: formData.valid_from, // Already in YYYY-MM-DD format
           valid_until: formData.valid_until, // Already in YYYY-MM-DD format
           usage_limit: formData.usage_limit ? Number(formData.usage_limit) : 999999, // Default to large number (unlimited-like)
@@ -537,7 +537,7 @@ const CouponsManagement: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
           {/* Enhanced Header Section */}
           <div className="relative overflow-hidden">
-            <div className="bg-gradient-to-r from-pink-600 to-rose-700 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+            <div className="bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full transform translate-x-16 -translate-y-16 blur-2xl"></div>
               <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full transform -translate-x-12 translate-y-12 blur-xl"></div>
               <div className="relative z-10">
@@ -551,7 +551,7 @@ const CouponsManagement: React.FC = () => {
                       </div>
                       <div>
                         <h1 className="text-4xl font-bold text-white tracking-tight">Coupons & Promotions</h1>
-                        <p className="text-pink-100 text-lg">Create attractive discount coupons and boost sales</p>
+                        <p className="text-white/80 text-lg">Create attractive discount coupons and boost sales</p>
                       </div>
                     </div>
                   </div>
@@ -559,12 +559,12 @@ const CouponsManagement: React.FC = () => {
                     <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4">
                       <div className="text-center">
                         <div className="text-2xl font-bold text-white">{coupons.length}</div>
-                        <div className="text-sm text-pink-100">Total Coupons</div>
+                        <div className="text-sm text-white/80">Total Coupons</div>
                       </div>
                     </div>
                   </div>
                 </div>
-                <p className="text-pink-100 text-xl leading-relaxed mt-4">Drive customer engagement with targeted promotions</p>
+                <p className="text-white/80 text-xl leading-relaxed mt-4">Drive customer engagement with targeted promotions</p>
               </div>
             </div>
           </div>
@@ -573,73 +573,81 @@ const CouponsManagement: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             
             {/* Total Coupons */}
-            <div className="group">
-              <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 p-6 transform transition-all duration-300 hover:scale-105 hover:shadow-2xl">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-3">
-                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
-                    </svg>
+            <div className="group relative bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-1 hover:shadow-2xl transition-all duration-500 transform hover:scale-105 hover:-translate-y-2">
+              <div className="relative overflow-hidden bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 rounded-xl p-6 text-center">
+                <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full blur-xl group-hover:scale-150 transition-transform duration-700"></div>
+                <div className="relative z-10">
+                  <div className="flex items-center justify-center mb-3">
+                    <div className="p-2 bg-white/20 rounded-full backdrop-blur-sm">
+                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+                      </svg>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <p className="text-3xl font-bold text-gray-900 mb-1">{coupons.length}</p>
-                  <p className="text-sm font-medium text-gray-600">Total Coupons</p>
-                  <p className="text-xs text-blue-600 mt-1 font-medium">All promotions</p>
+                  <p className="text-sm font-medium text-blue-100 mb-2">Total Coupons</p>
+                  <p className="text-xl font-bold text-white mb-2 animate-pulse">{coupons.length}</p>
+                  <p className="text-xs text-blue-200">All promotions</p>
                 </div>
               </div>
             </div>
 
             {/* Active Coupons */}
-            <div className="group">
-              <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 p-6 transform transition-all duration-300 hover:scale-105 hover:shadow-2xl">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl p-3">
-                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+            <div className="group relative bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-1 hover:shadow-2xl transition-all duration-500 transform hover:scale-105 hover:-translate-y-2">
+              <div className="relative overflow-hidden bg-gradient-to-br from-green-500 via-green-600 to-emerald-600 rounded-xl p-6 text-center">
+                <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full blur-xl group-hover:scale-150 transition-transform duration-700"></div>
+                <div className="relative z-10">
+                  <div className="flex items-center justify-center mb-3">
+                    <div className="p-2 bg-white/20 rounded-full backdrop-blur-sm">
+                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <p className="text-3xl font-bold text-gray-900 mb-1">{filteredCoupons.filter(c => c.is_active && new Date(c.valid_until) > new Date()).length}</p>
-                  <p className="text-sm font-medium text-gray-600">Active Coupons</p>
-                  <p className="text-xs text-green-600 mt-1 font-medium">Live & available</p>
+                  <p className="text-sm font-medium text-green-100 mb-2">Active Coupons</p>
+                  <p className="text-xl font-bold text-white mb-2 animate-pulse">{filteredCoupons.filter(c => c.is_active && new Date(c.valid_until) > new Date()).length}</p>
+                  <p className="text-xs text-green-200">Live & available</p>
                 </div>
               </div>
             </div>
 
             {/* Expired Coupons */}
-            <div className="group">
-              <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 p-6 transform transition-all duration-300 hover:scale-105 hover:shadow-2xl">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-xl p-3">
-                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+            <div className="group relative bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-1 hover:shadow-2xl transition-all duration-500 transform hover:scale-105 hover:-translate-y-2">
+              <div className="relative overflow-hidden bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 rounded-xl p-6 text-center">
+                <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full blur-xl group-hover:scale-150 transition-transform duration-700"></div>
+                <div className="relative z-10">
+                  <div className="flex items-center justify-center mb-3">
+                    <div className="p-2 bg-white/20 rounded-full backdrop-blur-sm">
+                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <p className="text-3xl font-bold text-gray-900 mb-1">{coupons.filter(c => new Date(c.valid_until) < new Date()).length}</p>
-                  <p className="text-sm font-medium text-gray-600">Expired Coupons</p>
-                  <p className="text-xs text-orange-600 mt-1 font-medium">Past due</p>
+                  <p className="text-sm font-medium text-orange-100 mb-2">Expired Coupons</p>
+                  <p className="text-xl font-bold text-white mb-2 animate-pulse">{coupons.filter(c => new Date(c.valid_until) < new Date()).length}</p>
+                  <p className="text-xs text-orange-200">Past due</p>
                 </div>
               </div>
             </div>
 
             {/* Usage Statistics */}
-            <div className="group">
-              <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 p-6 transform transition-all duration-300 hover:scale-105 hover:shadow-2xl">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl p-3">
-                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
+            <div className="group relative bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-1 hover:shadow-2xl transition-all duration-500 transform hover:scale-105 hover:-translate-y-2">
+              <div className="relative overflow-hidden bg-gradient-to-br from-purple-500 via-purple-600 to-indigo-600 rounded-xl p-6 text-center">
+                <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full blur-xl group-hover:scale-150 transition-transform duration-700"></div>
+                <div className="relative z-10">
+                  <div className="flex items-center justify-center mb-3">
+                    <div className="p-2 bg-white/20 rounded-full backdrop-blur-sm">
+                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                      </svg>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <p className="text-3xl font-bold text-gray-900 mb-1">{coupons.reduce((sum, c) => sum + c.usage_count, 0)}</p>
-                  <p className="text-sm font-medium text-gray-600">Total Usage</p>
-                  <p className="text-xs text-purple-600 mt-1 font-medium">Times redeemed</p>
+                  <p className="text-sm font-medium text-purple-100 mb-2">Total Usage</p>
+                  <p className="text-xl font-bold text-white mb-2 animate-pulse">{coupons.reduce((sum, c) => sum + c.usage_count, 0)}</p>
+                  <p className="text-xs text-purple-200">Times redeemed</p>
                 </div>
               </div>
             </div>
@@ -719,7 +727,7 @@ const CouponsManagement: React.FC = () => {
               <div className="flex space-x-3">
                 <button
                   onClick={() => setShowForm(true)}
-                  className="group relative px-6 py-3 bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700 text-white rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl font-bold flex items-center space-x-2 overflow-hidden"
+                  className="group relative px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl font-bold flex items-center space-x-2 overflow-hidden"
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
                   <svg className="w-5 h-5 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">

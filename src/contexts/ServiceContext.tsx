@@ -261,7 +261,7 @@ export const ServiceProvider: React.FC<ServiceProviderProps> = ({ children }) =>
         photos: (service.image_paths || []).map((url: string, index: number) => ({
           id: `${service.id}-photo-${index}`,
           serviceId: service.id,
-          url: url,
+          url: url.startsWith('http') ? url : `/${url}`,
           altText: `${service.name} photo ${index + 1}`,
           isPrimary: index === 0,
           sortOrder: index

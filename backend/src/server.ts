@@ -47,6 +47,9 @@ app.use(morgan('combined')); // Logging
 app.use(express.json({ limit: '10mb' })); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true, limit: '10mb' })); // Parse URL-encoded bodies
 
+// Serve static images
+app.use('/images', express.static('public/images'));
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({

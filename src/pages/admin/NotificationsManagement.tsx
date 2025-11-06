@@ -315,9 +315,21 @@ const NotificationsManagement: React.FC<NotificationsManagementProps> = ({ onNav
   return (
     <div className="space-y-6">
       {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 rounded-xl p-6 text-white">
-        <h1 className="text-2xl font-bold mb-2">📱 Multi-Channel Notifications Dashboard</h1>
-        <p className="text-orange-100">Monitor and manage customer communications across SMS, Email, and WhatsApp channels</p>
+      <div className="bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 rounded-3xl p-8 text-white shadow-2xl relative overflow-hidden">
+        <div className="absolute inset-0 bg-black/10"></div>
+        <div className="absolute -top-4 -right-4 w-24 h-24 bg-white/10 rounded-full blur-xl"></div>
+        <div className="absolute -bottom-6 -left-6 w-32 h-32 bg-white/5 rounded-full blur-2xl"></div>
+        <div className="relative z-10">
+          <div className="flex items-center space-x-4 mb-4">
+            <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-sm">
+              <span className="text-2xl">📱</span>
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold mb-2 tracking-tight">Multi-Channel Notifications Dashboard</h1>
+              <p className="text-white/80 text-lg">Monitor and manage customer communications across SMS, Email, and WhatsApp channels</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Stats Grid */}
@@ -325,47 +337,102 @@ const NotificationsManagement: React.FC<NotificationsManagementProps> = ({ onNav
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           
           {/* Total Notifications */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-4 text-center">
-              <p className="text-sm font-medium text-blue-100 mb-2">Total Notifications</p>
-              <p className="text-4xl font-bold text-white">{analytics.total_notifications}</p>
-              <p className="text-xs text-blue-200 mt-2">Last 7 Days</p>
+          <div className="group relative bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-1 hover:shadow-2xl transition-all duration-500 transform hover:scale-105 hover:-translate-y-2">
+            <div className="relative overflow-hidden bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 rounded-xl p-6 text-center">
+              <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full blur-xl group-hover:scale-150 transition-transform duration-700"></div>
+              <div className="relative z-10">
+                <div className="flex items-center justify-center mb-3">
+                  <div className="p-2 bg-white/20 rounded-full backdrop-blur-sm">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                    </svg>
+                  </div>
+                </div>
+                <p className="text-sm font-medium text-blue-100 mb-2">Total Notifications</p>
+                <p className="text-2xl font-bold text-white mb-2 animate-pulse">{analytics.total_notifications}</p>
+                <p className="text-xs text-blue-200">Last 7 Days</p>
+              </div>
             </div>
           </div>
 
           {/* Success Rate */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-4 text-center">
-              <p className="text-sm font-medium text-green-100 mb-2">Success Rate</p>
-              <p className="text-4xl font-bold text-white">{analytics.success_rate_percentage}%</p>
-              <p className="text-xs text-green-200 mt-2">Delivery Rate</p>
+          <div className="group relative bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-1 hover:shadow-2xl transition-all duration-500 transform hover:scale-105 hover:-translate-y-2">
+            <div className="relative overflow-hidden bg-gradient-to-br from-green-500 via-green-600 to-emerald-600 rounded-xl p-6 text-center">
+              <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full blur-xl group-hover:scale-150 transition-transform duration-700"></div>
+              <div className="relative z-10">
+                <div className="flex items-center justify-center mb-3">
+                  <div className="p-2 bg-white/20 rounded-full backdrop-blur-sm">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                </div>
+                <p className="text-sm font-medium text-green-100 mb-2">Success Rate</p>
+                <p className="text-2xl font-bold text-white mb-2 animate-pulse">{analytics.success_rate_percentage}%</p>
+                <p className="text-xs text-green-200">Delivery Rate</p>
+              </div>
             </div>
           </div>
 
           {/* SMS Notifications */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg p-4 text-center">
-              <p className="text-sm font-medium text-purple-100 mb-2">SMS Sent</p>
-              <p className="text-4xl font-bold text-white">{analytics.type_breakdown.SMS || 0}</p>
-              <p className="text-xs text-purple-200 mt-2">Text Messages</p>
+          <div className="group relative bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-1 hover:shadow-2xl transition-all duration-500 transform hover:scale-105 hover:-translate-y-2">
+            <div className="relative overflow-hidden bg-gradient-to-br from-purple-500 via-purple-600 to-indigo-600 rounded-xl p-6 text-center">
+              <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full blur-xl group-hover:scale-150 transition-transform duration-700"></div>
+              <div className="relative z-10">
+                <div className="flex items-center justify-center mb-3">
+                  <div className="p-2 bg-white/20 rounded-full backdrop-blur-sm">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                  </div>
+                </div>
+                <p className="text-sm font-medium text-purple-100 mb-2">SMS Sent</p>
+                <p className="text-2xl font-bold text-white mb-2 animate-pulse">{analytics.type_breakdown.SMS || 0}</p>
+                <p className="text-xs text-purple-200">Text Messages</p>
+              </div>
             </div>
           </div>
 
           {/* Email Notifications */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg p-4 text-center">
-              <p className="text-sm font-medium text-orange-100 mb-2">Emails Sent</p>
-              <p className="text-4xl font-bold text-white">{analytics.type_breakdown.EMAIL || 0}</p>
-              <p className="text-xs text-orange-200 mt-2">Email Messages</p>
+          <div className="group relative bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-1 hover:shadow-2xl transition-all duration-500 transform hover:scale-105 hover:-translate-y-2">
+            <div className="relative overflow-hidden bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 rounded-xl p-6 text-center">
+              <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full blur-xl group-hover:scale-150 transition-transform duration-700"></div>
+              <div className="relative z-10">
+                <div className="flex items-center justify-center mb-3">
+                  <div className="p-2 bg-white/20 rounded-full backdrop-blur-sm">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                </div>
+                <p className="text-sm font-medium text-orange-100 mb-2">Emails Sent</p>
+                <p className="text-2xl font-bold text-white mb-2 animate-pulse">{analytics.type_breakdown.EMAIL || 0}</p>
+                <p className="text-xs text-orange-200">Email Messages</p>
+              </div>
             </div>
           </div>
 
           {/* WhatsApp Notifications */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="bg-gradient-to-r from-emerald-500 to-green-600 rounded-lg p-4 text-center">
-              <p className="text-sm font-medium text-green-100 mb-2">WhatsApp Sent</p>
-              <p className="text-4xl font-bold text-white">{analytics.type_breakdown.WHATSAPP || 0}</p>
-              <p className="text-xs text-green-200 mt-2">WhatsApp Messages</p>
+          <div className="group relative bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-1 hover:shadow-2xl transition-all duration-500 transform hover:scale-105 hover:-translate-y-2">
+            <div className="relative overflow-hidden bg-gradient-to-br from-emerald-500 via-green-600 to-green-700 rounded-xl p-6 text-center">
+              <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full blur-xl group-hover:scale-150 transition-transform duration-700"></div>
+              <div className="relative z-10">
+                <div className="flex items-center justify-center mb-3">
+                  <div className="p-2 bg-white/20 rounded-full backdrop-blur-sm">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z" />
+                    </svg>
+                  </div>
+                </div>
+                <p className="text-sm font-medium text-green-100 mb-2">WhatsApp Sent</p>
+                <p className="text-2xl font-bold text-white mb-2 animate-pulse">{analytics.type_breakdown.WHATSAPP || 0}</p>
+                <p className="text-xs text-green-200">WhatsApp Messages</p>
+              </div>
             </div>
           </div>
 

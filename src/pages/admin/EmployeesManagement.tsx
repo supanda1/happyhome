@@ -290,7 +290,7 @@ const EmployeesManagement: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
           {/* Enhanced Header Section */}
           <div className="relative overflow-hidden">
-            <div className="bg-gradient-to-r from-indigo-600 to-purple-700 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+            <div className="bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full transform translate-x-16 -translate-y-16 blur-2xl"></div>
               <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full transform -translate-x-12 translate-y-12 blur-xl"></div>
               <div className="relative z-10">

@@ -45,6 +45,7 @@ services:
       - ./backend/src:/app/src
       - ./backend/migrations:/app/migrations
       - ./backend/scripts:/app/scripts
+      - ./public:/app/public  # Mount public images directory
       - /app/node_modules  # Anonymous volume for node_modules
     depends_on:
       postgres:

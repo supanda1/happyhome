@@ -284,11 +284,24 @@ const ImageManagement: React.FC = () => {
 
   return (
     <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Image Management</h1>
-        <p className="text-gray-600">
-          Download and manage license-free images from Pexels for services and categories
-        </p>
+      {/* Enhanced Header Section */}
+      <div className="relative overflow-hidden mb-6">
+        <div className="bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 rounded-3xl p-8 text-white shadow-2xl relative overflow-hidden">
+          <div className="absolute inset-0 bg-black/10"></div>
+          <div className="absolute -top-4 -right-4 w-24 h-24 bg-white/10 rounded-full blur-xl"></div>
+          <div className="absolute -bottom-6 -left-6 w-32 h-32 bg-white/5 rounded-full blur-2xl"></div>
+          <div className="relative z-10">
+            <div className="flex items-center space-x-4 mb-4">
+              <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-sm">
+                <FiImage className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold mb-2 tracking-tight">Image Management</h1>
+                <p className="text-white/80 text-lg">Download and manage license-free images from Pexels for services and categories</p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Settings */}

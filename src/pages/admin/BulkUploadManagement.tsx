@@ -529,7 +529,7 @@ const BulkUploadManagement: React.FC<BulkUploadManagementProps> = ({ onServiceCh
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
           {/* Enhanced Header Section */}
           <div className="relative overflow-hidden">
-            <div className="bg-gradient-to-r from-indigo-600 to-purple-700 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+            <div className="bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full transform translate-x-16 -translate-y-16 blur-2xl"></div>
               <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full transform -translate-x-12 translate-y-12 blur-xl"></div>
               <div className="relative z-10">
@@ -543,7 +543,7 @@ const BulkUploadManagement: React.FC<BulkUploadManagementProps> = ({ onServiceCh
                       </div>
                       <div>
                         <h1 className="text-4xl font-bold text-white tracking-tight">Bulk Upload Management</h1>
-                        <p className="text-indigo-100 text-lg">Create multiple services efficiently from Excel and PDF files</p>
+                        <p className="text-white/80 text-lg">Create multiple services efficiently from Excel and PDF files</p>
                       </div>
                     </div>
                   </div>
@@ -551,12 +551,12 @@ const BulkUploadManagement: React.FC<BulkUploadManagementProps> = ({ onServiceCh
                     <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4">
                       <div className="text-center">
                         <div className="text-2xl font-bold text-white">{uploads.length}</div>
-                        <div className="text-sm text-indigo-100">Total Uploads</div>
+                        <div className="text-sm text-white/80">Total Uploads</div>
                       </div>
                     </div>
                   </div>
                 </div>
-                <p className="text-indigo-100 text-xl leading-relaxed mt-4">Upload Excel sheets and PDF files to create multiple services at once with intelligent parsing</p>
+                <p className="text-white/80 text-xl leading-relaxed mt-4">Upload Excel sheets and PDF files to create multiple services at once with intelligent parsing</p>
               </div>
             </div>
           </div>
@@ -565,73 +565,81 @@ const BulkUploadManagement: React.FC<BulkUploadManagementProps> = ({ onServiceCh
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             
             {/* Total Uploads */}
-            <div className="group">
-              <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 p-6 transform transition-all duration-300 hover:scale-105 hover:shadow-2xl">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-3">
-                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                    </svg>
+            <div className="group relative bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-1 hover:shadow-2xl transition-all duration-500 transform hover:scale-105 hover:-translate-y-2">
+              <div className="relative overflow-hidden bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 rounded-xl p-6 text-center">
+                <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full blur-xl group-hover:scale-150 transition-transform duration-700"></div>
+                <div className="relative z-10">
+                  <div className="flex items-center justify-center mb-3">
+                    <div className="p-2 bg-white/20 rounded-full backdrop-blur-sm">
+                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <p className="text-3xl font-bold text-gray-900 mb-1">{uploads.length}</p>
-                  <p className="text-sm font-medium text-gray-600">Total Uploads</p>
-                  <p className="text-xs text-blue-600 mt-1 font-medium">Files processed</p>
+                  <p className="text-sm font-medium text-blue-100 mb-2">Total Uploads</p>
+                  <p className="text-2xl font-bold text-white mb-2 animate-pulse">{uploads.length}</p>
+                  <p className="text-xs text-blue-200">Files processed</p>
                 </div>
               </div>
             </div>
 
             {/* Successful Uploads */}
-            <div className="group">
-              <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 p-6 transform transition-all duration-300 hover:scale-105 hover:shadow-2xl">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl p-3">
-                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+            <div className="group relative bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-1 hover:shadow-2xl transition-all duration-500 transform hover:scale-105 hover:-translate-y-2">
+              <div className="relative overflow-hidden bg-gradient-to-br from-green-500 via-green-600 to-emerald-600 rounded-xl p-6 text-center">
+                <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full blur-xl group-hover:scale-150 transition-transform duration-700"></div>
+                <div className="relative z-10">
+                  <div className="flex items-center justify-center mb-3">
+                    <div className="p-2 bg-white/20 rounded-full backdrop-blur-sm">
+                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <p className="text-3xl font-bold text-gray-900 mb-1">{uploads.filter(u => u.uploadStatus === 'completed').length}</p>
-                  <p className="text-sm font-medium text-gray-600">Successful Uploads</p>
-                  <p className="text-xs text-green-600 mt-1 font-medium">Completed</p>
+                  <p className="text-sm font-medium text-green-100 mb-2">Successful Uploads</p>
+                  <p className="text-2xl font-bold text-white mb-2 animate-pulse">{uploads.filter(u => u.uploadStatus === 'completed').length}</p>
+                  <p className="text-xs text-green-200">Completed</p>
                 </div>
               </div>
             </div>
 
             {/* Services Created */}
-            <div className="group">
-              <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 p-6 transform transition-all duration-300 hover:scale-105 hover:shadow-2xl">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl p-3">
-                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m8 0H8m8 0v6a2 2 0 01-2 2H10a2 2 0 01-2-2V6m8 0V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2" />
-                    </svg>
+            <div className="group relative bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-1 hover:shadow-2xl transition-all duration-500 transform hover:scale-105 hover:-translate-y-2">
+              <div className="relative overflow-hidden bg-gradient-to-br from-purple-500 via-purple-600 to-indigo-600 rounded-xl p-6 text-center">
+                <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full blur-xl group-hover:scale-150 transition-transform duration-700"></div>
+                <div className="relative z-10">
+                  <div className="flex items-center justify-center mb-3">
+                    <div className="p-2 bg-white/20 rounded-full backdrop-blur-sm">
+                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m8 0H8m8 0v6a2 2 0 01-2 2H10a2 2 0 01-2-2V6m8 0V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2" />
+                      </svg>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <p className="text-3xl font-bold text-gray-900 mb-1">{uploads.reduce((sum, u) => sum + (u.processedCount || 0), 0)}</p>
-                  <p className="text-sm font-medium text-gray-600">Services Created</p>
-                  <p className="text-xs text-purple-600 mt-1 font-medium">Total services</p>
+                  <p className="text-sm font-medium text-purple-100 mb-2">Services Created</p>
+                  <p className="text-2xl font-bold text-white mb-2 animate-pulse">{uploads.reduce((sum, u) => sum + (u.processedCount || 0), 0)}</p>
+                  <p className="text-xs text-purple-200">Total services</p>
                 </div>
               </div>
             </div>
 
             {/* Processing Status */}
-            <div className="group">
-              <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 p-6 transform transition-all duration-300 hover:scale-105 hover:shadow-2xl">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-xl p-3">
-                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
+            <div className="group relative bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-1 hover:shadow-2xl transition-all duration-500 transform hover:scale-105 hover:-translate-y-2">
+              <div className="relative overflow-hidden bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 rounded-xl p-6 text-center">
+                <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full blur-xl group-hover:scale-150 transition-transform duration-700"></div>
+                <div className="relative z-10">
+                  <div className="flex items-center justify-center mb-3">
+                    <div className="p-2 bg-white/20 rounded-full backdrop-blur-sm">
+                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <p className="text-3xl font-bold text-gray-900 mb-1">{uploads.filter(u => u.uploadStatus === 'processing').length}</p>
-                  <p className="text-sm font-medium text-gray-600">Processing</p>
-                  <p className="text-xs text-orange-600 mt-1 font-medium">In progress</p>
+                  <p className="text-sm font-medium text-orange-100 mb-2">Processing</p>
+                  <p className="text-2xl font-bold text-white mb-2 animate-pulse">{uploads.filter(u => u.uploadStatus === 'processing').length}</p>
+                  <p className="text-xs text-orange-200">In progress</p>
                 </div>
               </div>
             </div>

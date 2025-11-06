@@ -643,47 +643,103 @@ const SuperAdminUserManagement: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 rounded-xl p-6 text-white">
-        <h1 className="text-2xl font-bold mb-2">🔒 Super Admin</h1>
-        <p className="text-purple-100">Create, manage, and control admin user access with advanced permission controls</p>
+      <div className="bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 rounded-3xl p-8 text-white shadow-2xl relative overflow-hidden">
+        <div className="absolute inset-0 bg-black/10"></div>
+        <div className="absolute -top-4 -right-4 w-24 h-24 bg-white/10 rounded-full blur-xl"></div>
+        <div className="absolute -bottom-6 -left-6 w-32 h-32 bg-white/5 rounded-full blur-2xl"></div>
+        <div className="relative z-10">
+          <div className="flex items-center space-x-4 mb-4">
+            <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-sm">
+              <span className="text-2xl">🔒</span>
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold mb-2 tracking-tight">Super Admin</h1>
+              <p className="text-white/80 text-lg">Create, manage, and control admin user access with advanced permission controls</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         
         {/* Total Admin Users */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-4 text-center">
-            <p className="text-sm font-medium text-blue-100 mb-2">Total Admin Users</p>
-            <p className="text-4xl font-bold text-white">{users.filter(u => u.role === 'admin').length}</p>
-            <p className="text-xs text-blue-200 mt-2">Managed</p>
+        <div className="group relative bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-1 hover:shadow-2xl transition-all duration-500 transform hover:scale-105 hover:-translate-y-2">
+          <div className="relative overflow-hidden bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 rounded-xl p-6 text-center">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+            <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full blur-xl group-hover:scale-150 transition-transform duration-700"></div>
+            <div className="relative z-10">
+              <div className="flex items-center justify-center mb-3">
+                <div className="p-2 bg-white/20 rounded-full backdrop-blur-sm">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+                  </svg>
+                </div>
+              </div>
+              <p className="text-sm font-medium text-blue-100 mb-2">Total Admin Users</p>
+              <p className="text-2xl font-bold text-white mb-2 animate-pulse">{users.filter(u => u.role === 'admin').length}</p>
+              <p className="text-xs text-blue-200">Managed</p>
+            </div>
           </div>
         </div>
 
         {/* Active Users */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-4 text-center">
-            <p className="text-sm font-medium text-green-100 mb-2">Active Users</p>
-            <p className="text-4xl font-bold text-white">{users.filter(u => u.is_active).length}</p>
-            <p className="text-xs text-green-200 mt-2">Online & Ready</p>
+        <div className="group relative bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-1 hover:shadow-2xl transition-all duration-500 transform hover:scale-105 hover:-translate-y-2">
+          <div className="relative overflow-hidden bg-gradient-to-br from-green-500 via-green-600 to-emerald-600 rounded-xl p-6 text-center">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+            <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full blur-xl group-hover:scale-150 transition-transform duration-700"></div>
+            <div className="relative z-10">
+              <div className="flex items-center justify-center mb-3">
+                <div className="p-2 bg-white/20 rounded-full backdrop-blur-sm">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+              <p className="text-sm font-medium text-green-100 mb-2">Active Users</p>
+              <p className="text-2xl font-bold text-white mb-2 animate-pulse">{users.filter(u => u.is_active).length}</p>
+              <p className="text-xs text-green-200">Online & Ready</p>
+            </div>
           </div>
         </div>
 
         {/* Available Permissions */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg p-4 text-center">
-            <p className="text-sm font-medium text-purple-100 mb-2">Available Permissions</p>
-            <p className="text-4xl font-bold text-white">{permissions.length}</p>
-            <p className="text-xs text-purple-200 mt-2">Access Controls</p>
+        <div className="group relative bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-1 hover:shadow-2xl transition-all duration-500 transform hover:scale-105 hover:-translate-y-2">
+          <div className="relative overflow-hidden bg-gradient-to-br from-purple-500 via-purple-600 to-indigo-600 rounded-xl p-6 text-center">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+            <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full blur-xl group-hover:scale-150 transition-transform duration-700"></div>
+            <div className="relative z-10">
+              <div className="flex items-center justify-center mb-3">
+                <div className="p-2 bg-white/20 rounded-full backdrop-blur-sm">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                </div>
+              </div>
+              <p className="text-sm font-medium text-purple-100 mb-2">Available Permissions</p>
+              <p className="text-2xl font-bold text-white mb-2 animate-pulse">{permissions.length}</p>
+              <p className="text-xs text-purple-200">Access Controls</p>
+            </div>
           </div>
         </div>
 
         {/* Super Admins */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg p-4 text-center">
-            <p className="text-sm font-medium text-orange-100 mb-2">Super Admins</p>
-            <p className="text-4xl font-bold text-white">{users.filter(u => u.role === 'super_admin').length}</p>
-            <p className="text-xs text-orange-200 mt-2">System Level</p>
+        <div className="group relative bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-1 hover:shadow-2xl transition-all duration-500 transform hover:scale-105 hover:-translate-y-2">
+          <div className="relative overflow-hidden bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 rounded-xl p-6 text-center">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+            <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full blur-xl group-hover:scale-150 transition-transform duration-700"></div>
+            <div className="relative z-10">
+              <div className="flex items-center justify-center mb-3">
+                <div className="p-2 bg-white/20 rounded-full backdrop-blur-sm">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                  </svg>
+                </div>
+              </div>
+              <p className="text-sm font-medium text-orange-100 mb-2">Super Admins</p>
+              <p className="text-2xl font-bold text-white mb-2 animate-pulse">{users.filter(u => u.role === 'super_admin').length}</p>
+              <p className="text-xs text-orange-200">System Level</p>
+            </div>
           </div>
         </div>
 

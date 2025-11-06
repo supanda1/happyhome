@@ -461,21 +461,22 @@ const BannerManagement: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
           {/* Enhanced Header Section */}
           <div className="relative overflow-hidden">
-            <div className="bg-gradient-to-r from-cyan-600 to-blue-700 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full transform translate-x-16 -translate-y-16 blur-2xl"></div>
-              <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full transform -translate-x-12 translate-y-12 blur-xl"></div>
+            <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 rounded-3xl p-8 text-white shadow-2xl">
+              <div className="absolute inset-0 bg-black/10"></div>
+              <div className="absolute -top-4 -right-4 w-24 h-24 bg-white/10 rounded-full blur-xl"></div>
+              <div className="absolute -bottom-6 -left-6 w-32 h-32 bg-white/5 rounded-full blur-2xl"></div>
               <div className="relative z-10">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="flex items-center space-x-3 mb-4">
-                      <div className="bg-white/20 rounded-2xl p-3">
+                    <div className="flex items-center space-x-4 mb-4">
+                      <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-sm">
                         <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
                       </div>
                       <div>
-                        <h1 className="text-4xl font-bold text-white tracking-tight">Banner Management</h1>
-                        <p className="text-cyan-100 text-lg">Create stunning visual experiences and promotional content</p>
+                        <h1 className="text-3xl font-bold mb-2 tracking-tight">Banner Management</h1>
+                        <p className="text-white/80 text-lg">Create stunning visual experiences and promotional content</p>
                       </div>
                     </div>
                   </div>
@@ -483,12 +484,12 @@ const BannerManagement: React.FC = () => {
                     <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4">
                       <div className="text-center">
                         <div className="text-2xl font-bold text-white">{banners.length}</div>
-                        <div className="text-sm text-cyan-100">Total Banners</div>
+                        <div className="text-sm text-white/80">Total Banners</div>
                       </div>
                     </div>
                   </div>
                 </div>
-                <p className="text-cyan-100 text-xl leading-relaxed mt-4">Design homepage heroes, promotional banners, and engaging visual content</p>
+                <p className="text-white/80 text-xl leading-relaxed mt-4">Design homepage heroes, promotional banners, and engaging visual content</p>
               </div>
             </div>
           </div>
@@ -497,73 +498,81 @@ const BannerManagement: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             
             {/* Total Banners */}
-            <div className="group">
-              <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 p-6 transform transition-all duration-300 hover:scale-105 hover:shadow-2xl">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-3">
-                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
+            <div className="group relative bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-1 hover:shadow-2xl transition-all duration-500 transform hover:scale-105 hover:-translate-y-2">
+              <div className="relative overflow-hidden bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 rounded-xl p-6 text-center">
+                <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full blur-xl group-hover:scale-150 transition-transform duration-700"></div>
+                <div className="relative z-10">
+                  <div className="flex items-center justify-center mb-3">
+                    <div className="p-2 bg-white/20 rounded-full backdrop-blur-sm">
+                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <p className="text-3xl font-bold text-gray-900 mb-1">{banners.length}</p>
-                  <p className="text-sm font-medium text-gray-600">Total Banners</p>
-                  <p className="text-xs text-blue-600 mt-1 font-medium">Content pieces</p>
+                  <p className="text-sm font-medium text-blue-100 mb-2">Total Banners</p>
+                  <p className="text-xl font-bold text-white mb-2 animate-pulse">{banners.length}</p>
+                  <p className="text-xs text-blue-200">Content pieces</p>
                 </div>
               </div>
             </div>
 
             {/* Active Banners */}
-            <div className="group">
-              <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 p-6 transform transition-all duration-300 hover:scale-105 hover:shadow-2xl">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl p-3">
-                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
+            <div className="group relative bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-1 hover:shadow-2xl transition-all duration-500 transform hover:scale-105 hover:-translate-y-2">
+              <div className="relative overflow-hidden bg-gradient-to-br from-green-500 via-green-600 to-emerald-600 rounded-xl p-6 text-center">
+                <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full blur-xl group-hover:scale-150 transition-transform duration-700"></div>
+                <div className="relative z-10">
+                  <div className="flex items-center justify-center mb-3">
+                    <div className="p-2 bg-white/20 rounded-full backdrop-blur-sm">
+                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <p className="text-3xl font-bold text-gray-900 mb-1">{banners.filter(b => b.is_active).length}</p>
-                  <p className="text-sm font-medium text-gray-600">Active Banners</p>
-                  <p className="text-xs text-green-600 mt-1 font-medium">Live & visible</p>
+                  <p className="text-sm font-medium text-green-100 mb-2">Active Banners</p>
+                  <p className="text-xl font-bold text-white mb-2 animate-pulse">{banners.filter(b => b.is_active).length}</p>
+                  <p className="text-xs text-green-200">Live & visible</p>
                 </div>
               </div>
             </div>
 
             {/* Hero Banners */}
-            <div className="group">
-              <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 p-6 transform transition-all duration-300 hover:scale-105 hover:shadow-2xl">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl p-3">
-                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                    </svg>
+            <div className="group relative bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-1 hover:shadow-2xl transition-all duration-500 transform hover:scale-105 hover:-translate-y-2">
+              <div className="relative overflow-hidden bg-gradient-to-br from-purple-500 via-purple-600 to-indigo-600 rounded-xl p-6 text-center">
+                <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full blur-xl group-hover:scale-150 transition-transform duration-700"></div>
+                <div className="relative z-10">
+                  <div className="flex items-center justify-center mb-3">
+                    <div className="p-2 bg-white/20 rounded-full backdrop-blur-sm">
+                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                      </svg>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <p className="text-3xl font-bold text-gray-900 mb-1">{banners.filter(b => b.position === 'hero').length}</p>
-                  <p className="text-sm font-medium text-gray-600">Hero Banners</p>
-                  <p className="text-xs text-purple-600 mt-1 font-medium">Main display</p>
+                  <p className="text-sm font-medium text-purple-100 mb-2">Hero Banners</p>
+                  <p className="text-xl font-bold text-white mb-2 animate-pulse">{banners.filter(b => b.position === 'hero').length}</p>
+                  <p className="text-xs text-purple-200">Main display</p>
                 </div>
               </div>
             </div>
 
             {/* Promotional */}
-            <div className="group">
-              <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 p-6 transform transition-all duration-300 hover:scale-105 hover:shadow-2xl">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-xl p-3">
-                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                    </svg>
+            <div className="group relative bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-1 hover:shadow-2xl transition-all duration-500 transform hover:scale-105 hover:-translate-y-2">
+              <div className="relative overflow-hidden bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 rounded-xl p-6 text-center">
+                <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full blur-xl group-hover:scale-150 transition-transform duration-700"></div>
+                <div className="relative z-10">
+                  <div className="flex items-center justify-center mb-3">
+                    <div className="p-2 bg-white/20 rounded-full backdrop-blur-sm">
+                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                      </svg>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <p className="text-3xl font-bold text-gray-900 mb-1">{banners.filter(b => b.position === 'promotional').length}</p>
-                  <p className="text-sm font-medium text-gray-600">Promotional</p>
-                  <p className="text-xs text-orange-600 mt-1 font-medium">Marketing content</p>
+                  <p className="text-sm font-medium text-orange-100 mb-2">Promotional</p>
+                  <p className="text-xl font-bold text-white mb-2 animate-pulse">{banners.filter(b => b.position === 'promotional').length}</p>
+                  <p className="text-xs text-orange-200">Marketing content</p>
                 </div>
               </div>
             </div>

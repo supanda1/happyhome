@@ -550,9 +550,9 @@ const AssignmentManagement: React.FC = () => {
   return (
     <div className="space-y-6">
         {/* Welcome Section - Match Dashboard Style */}
-        <div className="bg-gradient-to-r from-blue-600 to-purple-700 rounded-xl p-6 text-white mb-6">
+        <div className="bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 rounded-xl p-6 text-white mb-6">
           <h1 className="text-2xl font-bold mb-2">Assignment Management</h1>
-          <p className="text-blue-100">Intelligent engineer assignment with location, availability, and expertise matching</p>
+          <p className="text-white/80">Intelligent engineer assignment with location, availability, and expertise matching</p>
         </div>
 
         {/* Header Actions */}

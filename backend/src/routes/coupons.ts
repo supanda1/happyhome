@@ -31,7 +31,18 @@ const updateCouponValidation = [
   commonValidations.optionalEnum('discount_type', ['percentage', 'fixed_amount', 'free_service']),
   body('discount_value').optional().isFloat({ min: 0 }),
   body('minimum_order_amount').optional().isFloat({ min: 0 }),
-  body('maximum_discount_amount').optional().isFloat({ min: 0 }),
+  body('maximum_discount_amount')
+    .optional({ nullable: true })
+    .custom((value) => {
+      if (value === null || value === undefined || value === '') {
+        return true; // Allow null/undefined/empty for no cap
+      }
+      const num = parseFloat(value);
+      if (isNaN(num) || num < 0) {
+        throw new Error('Maximum discount amount must be a positive number or null');
+      }
+      return true;
+    }),
   commonValidations.optionalDate('valid_from'),
   commonValidations.optionalDate('valid_until'),
   body('usage_limit').optional().isInt({ min: 1 }),
