@@ -62,9 +62,10 @@ Thumbs.db
 *.temp
 cookies.txt
 
-# Documentation (keep only README.md)
+# Documentation (keep only README.md and deployment docs)
 *.md
 !README.md
+!DEPLOYMENT_README.md
 
 # Test and debug files
 test-*
