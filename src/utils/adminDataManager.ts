@@ -1013,52 +1013,52 @@ export const validateCouponForCart = async (code: string, cartItems: CartItem[])
 // ============================================================================
 
 /**
- * Get all employees from PostgreSQL database
+ * Get all engineers from PostgreSQL database
  */
 export const getEngineers = async (): Promise<Engineer[]> => {
   try {
-    const employees = await apiCall('/engineers');
-    console.log('✅ Engineers loaded from PostgreSQL database:', employees.length);
-    return employees;
+    const engineers = await apiCall('/engineers');
+    console.log('✅ Engineers loaded from PostgreSQL database:', engineers.length);
+    return engineers;
   } catch (error) {
-    console.error('❌ Failed to load employees from database:', error);
+    console.error('❌ Failed to load engineers from database:', error);
     throw error;
   }
 };
 
 /**
- * Get employees by expertise area from PostgreSQL database
+ * Get engineers by expertise area from PostgreSQL database
  */
 export const getEngineersByExpertise = async (expertiseArea: string): Promise<Engineer[]> => {
   try {
-    const employees = await apiCall(`/engineers?expertise=${encodeURIComponent(expertiseArea)}`);
-    console.log(`✅ Engineers with ${expertiseArea} expertise loaded from database:`, employees.length);
-    return employees;
+    const engineers = await apiCall(`/engineers?expertise=${encodeURIComponent(expertiseArea)}`);
+    console.log(`✅ Engineers with ${expertiseArea} expertise loaded from database:`, engineers.length);
+    return engineers;
   } catch (error) {
-    console.error(`❌ Failed to load employees with ${expertiseArea} expertise:`, error);
+    console.error(`❌ Failed to load engineers with ${expertiseArea} expertise:`, error);
     throw error;
   }
 };
 
 /**
- * Create new employee in PostgreSQL database
+ * Create new engineer in PostgreSQL database
  */
-export const createEngineer = async (employeeData: Omit<Engineer, 'id' | 'created_at' | 'updated_at'>): Promise<Engineer> => {
+export const createEngineer = async (engineerData: Omit<Engineer, 'id' | 'created_at' | 'updated_at'>): Promise<Engineer> => {
   try {
     const newEngineer = await apiCall('/engineers', {
       method: 'POST',
-      body: JSON.stringify(employeeData),
+      body: JSON.stringify(engineerData),
     });
     console.log('✅ Engineer created in database:', newEngineer);
     return newEngineer;
   } catch (error) {
-    console.error('❌ Failed to create employee:', error);
+    console.error('❌ Failed to create engineer:', error);
     throw error;
   }
 };
 
 /**
- * Update employee in PostgreSQL database
+ * Update engineer in PostgreSQL database
  */
 export const updateEngineer = async (engineerId: string, updates: Partial<Engineer>): Promise<Engineer> => {
   try {
@@ -1069,13 +1069,13 @@ export const updateEngineer = async (engineerId: string, updates: Partial<Engine
     console.log('✅ Engineer updated in database:', updatedEngineer);
     return updatedEngineer;
   } catch (error) {
-    console.error('❌ Failed to update employee:', error);
+    console.error('❌ Failed to update engineer:', error);
     throw error;
   }
 };
 
 /**
- * Delete employee from PostgreSQL database
+ * Delete engineer from PostgreSQL database
  */
 export const deleteEngineer = async (engineerId: string): Promise<boolean> => {
   try {
@@ -1085,7 +1085,7 @@ export const deleteEngineer = async (engineerId: string): Promise<boolean> => {
     console.log('✅ Engineer deleted from database:', engineerId);
     return true;
   } catch (error) {
-    console.error('❌ Failed to delete employee:', error);
+    console.error('❌ Failed to delete engineer:', error);
     return false;
   }
 };

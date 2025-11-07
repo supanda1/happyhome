@@ -565,13 +565,7 @@ export const CartSidebarFixed: React.FC<CartSidebarFixedProps> = ({
                       <span>{formatPrice(cart.subtotal || cart.totalAmount)}</span>
                     </div>
                     
-                    {/* Offer Plan Discount - Only show when NO coupon is applied */}
-                    {localStorage.getItem('selectedOfferPlan') && !cart.appliedCoupon && cart.discountAmount === 0 && (
-                      <div className="flex justify-between text-green-600">
-                        <span>💰 20% Discount</span>
-                        <span>-{formatPrice(Math.round((cart.subtotal || cart.totalAmount) * 0.20))}</span>
-                      </div>
-                    )}
+                    {/* Remove hardcoded offer plan discount - should only come from backend */}
                     
                     {cart.discountAmount > 0 && (
                       <div className="flex justify-between text-purple-600">
@@ -581,19 +575,9 @@ export const CartSidebarFixed: React.FC<CartSidebarFixedProps> = ({
                     )}
                     
 {(() => {
-                      // Calculate GST and Total with offer plan discount - Only if NO coupon applied
-                      const hasOfferPlan = !!localStorage.getItem('selectedOfferPlan') && !cart.appliedCoupon && cart.discountAmount === 0;
-                      const subtotal = cart.subtotal || cart.totalAmount;
-                      const discountAmount = hasOfferPlan ? Math.round(subtotal * 0.20) : 0;
-                      const discountedSubtotal = subtotal - discountAmount;
-                      
-                      const calculatedGST = hasOfferPlan 
-                        ? Math.round(discountedSubtotal * 0.18)
-                        : cart.gstAmount;
-                      
-                      const calculatedTotal = hasOfferPlan 
-                        ? discountedSubtotal + calculatedGST + cart.serviceChargeAmount
-                        : cart.finalAmount;
+                      // Use backend-calculated values only - no frontend discount calculations
+                      const calculatedGST = cart.gstAmount;
+                      const calculatedTotal = cart.finalAmount;
                       
                       return (
                         <>
@@ -627,19 +611,8 @@ export const CartSidebarFixed: React.FC<CartSidebarFixedProps> = ({
           {cart && cart.items.length > 0 && (
             <div className="border-t bg-gray-50 p-2">
 {(() => {
-                // Calculate total for checkout button - Only apply offer plan if NO coupon
-                const hasOfferPlan = !!localStorage.getItem('selectedOfferPlan') && !cart.appliedCoupon && cart.discountAmount === 0;
-                const subtotal = cart.subtotal || cart.totalAmount;
-                const discountAmount = hasOfferPlan ? Math.round(subtotal * 0.20) : 0;
-                const discountedSubtotal = subtotal - discountAmount;
-                
-                const calculatedGST = hasOfferPlan 
-                  ? Math.round(discountedSubtotal * 0.18)
-                  : cart.gstAmount;
-                
-                const calculatedTotal = hasOfferPlan 
-                  ? discountedSubtotal + calculatedGST + cart.serviceChargeAmount
-                  : cart.finalAmount;
+                // Use backend-calculated total only - no frontend discount calculations
+                const calculatedTotal = cart.finalAmount;
                 
                 return (
                   <button

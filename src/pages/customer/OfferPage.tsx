@@ -273,6 +273,9 @@ const OfferPage: React.FC<OfferPageProps> = ({
       console.log('🎯 OfferPage: Storing offer plan data for checkout:', offerPlanData);
       localStorage.setItem('selectedOfferPlan', JSON.stringify(offerPlanData));
       
+      // Set flag to indicate user is coming from offer page (for auto-coupon application)
+      sessionStorage.setItem('comingFromOfferPage', 'true');
+      
       console.log(`✅ Services added to cart. Checkout will apply ${selectedPlan.title} coupon: ${selectedPlan.combo_coupon_code} (${selectedPlan.discount_percentage}%)`);      
       // Trigger cart refresh
       setCartRefreshTrigger(prev => prev + 1);

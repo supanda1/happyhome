@@ -57,6 +57,9 @@ router.post('/bulk-assign', requireAdminAuth, ...bulkAssignValidation, OrdersCon
 // GET /api/orders/workload/engineers - Get engineer workload statistics (admin only)
 router.get('/workload/engineers', requireAdminAuth, OrdersController.getEngineerWorkloadStats);
 
+// GET /api/orders/workload/reports - Get engineer workload reports with date filtering (admin only)
+router.get('/workload/reports', requireAdminAuth, OrdersController.getEngineerWorkloadReports);
+
 // Order management endpoints  
 // GET /api/orders/my - Get current user's orders (user accessible)
 router.get('/my', requireAuth, OrdersController.getUserOrders);

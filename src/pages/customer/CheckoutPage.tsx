@@ -84,20 +84,22 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
     }
   }, []); // Remove selectedAddress dependency to break the loop
 
-  // Check for offer plan and auto-apply coupon immediately
+  // Check for offer plan and auto-apply coupon only if coming from offer page
   const checkAndApplyOfferPlanCoupon = useCallback(async () => {
     try {
       console.log('🔍 CheckoutPage: Starting checkAndApplyOfferPlanCoupon function');
       const offerPlanData = localStorage.getItem('selectedOfferPlan');
+      const comingFromOfferPage = sessionStorage.getItem('comingFromOfferPage');
       console.log('🔍 CheckoutPage: localStorage selectedOfferPlan:', offerPlanData);
+      console.log('🔍 CheckoutPage: comingFromOfferPage flag:', comingFromOfferPage);
       
       if (offerPlanData) {
         const planData = JSON.parse(offerPlanData);
         console.log('🎯 CheckoutPage: Found offer plan in localStorage:', planData);
         setOfferPlan(planData);
         
-        // Always try to apply the offer plan coupon if it exists
-        if (planData.coupon_code) {
+        // Only auto-apply if user is coming from offer page
+        if (planData.coupon_code && comingFromOfferPage === 'true') {
           console.log('🎁 CheckoutPage: Auto-applying offer plan coupon:', planData.coupon_code);
           console.log('🔍 CheckoutPage: Coupon details - Discount:', planData.discount_percentage, '% Duration:', planData.duration_months, 'months');
           
@@ -108,6 +110,9 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
           if (result.success) {
             console.log('✅ CheckoutPage: Offer plan coupon applied successfully');
             console.log('🔄 CheckoutPage: Reloading cart to show updated totals...');
+            // Clear the coming from offer page flag after successful application
+            sessionStorage.removeItem('comingFromOfferPage');
+            
             // Wait a moment for backend to process, then reload cart to show updated totals
             setTimeout(async () => {
               await loadCart();
@@ -115,6 +120,8 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
           } else {
             console.error('❌ CheckoutPage: Failed to auto-apply offer plan coupon:', result.error);
           }
+        } else if (!comingFromOfferPage) {
+          console.log('🚫 CheckoutPage: Not auto-applying coupon - user did not come from offer page');
         } else {
           console.warn('⚠️ CheckoutPage: Offer plan data exists but no coupon_code found:', planData);
         }
@@ -700,15 +707,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
                   disabled={!selectedAddress}
                   className="w-full bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 text-white py-3 px-4 rounded-lg text-lg font-semibold hover:from-orange-600 hover:via-purple-700 hover:to-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-300 shadow-lg hover:shadow-xl"
                 >
-                  Proceed to Payment • {cart ? formatPrice((() => {
-                    const hasOfferPlan = offerPlan && !cart.appliedCoupon && cart.discountAmount === 0;
-                    if (hasOfferPlan) {
-                      const discountedSubtotal = cart.subtotal - Math.round(cart.subtotal * (offerPlan.discount_percentage / 100));
-                      const discountedGST = Math.round(discountedSubtotal * 0.18);
-                      return discountedSubtotal + discountedGST + cart.serviceChargeAmount;
-                    }
-                    return cart.finalAmount;
-                  })()) : '₹0'}
+                  Proceed to Payment • {cart ? formatPrice(cart.finalAmount) : '₹0'}
                 </button>
               </div>
             )}
@@ -1007,13 +1006,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
                   <span className="font-medium">{formatPrice(cart.subtotal)}</span>
                 </div>
                 
-                {/* Offer Plan Discount - Only show when NO coupon is applied and no actual discount yet */}
-                {offerPlan && !cart.appliedCoupon && cart.discountAmount === 0 && (
-                  <div className="flex justify-between text-green-600">
-                    <span>💰 {offerPlan.discount_percentage}% Discount</span>
-                    <span>-{formatPrice(Math.round(cart.subtotal * (offerPlan.discount_percentage / 100)))}</span>
-                  </div>
-                )}
+                {/* Remove hardcoded offer plan discount - should only come from backend */}
                 
                 {cart.discountAmount > 0 && (
                   <div className="space-y-1">
@@ -1039,14 +1032,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
                 
                 <div className="flex justify-between">
                   <span className="text-gray-600">GST (18%)</span>
-                  <span className="font-medium">{formatPrice((() => {
-                    const hasOfferPlan = offerPlan && !cart.appliedCoupon && cart.discountAmount === 0;
-                    if (hasOfferPlan) {
-                      const discountedSubtotal = cart.subtotal - Math.round(cart.subtotal * (offerPlan.discount_percentage / 100));
-                      return Math.round(discountedSubtotal * 0.18);
-                    }
-                    return cart.gstAmount;
-                  })())}</span>
+                  <span className="font-medium">{formatPrice(cart.gstAmount)}</span>
                 </div>
                 
                 <div className="flex justify-between text-sm">
@@ -1067,15 +1053,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
                 
                 <div className="flex justify-between text-lg font-bold">
                   <span>Total</span>
-                  <span>{formatPrice((() => {
-                    const hasOfferPlan = offerPlan && !cart.appliedCoupon && cart.discountAmount === 0;
-                    if (hasOfferPlan) {
-                      const discountedSubtotal = cart.subtotal - Math.round(cart.subtotal * (offerPlan.discount_percentage / 100));
-                      const discountedGST = Math.round(discountedSubtotal * 0.18);
-                      return discountedSubtotal + discountedGST + cart.serviceChargeAmount;
-                    }
-                    return cart.finalAmount;
-                  })())}</span>
+                  <span>{formatPrice(cart.finalAmount)}</span>
                 </div>
               </div>
 
@@ -1085,15 +1063,7 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
                   disabled={!selectedAddress}
                   className="w-full mt-6 bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 text-white py-3 px-4 rounded-lg text-lg font-semibold hover:from-orange-600 hover:via-purple-700 hover:to-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-300 shadow-lg hover:shadow-xl"
                 >
-                  Proceed to Payment • {formatPrice((() => {
-                    const hasOfferPlan = offerPlan && !cart.appliedCoupon && cart.discountAmount === 0;
-                    if (hasOfferPlan) {
-                      const discountedSubtotal = cart.subtotal - Math.round(cart.subtotal * (offerPlan.discount_percentage / 100));
-                      const discountedGST = Math.round(discountedSubtotal * 0.18);
-                      return discountedSubtotal + discountedGST + cart.serviceChargeAmount;
-                    }
-                    return cart.finalAmount;
-                  })())}
+                  Proceed to Payment • {formatPrice(cart.finalAmount)}
                 </button>
               )}
 

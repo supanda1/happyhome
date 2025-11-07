@@ -105,32 +105,11 @@ export function CheckoutPayment({
         pincode: selectedAddress.pincode
       },
       items: orderItems,
-      total_amount: (() => {
-        const hasOfferPlan = !!localStorage.getItem('selectedOfferPlan') && !cart.appliedCoupon && cart.discountAmount === 0;
-        return hasOfferPlan ? cart.subtotal - Math.round(cart.subtotal * 0.20) : cart.subtotal;
-      })(),
-      discount_amount: (() => {
-        const hasOfferPlan = !!localStorage.getItem('selectedOfferPlan') && !cart.appliedCoupon && cart.discountAmount === 0;
-        return hasOfferPlan ? Math.round(cart.subtotal * 0.20) : (cart.discountAmount || 0);
-      })(),
-      gst_amount: (() => {
-        const hasOfferPlan = !!localStorage.getItem('selectedOfferPlan') && !cart.appliedCoupon && cart.discountAmount === 0;
-        if (hasOfferPlan) {
-          const discountedSubtotal = cart.subtotal - Math.round(cart.subtotal * 0.20);
-          return Math.round(discountedSubtotal * 0.18);
-        }
-        return cart.gstAmount || 0;
-      })(),
+      total_amount: cart.subtotal,
+      discount_amount: cart.discountAmount || 0,
+      gst_amount: cart.gstAmount || 0,
       service_charge: cart.serviceChargeAmount || 0,
-      final_amount: (() => {
-        const hasOfferPlan = !!localStorage.getItem('selectedOfferPlan') && !cart.appliedCoupon && cart.discountAmount === 0;
-        if (hasOfferPlan) {
-          const discountedSubtotal = cart.subtotal - Math.round(cart.subtotal * 0.20);
-          const discountedGST = Math.round(discountedSubtotal * 0.18);
-          return discountedSubtotal + discountedGST + cart.serviceChargeAmount;
-        }
-        return cart.finalAmount;
-      })(),
+      final_amount: cart.finalAmount,
       priority: 'medium',
       notes: customerNotes ? `${customerNotes}\nOrder Number: ${orderId}` : `Order Number: ${orderId}`,
     };
@@ -239,16 +218,7 @@ export function CheckoutPayment({
 
         {/* Payment Form */}
         <PaymentForm
-          amount={(() => {
-            // Apply offer plan discount if available
-            const hasOfferPlan = !!localStorage.getItem('selectedOfferPlan') && !cart.appliedCoupon && cart.discountAmount === 0;
-            if (hasOfferPlan) {
-              const discountedSubtotal = cart.subtotal - Math.round(cart.subtotal * 0.20);
-              const discountedGST = Math.round(discountedSubtotal * 0.18);
-              return discountedSubtotal + discountedGST + cart.serviceChargeAmount;
-            }
-            return cart.finalAmount;
-          })()}
+          amount={cart.finalAmount}
           currency="INR"
           orderId={orderId}
           onSuccess={handlePaymentSuccess}

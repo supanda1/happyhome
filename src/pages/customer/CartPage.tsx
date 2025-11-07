@@ -163,17 +163,19 @@ const CartPage: React.FC<CartPageProps> = ({
     }
   }, [updateCartCount]);
 
-  // Check for offer plan and auto-apply coupon immediately
+  // Check for offer plan and auto-apply coupon only if coming from offer page
   const checkAndApplyOfferPlanCoupon = useCallback(async () => {
     try {
       const offerPlanData = localStorage.getItem('selectedOfferPlan');
+      const comingFromOfferPage = sessionStorage.getItem('comingFromOfferPage');
+      
       if (offerPlanData) {
         const planData = JSON.parse(offerPlanData);
         console.log('🎯 CartPage: Found offer plan in localStorage:', planData);
         setOfferPlan(planData);
         
-        // Always try to apply the offer plan coupon if it exists
-        if (planData.coupon_code) {
+        // Only auto-apply if user is coming from offer page or hasn't manually removed it
+        if (planData.coupon_code && comingFromOfferPage === 'true') {
           console.log('🎁 CartPage: Auto-applying offer plan coupon:', planData.coupon_code);
           
           // Auto-apply the offer plan coupon (this will replace any existing coupon)
@@ -182,6 +184,9 @@ const CartPage: React.FC<CartPageProps> = ({
           
           if (result.success) {
             console.log('✅ CartPage: Offer plan coupon applied successfully');
+            // Clear the coming from offer page flag after successful application
+            sessionStorage.removeItem('comingFromOfferPage');
+            
             // Wait a moment for backend to process, then reload cart to show updated totals
             setTimeout(async () => {
               await loadCart();
@@ -190,6 +195,8 @@ const CartPage: React.FC<CartPageProps> = ({
           } else {
             console.error('❌ CartPage: Failed to auto-apply offer plan coupon:', result.error);
           }
+        } else if (!comingFromOfferPage) {
+          console.log('🚫 CartPage: Not auto-applying coupon - user did not come from offer page');
         }
       }
     } catch (error) {
@@ -292,6 +299,7 @@ const CartPage: React.FC<CartPageProps> = ({
         // Clear offer plan data if coupon removed (user chose to override offer plan)
         if (offerPlan) {
           localStorage.removeItem('selectedOfferPlan');
+          sessionStorage.removeItem('comingFromOfferPage');
           setOfferPlan(null);
           console.log('🗑️ Cleared offer plan data - user removed offer coupon');
         }
@@ -301,6 +309,30 @@ const CartPage: React.FC<CartPageProps> = ({
     } catch (error) {
       console.error('Failed to remove coupon:', error);
     }
+  };
+
+  // Clear offer plan and any auto-applied discounts
+  const handleClearOfferPlan = () => {
+    localStorage.removeItem('selectedOfferPlan');
+    sessionStorage.removeItem('comingFromOfferPage');
+    setOfferPlan(null);
+    handleRemoveCoupon(); // Also remove any applied coupon
+    console.log('🗑️ Manually cleared offer plan and auto-applied discounts');
+  };
+
+  // Debug function to clear all cart-related storage
+  const handleDebugClearAll = () => {
+    localStorage.removeItem('selectedOfferPlan');
+    sessionStorage.removeItem('comingFromOfferPage');
+    setOfferPlan(null);
+    setCouponCode('');
+    setCouponError('');
+    setCouponSuccess('');
+    
+    // Call backend to remove any applied coupons
+    handleRemoveCoupon();
+    
+    console.log('🧹 Debug: Cleared all cart storage and coupons');
   };
 
   const handleClearCart = async () => {
@@ -518,14 +550,8 @@ const CartPage: React.FC<CartPageProps> = ({
                 {/* Price Breakdown - Moved to top */}
                 <div className="space-y-3 text-sm mb-6">
                   {(() => {
-                    const isOfferPlanActive = offerPlan && localStorage.getItem('selectedOfferPlan');
-                    const calculatedSubtotal = isOfferPlanActive 
-                      ? cart.items.reduce((sum, item) => {
-                          // Use basePrice for uniform offer discount calculation
-                          const offerPrice = Math.round(item.basePrice * (1 - offerPlan.discount_percentage / 100));
-                          return sum + (offerPrice * item.quantity);
-                        }, 0)
-                      : cart.subtotal;
+                    // Use backend-calculated subtotal only
+                    const calculatedSubtotal = cart.subtotal;
                     
                     return (
                       <div className="flex justify-between">
@@ -557,28 +583,10 @@ const CartPage: React.FC<CartPageProps> = ({
                       )}
                     </div>
                   )}
-{(() => {
-                    const isOfferPlanActive = offerPlan && localStorage.getItem('selectedOfferPlan');
-                    const calculatedSubtotal = isOfferPlanActive 
-                      ? cart.items.reduce((sum, item) => {
-                          // Use basePrice for uniform offer discount calculation
-                          const offerPrice = Math.round(item.basePrice * (1 - offerPlan.discount_percentage / 100));
-                          return sum + (offerPrice * item.quantity);
-                        }, 0)
-                      : cart.subtotal;
-                    
-                    // Recalculate GST based on discounted subtotal
-                    const calculatedGST = isOfferPlanActive 
-                      ? Math.round(calculatedSubtotal * 0.18)
-                      : cart.gstAmount;
-                    
-                    return (
-                      <div className="flex justify-between text-sm">
-                        <span>GST (18%)</span>
-                        <span>{formatPrice(calculatedGST)}</span>
-                      </div>
-                    );
-                  })()}
+                  <div className="flex justify-between text-sm">
+                    <span>GST (18%)</span>
+                    <span>{formatPrice(cart.gstAmount)}</span>
+                  </div>
                   <div className="flex justify-between text-sm">
                     <span>
                       Service charge
@@ -593,33 +601,10 @@ const CartPage: React.FC<CartPageProps> = ({
                     </span>
                   </div>
                   <hr />
-{(() => {
-                    const isOfferPlanActive = offerPlan && localStorage.getItem('selectedOfferPlan');
-                    const calculatedSubtotal = isOfferPlanActive 
-                      ? cart.items.reduce((sum, item) => {
-                          // Use basePrice for uniform offer discount calculation
-                          const offerPrice = Math.round(item.basePrice * (1 - offerPlan.discount_percentage / 100));
-                          return sum + (offerPrice * item.quantity);
-                        }, 0)
-                      : cart.subtotal;
-                    
-                    // Recalculate GST based on discounted subtotal
-                    const calculatedGST = isOfferPlanActive 
-                      ? Math.round(calculatedSubtotal * 0.18)
-                      : cart.gstAmount;
-                    
-                    // Calculate total with offer pricing and recalculated GST
-                    const calculatedTotal = isOfferPlanActive 
-                      ? calculatedSubtotal + calculatedGST + cart.serviceChargeAmount
-                      : cart.finalAmount;
-                    
-                    return (
-                      <div className="flex justify-between text-lg font-bold">
-                        <span>Total</span>
-                        <span>{formatPrice(calculatedTotal)}</span>
-                      </div>
-                    );
-                  })()}
+                  <div className="flex justify-between text-lg font-bold">
+                    <span>Total</span>
+                    <span>{formatPrice(cart.finalAmount)}</span>
+                  </div>
                 </div>
 
                 {/* Checkout Button - Moved after pricing */}

@@ -38,12 +38,12 @@ const EmployeesManagement: React.FC = () => {
       if (response.success && response.data) {
         setEmployees(response.data);
       } else {
-        console.error('Error fetching employees:', response.error);
-        alert(`Error fetching employees: ${response.error}`);
+        console.error('Error fetching engineers:', response.error);
+        alert(`Error fetching engineers: ${response.error}`);
       }
     } catch (error) {
-      console.error('Error fetching employees:', error);
-      alert(`Error fetching employees: ${handleAPIError(error)}`);
+      console.error('Error fetching engineers:', error);
+      alert(`Error fetching engineers: ${handleAPIError(error)}`);
     } finally {
       setLoading(false);
     }

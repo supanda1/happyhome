@@ -6,7 +6,8 @@ import {
   removeFromCart,
   clearCart,
   applyCoupon,
-  removeCoupon
+  removeCoupon,
+  clearAllCoupons
 } from '../controllers/cartController';
 
 const router = express.Router();
@@ -34,5 +35,8 @@ router.post('/coupon', applyCoupon);
 
 // DELETE /api/cart/coupon - Remove coupon from cart
 router.delete('/coupon', removeCoupon);
+
+// POST /api/cart/clear-all-coupons - Debug endpoint to clear all in-memory coupons
+router.post('/clear-all-coupons', clearAllCoupons);
 
 export default router;

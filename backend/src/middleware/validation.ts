@@ -386,6 +386,26 @@ export const validationChains = {
     ]
   },
 
+  // Engineer validation (extends employee validation with additional fields)
+  engineer: {
+    create: [
+      commonValidations.requiredString('employee_id', 3, 50),
+      commonValidations.requiredString('name', 2, 100),
+      commonValidations.optionalArray('expertise'),
+      commonValidations.optionalArray('specializations'),
+      commonValidations.phone(),
+      body('email').optional().isEmail().normalizeEmail(),
+      commonValidations.optionalString('address', 500),
+      commonValidations.optionalString('emergency_contact_name', 100),
+      commonValidations.optionalString('emergency_contact_phone', 20),
+      commonValidations.optionalString('license_number', 50),
+      body('certification_details').optional().isObject().withMessage('certification_details must be an object'),
+      body('work_schedule').optional().isObject().withMessage('work_schedule must be an object'),
+      body('max_concurrent_jobs').optional().isInt({ min: 1, max: 50 }).withMessage('max_concurrent_jobs must be between 1 and 50'),
+      handleValidationErrors
+    ]
+  },
+
   // Order validation
   order: {
     create: [

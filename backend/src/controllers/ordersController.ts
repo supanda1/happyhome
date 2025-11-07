@@ -2048,4 +2048,203 @@ export class OrdersController {
       res.status(500).json(response);
     }
   }
+
+  // Get engineer workload statistics with date filtering
+  static async getEngineerWorkloadReports(req: Request, res: Response) {
+    try {
+      const { 
+        startDate, 
+        endDate, 
+        reportType = 'daily', // daily, weekly, monthly
+        engineerId 
+      } = req.query;
+
+      // Default to today if no dates provided
+      const start = startDate ? new Date(startDate as string) : new Date();
+      const end = endDate ? new Date(endDate as string) : new Date();
+      
+      // Adjust end date to include the full day
+      end.setHours(23, 59, 59, 999);
+      
+      let dateFilter = '';
+      let groupByClause = '';
+      let selectDateFields = '';
+      
+      // Build date filtering and grouping based on report type
+      switch (reportType) {
+        case 'weekly':
+          dateFilter = `AND (oi.created_at >= $1 AND oi.created_at <= $2 OR oi.scheduled_date::timestamp >= $1 AND oi.scheduled_date::timestamp <= $2)`;
+          selectDateFields = `
+            DATE_TRUNC('week', COALESCE(oi.scheduled_date::timestamp, oi.created_at)) as report_period_start,
+            DATE_TRUNC('week', COALESCE(oi.scheduled_date::timestamp, oi.created_at)) + INTERVAL '6 days' as report_period_end,
+            'week' as report_type,
+          `;
+          groupByClause = `GROUP BY e.id, e.employee_id, e.name, e.expertise, e.phone, e.email, e.is_active, 
+                          DATE_TRUNC('week', COALESCE(oi.scheduled_date::timestamp, oi.created_at))`;
+          break;
+        case 'monthly':
+          dateFilter = `AND (oi.created_at >= $1 AND oi.created_at <= $2 OR oi.scheduled_date::timestamp >= $1 AND oi.scheduled_date::timestamp <= $2)`;
+          selectDateFields = `
+            DATE_TRUNC('month', COALESCE(oi.scheduled_date::timestamp, oi.created_at)) as report_period_start,
+            DATE_TRUNC('month', COALESCE(oi.scheduled_date::timestamp, oi.created_at)) + INTERVAL '1 month' - INTERVAL '1 day' as report_period_end,
+            'month' as report_type,
+          `;
+          groupByClause = `GROUP BY e.id, e.employee_id, e.name, e.expertise, e.phone, e.email, e.is_active, 
+                          DATE_TRUNC('month', COALESCE(oi.scheduled_date::timestamp, oi.created_at))`;
+          break;
+        default: // daily
+          dateFilter = `AND (DATE(oi.created_at) >= DATE($1) AND DATE(oi.created_at) <= DATE($2) 
+                       OR DATE(oi.scheduled_date) >= DATE($1) AND DATE(oi.scheduled_date) <= DATE($2))`;
+          selectDateFields = `
+            DATE(COALESCE(oi.scheduled_date::timestamp, oi.created_at)) as report_date,
+            'daily' as report_type,
+          `;
+          groupByClause = `GROUP BY e.id, e.employee_id, e.name, e.expertise, e.phone, e.email, e.is_active, 
+                          DATE(COALESCE(oi.scheduled_date::timestamp, oi.created_at))`;
+      }
+
+      // Engineer filter
+      let engineerFilter = '';
+      const queryParams: any[] = [start, end];
+      if (engineerId) {
+        engineerFilter = 'AND e.id = $3';
+        queryParams.push(engineerId);
+      }
+
+      const query = `
+        SELECT 
+          e.id,
+          e.employee_id,
+          e.name,
+          e.expertise as expertise_areas,
+          array_to_string(ARRAY(SELECT jsonb_array_elements_text(e.expertise)), ', ') as expert,
+          e.phone,
+          e.email,
+          e.is_active,
+          ${selectDateFields}
+          -- Task counts for the date range
+          COUNT(CASE WHEN oi.item_status IN ('pending', 'scheduled', 'in_progress') THEN 1 END) as active_tasks,
+          COUNT(CASE WHEN oi.item_status = 'pending' THEN 1 END) as pending_tasks,
+          COUNT(CASE WHEN oi.item_status = 'scheduled' THEN 1 END) as scheduled_tasks,
+          COUNT(CASE WHEN oi.item_status = 'in_progress' THEN 1 END) as in_progress_tasks,
+          COUNT(CASE WHEN oi.item_status = 'completed' THEN 1 END) as completed_tasks,
+          COUNT(CASE WHEN oi.item_status = 'postponed' THEN 1 END) as postponed_tasks,
+          COUNT(CASE WHEN oi.item_status = 'cancelled' THEN 1 END) as cancelled_tasks,
+          -- Detailed order information for the period
+          COALESCE(
+            JSON_AGG(
+              CASE 
+                WHEN oi.id IS NOT NULL
+                THEN JSON_BUILD_OBJECT(
+                  'order_id', o.id,
+                  'order_number', o.order_number,
+                  'service_name', oi.service_name,
+                  'item_status', oi.item_status,
+                  'scheduled_date', oi.scheduled_date,
+                  'completion_date', oi.completion_date,
+                  'created_date', oi.created_at,
+                  'customer_name', o.customer_name,
+                  'customer_phone', o.customer_phone,
+                  'customer_address', o.service_address,
+                  'priority', o.priority,
+                  'quantity', oi.quantity,
+                  'unit_price', oi.unit_price,
+                  'total_price', oi.total_price,
+                  'item_notes', oi.item_notes,
+                  'item_rating', oi.item_rating,
+                  'item_review', oi.item_review
+                )
+              END
+            ) FILTER (WHERE oi.id IS NOT NULL),
+            '[]'::json
+          ) as order_details
+        FROM engineers e
+        LEFT JOIN order_items oi ON e.id = oi.assigned_engineer_id
+        LEFT JOIN orders o ON oi.order_id = o.id
+        WHERE e.is_active = true 
+        ${dateFilter}
+        ${engineerFilter}
+        ${groupByClause}
+        ORDER BY 
+          ${reportType === 'daily' ? 'report_date DESC,' : reportType === 'weekly' ? 'report_period_start DESC,' : 'report_period_start DESC,'}
+          active_tasks DESC, 
+          completed_tasks DESC, 
+          e.name ASC
+      `;
+      
+      const result = await pool.query(query, queryParams);
+      
+      // Calculate summary statistics for the date range
+      const totalActiveEngineers = result.rows.filter(row => row.active_tasks > 0).length;
+      const totalActiveTasks = result.rows.reduce((sum, row) => sum + parseInt(row.active_tasks || 0), 0);
+      const totalCompletedTasks = result.rows.reduce((sum, row) => sum + parseInt(row.completed_tasks || 0), 0);
+      const averageTasksPerActiveEngineer = totalActiveEngineers > 0 ? (totalActiveTasks / totalActiveEngineers).toFixed(1) : "0";
+      
+      // Group by engineer for summary when dealing with time-series data
+      const engineerSummary = new Map();
+      result.rows.forEach(row => {
+        const engineerId = row.id;
+        if (!engineerSummary.has(engineerId)) {
+          engineerSummary.set(engineerId, {
+            id: row.id,
+            employee_id: row.employee_id,
+            name: row.name,
+            total_active_tasks: 0,
+            total_completed_tasks: 0,
+            total_orders: 0
+          });
+        }
+        const summary = engineerSummary.get(engineerId);
+        summary.total_active_tasks += parseInt(row.active_tasks || 0);
+        summary.total_completed_tasks += parseInt(row.completed_tasks || 0);
+        summary.total_orders += (row.order_details && Array.isArray(row.order_details) ? row.order_details.length : 0);
+      });
+
+      const engineerSummaryArray = Array.from(engineerSummary.values());
+      const busiestEngineer = engineerSummaryArray.reduce((prev, curr) => 
+        (curr.total_active_tasks > prev.total_active_tasks) ? curr : prev, 
+        engineerSummaryArray[0] || { name: null, total_active_tasks: 0 }
+      );
+
+      const summaryStats = {
+        report_period: {
+          start_date: start.toISOString().split('T')[0],
+          end_date: end.toISOString().split('T')[0],
+          report_type: reportType
+        },
+        total_engineers: result.rows.length > 0 ? engineerSummary.size : 0,
+        active_engineers: totalActiveEngineers,
+        idle_engineers: Math.max(0, (engineerSummary.size || 0) - totalActiveEngineers),
+        total_active_tasks: totalActiveTasks,
+        total_completed_tasks: totalCompletedTasks,
+        average_tasks_per_active_engineer: parseFloat(averageTasksPerActiveEngineer),
+        busiest_engineer: busiestEngineer?.name || null,
+        max_tasks: busiestEngineer?.total_active_tasks || 0
+      };
+      
+      const response: ApiResponse<{
+        summary: typeof summaryStats;
+        engineers: typeof result.rows;
+        engineer_summary: typeof engineerSummaryArray;
+      }> = {
+        success: true,
+        data: {
+          summary: summaryStats,
+          engineers: result.rows,
+          engineer_summary: engineerSummaryArray
+        },
+        message: `Found ${reportType} workload report for ${result.rows.length} engineer entries`
+      };
+      
+      res.json(response);
+      
+    } catch (error) {
+      console.error('Error fetching engineer workload reports:', error);
+      const response: ApiResponse<null> = {
+        success: false,
+        error: 'Failed to fetch engineer workload reports'
+      };
+      res.status(500).json(response);
+    }
+  }
 }

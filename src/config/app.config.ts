@@ -27,7 +27,7 @@ export const APP_CONFIG = {
     SERVICES: 'backend',        // 'backend' | 'localStorage' | 'mock'
     CART: 'backend',           // 'backend' | 'localStorage' | 'mock'
     ORDERS: 'backend',         // 'backend' | 'localStorage' | 'mock'
-    EMPLOYEES: 'backend',      // 'backend' | 'localStorage' | 'mock'
+    ENGINEERS: 'backend',      // 'backend' | 'localStorage' | 'mock'
     COUPONS: 'backend',        // 'backend' | 'localStorage' | 'mock'
     REVIEWS: 'backend',        // 'backend' | 'localStorage' | 'mock'
     ADDRESSES: 'backend',      // 'backend' | 'localStorage' | 'mock'

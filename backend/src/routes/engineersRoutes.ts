@@ -6,18 +6,7 @@ import { body, param } from 'express-validator';
 
 const router = express.Router();
 
-// Engineer creation validation - extends employee validation with additional fields
-const createEngineerValidation = [
-  ...validationChains.employee.create.slice(0, -1), // Use employee validation minus handleValidationErrors
-  commonValidations.optionalArray('specializations'),
-  commonValidations.optionalString('emergency_contact_name', 100),
-  commonValidations.optionalString('emergency_contact_phone', 20),
-  commonValidations.optionalString('license_number', 50),
-  body('certification_details').optional().isObject().withMessage('certification_details must be an object'),
-  body('work_schedule').optional().isObject().withMessage('work_schedule must be an object'),
-  body('max_concurrent_jobs').optional().isInt({ min: 1, max: 50 }).withMessage('max_concurrent_jobs must be between 1 and 50'),
-  handleValidationErrors
-];
+// Engineer creation validation is defined in validationChains
 
 // Engineer update validation (similar to create but optional fields)
 const updateEngineerValidation = [
@@ -64,7 +53,7 @@ router.get('/expertise/:expertise', requireAdminAuth, ...expertiseValidation, En
 router.get('/:id', requireAdminAuth, ...validateUUID('id'), EngineersController.getEngineerById);
 
 // POST /api/engineers - Create new engineer
-router.post('/', requireAdminAuth, ...createEngineerValidation, EngineersController.createEngineer);
+router.post('/', requireAdminAuth, ...validationChains.engineer.create, EngineersController.createEngineer);
 
 // PUT /api/engineers/:id - Update engineer
 router.put('/:id', requireAdminAuth, ...updateEngineerValidation, EngineersController.updateEngineer);

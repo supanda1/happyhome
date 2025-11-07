@@ -213,7 +213,8 @@ export const getCart = async (req: Request, res: Response) => {
       discountAmount: cart.discountAmount,
       subtotal: cart.subtotal,
       finalAmount: cart.finalAmount,
-      hasItems: cart.items.length > 0
+      hasItems: cart.items.length > 0,
+      sessionId: sessionId.substring(0, 8) + '...' // Log partial session ID for debugging
     });
     
     res.json({
@@ -670,6 +671,28 @@ export const removeCoupon = async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'Failed to remove coupon'
+    });
+  }
+};
+
+// Debug endpoint to clear all in-memory coupon data
+export const clearAllCoupons = async (req: Request, res: Response) => {
+  try {
+    const couponCount = userAppliedCoupons.size;
+    userAppliedCoupons.clear();
+    
+    console.log(`🧹 Cleared ${couponCount} in-memory coupons from cache`);
+    
+    res.json({
+      success: true,
+      message: `Cleared ${couponCount} coupons from memory`,
+      data: { cleared_count: couponCount }
+    });
+  } catch (error) {
+    console.error('Error clearing coupons:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to clear coupons'
     });
   }
 };
