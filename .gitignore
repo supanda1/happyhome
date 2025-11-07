@@ -81,6 +81,7 @@ verify-*
 !setup-docker.sh
 !docker-dev.sh
 !validate-setup.sh
+!deploy-to-new-mac.sh
 
 # Backup files
 *.backup
