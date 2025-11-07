@@ -1,0 +1,42 @@
+# Custom PostgreSQL Database Image with Schema and Seed Data
+# Base: postgres:15-alpine (~28MB) + schema/seed data
+FROM postgres:15-alpine
+
+# Metadata
+LABEL app="household-services-db" \
+      version="1st-container-version" \
+      description="PostgreSQL database with pre-loaded schema and seed data" \
+      maintainer="Happy Homes Team"
+
+# Environment variables for database initialization
+ENV POSTGRES_DB=household_services \
+    POSTGRES_USER=postgres \
+    POSTGRES_PASSWORD=password \
+    POSTGRES_HOST_AUTH_METHOD=trust
+
+# Copy database initialization files
+# Files in /docker-entrypoint-initdb.d/ are executed in alphabetical order
+COPY migrations/final_complete_setup.sql /docker-entrypoint-initdb.d/01-complete-setup.sql
+
+# Copy migration scripts (if needed for runtime)
+COPY scripts/ /app/scripts/
+COPY migrations/ /app/migrations/
+
+# Set proper permissions
+RUN chmod -R 755 /app/scripts/ 2>/dev/null || true && \
+    chmod -R 644 /app/migrations/ 2>/dev/null || true && \
+    chmod 644 /docker-entrypoint-initdb.d/01-complete-setup.sql
+
+# Create custom healthcheck script
+RUN echo '#!/bin/sh\npg_isready -U postgres -d household_services' > /usr/local/bin/health-check.sh && \
+    chmod +x /usr/local/bin/health-check.sh
+
+# Expose PostgreSQL port
+EXPOSE 5432
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD /usr/local/bin/health-check.sh
+
+# Use default PostgreSQL entrypoint
+# This will automatically run files in /docker-entrypoint-initdb.d/ on first startup

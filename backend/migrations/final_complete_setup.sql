@@ -796,7 +796,6 @@ ALTER TABLE ONLY public.user_admin_permissions ADD CONSTRAINT user_admin_permiss
 ALTER TABLE ONLY public.sms_blacklist ADD CONSTRAINT sms_blacklist_phone_number_key UNIQUE (phone_number);
 ALTER TABLE ONLY public.sms_templates ADD CONSTRAINT sms_templates_event_type_key UNIQUE (event_type);
 ALTER TABLE ONLY public.sms_provider_stats ADD CONSTRAINT sms_provider_stats_provider_date_key UNIQUE (provider_id, date);
-ALTER TABLE ONLY public.orders ADD CONSTRAINT orders_order_number_key UNIQUE (order_number);
 ALTER TABLE ONLY public.bookings ADD CONSTRAINT bookings_transaction_id_key UNIQUE (transaction_id);
 ALTER TABLE ONLY public.bookings ADD CONSTRAINT bookings_invoice_number_key UNIQUE (invoice_number);
 ALTER TABLE ONLY public.notification_templates ADD CONSTRAINT notification_templates_event_type_notification_type_key UNIQUE (event_type, notification_type, language);
@@ -937,11 +936,7 @@ ALTER TABLE ONLY public.offer_services ADD CONSTRAINT offer_services_plan_id_fke
 ALTER TABLE ONLY public.offer_services ADD CONSTRAINT offer_services_service_id_fkey FOREIGN KEY (service_id) REFERENCES public.services(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.sms_provider_stats ADD CONSTRAINT sms_provider_stats_provider_id_fkey FOREIGN KEY (provider_id) REFERENCES public.sms_providers(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.orders ADD CONSTRAINT orders_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.users(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.order_items ADD CONSTRAINT order_items_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.order_items ADD CONSTRAINT order_items_service_id_fkey FOREIGN KEY (service_id) REFERENCES public.services(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.order_items ADD CONSTRAINT order_items_variant_id_fkey FOREIGN KEY (variant_id) REFERENCES public.service_variants(id) ON DELETE SET NULL;
-ALTER TABLE ONLY public.order_items ADD CONSTRAINT order_items_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.service_categories(id) ON DELETE CASCADE;
-ALTER TABLE ONLY public.order_items ADD CONSTRAINT order_items_subcategory_id_fkey FOREIGN KEY (subcategory_id) REFERENCES public.service_subcategories(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.order_items ADD CONSTRAINT order_items_assigned_engineer_id_fkey FOREIGN KEY (assigned_engineer_id) REFERENCES public.engineers(id) ON DELETE SET NULL;
 ALTER TABLE ONLY public.assignment_history ADD CONSTRAINT assignment_history_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.assignment_history ADD CONSTRAINT assignment_history_item_id_fkey FOREIGN KEY (item_id) REFERENCES public.order_items(id) ON DELETE CASCADE;
