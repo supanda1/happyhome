@@ -1,0 +1,44 @@
+#!/usr/bin/env sh
+# Happy Homes Security Pre-commit Hook
+# 
+# This hook ensures no localStorage/sessionStorage violations
+# are committed to the repository.
+#
+# To bypass (NOT RECOMMENDED): git commit --no-verify
+
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🔒 Running Happy Homes Security Checks..."
+
+# Run security scan
+npm run security-check
+
+if [ $? -ne 0 ]; then
+  echo ""
+  echo "🚨 COMMIT BLOCKED: Security violations detected!"
+  echo ""
+  echo "❌ localStorage/sessionStorage usage found in your changes."
+  echo "✅ Please use backend APIs with HTTP-only cookies instead."
+  echo ""
+  echo "📚 See SECURITY.md for proper implementation patterns."
+  echo ""
+  echo "⚠️  To bypass this check (NOT RECOMMENDED): git commit --no-verify"
+  echo ""
+  exit 1
+fi
+
+echo "✅ Security checks passed - commit allowed"
+
+# Run linting
+npm run lint
+
+if [ $? -ne 0 ]; then
+  echo ""
+  echo "🚨 COMMIT BLOCKED: ESLint violations detected!"
+  echo ""
+  echo "Please fix linting errors before committing."
+  echo ""
+  exit 1
+fi
+
+echo "✅ All checks passed - proceeding with commit"

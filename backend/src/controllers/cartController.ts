@@ -1,0 +1,698 @@
+import { Request, Response } from 'express';
+import pool from '../config/database';
+import jwt from 'jsonwebtoken';
+
+// JWT payload interface
+interface JWTPayload {
+  userId: string;
+  email: string;
+  role: string;
+}
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+
+// In-memory store for applied coupons per user (in production, use Redis or database)
+const userAppliedCoupons = new Map<string, {
+  couponCode: string;
+  discountAmount: number;
+  appliedAt: Date;
+}>();
+
+// Helper function to extract user ID from JWT token (cookies or header)
+const getUserIdFromToken = (req: Request): string | null => {
+  // Simple cookie parser helper
+  const parseCookies = (req: Request): Record<string, string> => {
+    const cookies: Record<string, string> = {};
+    const cookieHeader = req.headers.cookie;
+    
+    if (cookieHeader) {
+      cookieHeader.split(';').forEach(cookie => {
+        const [name, ...rest] = cookie.split('=');
+        const value = rest.join('=').trim();
+        if (name && value) {
+          cookies[name.trim()] = decodeURIComponent(value);
+        }
+      });
+    }
+    
+    return cookies;
+  };
+
+  // Get cookies from request
+  const cookies = parseCookies(req);
+  
+  // First try to get token from HTTP-only cookie
+  let token = cookies.access_token;
+  
+  // Fallback to Authorization header if no cookie (for backward compatibility)
+  if (!token) {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+    }
+  }
+  
+  if (!token) {
+    return null;
+  }
+  
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
+    return decoded.userId;
+  } catch {
+    return null;
+  }
+};
+
+
+// Get or create anonymous session ID for non-authenticated users
+const getOrCreateSessionId = (req: Request, res: Response): string => {
+  // First try to get user ID from JWT token
+  const userId = getUserIdFromToken(req);
+  if (userId) {
+    return userId; // Return actual user UUID
+  }
+  
+  // For anonymous users, use session cookie with UUID format
+  const cookies: Record<string, string> = {};
+  const cookieHeader = req.headers.cookie;
+  
+  if (cookieHeader) {
+    cookieHeader.split(';').forEach(cookie => {
+      const [name, ...rest] = cookie.split('=');
+      const value = rest.join('=').trim();
+      if (name && value) {
+        cookies[name.trim()] = decodeURIComponent(value);
+      }
+    });
+  }
+  
+  let sessionId = cookies['cart_session'];
+  
+  // Validate existing sessionId is a proper UUID format
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  
+  if (!sessionId || !uuidRegex.test(sessionId)) {
+    // Generate a proper UUID for anonymous sessions
+    sessionId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+    
+    // Set secure HTTP-only cookie for anonymous sessions
+    res.setHeader('Set-Cookie', 
+      `cart_session=${sessionId}; HttpOnly; SameSite=Lax; Max-Age=${30 * 24 * 60 * 60}; Path=/`
+    );
+  }
+  
+  return sessionId; // Return UUID directly
+};
+
+// Get user's cart
+export const getCart = async (req: Request, res: Response) => {
+  try {
+    // Get session ID (works for both authenticated and anonymous users)
+    const sessionId = getOrCreateSessionId(req, res);
+    
+    const itemsResult = await pool.query(`
+      SELECT 
+        ci.id,
+        ci.service_id as "serviceId",
+        ci.variant_id as "variantId", 
+        ci.quantity,
+        ci.unit_price as "unitPrice",
+        ci.created_at as "createdAt",
+        ci.updated_at as "updatedAt",
+        s.name as "serviceName",
+        s.base_price as "basePrice",
+        s.discounted_price as "discountedPrice",
+        s.gst_percentage as "gstPercentage",
+        s.service_charge as "serviceChargePerService",
+        s.category_id as "categoryId",
+        s.subcategory_id as "subcategoryId",
+        sc.name as "categoryName"
+      FROM cart_items ci
+      LEFT JOIN cart c ON ci.cart_id = c.id
+      LEFT JOIN services s ON ci.service_id::text = s.id::text
+      LEFT JOIN service_categories sc ON s.category_id::text = sc.id::text
+      WHERE c.user_id::text = $1
+      ORDER BY ci.created_at DESC
+    `, [sessionId]);
+
+    const totalItems = itemsResult.rows.reduce((sum, item) => sum + item.quantity, 0);
+    const subtotal = itemsResult.rows.reduce((sum, item) => {
+      const price = item.unitPrice;
+      return sum + (price * item.quantity);
+    }, 0);
+    
+    // Get unique categories for service charge calculation (₹79 per unique category)
+    const uniqueCategories = new Set();
+    itemsResult.rows.forEach(item => {
+      if (item.categoryId) {
+        uniqueCategories.add(item.categoryId);
+      }
+    });
+    const serviceChargeAmount = uniqueCategories.size * 79;
+    
+    // Check for applied coupon
+    const appliedCoupon = userAppliedCoupons.get(sessionId);
+    let discountAmount = 0;
+    let appliedCouponCode = null;
+    
+    if (appliedCoupon) {
+      // Check if coupon was applied within last 24 hours (or remove this check for persistent coupons)
+      const hoursSinceApplied = (new Date().getTime() - appliedCoupon.appliedAt.getTime()) / (1000 * 60 * 60);
+      if (hoursSinceApplied < 24) {
+        discountAmount = appliedCoupon.discountAmount;
+        appliedCouponCode = appliedCoupon.couponCode;
+      } else {
+        // Remove expired coupon
+        userAppliedCoupons.delete(sessionId);
+      }
+    }
+    
+    // Calculate GST on subtotal after discount, per service's GST percentage
+    const subtotalAfterDiscount = subtotal - discountAmount;
+    let totalGstAmount = 0;
+    
+    itemsResult.rows.forEach(item => {
+      const itemSubtotal = item.unitPrice * item.quantity;
+      const itemAfterDiscount = itemSubtotal * (subtotalAfterDiscount / subtotal); // Proportional discount
+      const itemGst = (itemAfterDiscount * item.gstPercentage) / 100;
+      totalGstAmount += itemGst;
+    });
+    
+    // Round GST to 2 decimal places
+    const gstAmount = Math.round(totalGstAmount * 100) / 100;
+    
+    // Calculate final amount: subtotal - discount + GST + service charge
+    const finalAmount = subtotalAfterDiscount + gstAmount + serviceChargeAmount;
+    
+    const cart = {
+      id: `cart-${sessionId}`,
+      userId: sessionId,
+      items: itemsResult.rows.map(item => ({
+        ...item,
+        totalPrice: item.unitPrice * item.quantity
+      })),
+      totalItems: totalItems,
+      totalAmount: subtotal,
+      subtotal: subtotal,  // Add this for frontend compatibility
+      discountAmount: discountAmount,
+      gstAmount: gstAmount,
+      serviceChargeAmount: serviceChargeAmount,
+      finalAmount: Math.round(finalAmount * 100) / 100,
+      appliedCoupon: appliedCouponCode,
+      createdAt: itemsResult.rows[0]?.createdAt || new Date().toISOString(),
+      updatedAt: itemsResult.rows[0]?.updatedAt || new Date().toISOString()
+    };
+    
+    console.log('🛒 Backend: Returning cart data to frontend:', {
+      appliedCoupon: cart.appliedCoupon,
+      discountAmount: cart.discountAmount,
+      subtotal: cart.subtotal,
+      finalAmount: cart.finalAmount,
+      hasItems: cart.items.length > 0,
+      sessionId: sessionId.substring(0, 8) + '...' // Log partial session ID for debugging
+    });
+    
+    res.json({
+      success: true,
+      data: cart
+    });
+  } catch (error) {
+    console.error('Error fetching cart:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch cart'
+    });
+  }
+};
+
+// Add item to cart
+export const addToCart = async (req: Request, res: Response) => {
+  try {
+    
+    const { serviceId, variantId, quantity = 1 } = req.body;
+    
+    // Get session ID (works for both authenticated and anonymous users)
+    const sessionId = getOrCreateSessionId(req, res);
+    
+    if (!serviceId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Service ID is required'
+      });
+    }
+
+    // Get service details
+    const serviceResult = await pool.query('SELECT * FROM services WHERE id = $1', [serviceId]);
+    if (serviceResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Service not found'
+      });
+    }
+
+    const service = serviceResult.rows[0];
+    const unitPrice = service.discounted_price || service.base_price;
+    const totalPrice = unitPrice * quantity;
+
+    // Get or create cart for user
+    let cartResult = await pool.query('SELECT id FROM cart WHERE user_id::text = $1', [sessionId]);
+    let cartId;
+    
+    if (cartResult.rows.length === 0) {
+      // Create new cart
+      const newCartResult = await pool.query(`
+        INSERT INTO cart (user_id) VALUES ($1) RETURNING id
+      `, [sessionId]);
+      cartId = newCartResult.rows[0].id;
+    } else {
+      cartId = cartResult.rows[0].id;
+    }
+
+    // Check if item already exists in cart
+    const existingItem = await pool.query(`
+      SELECT * FROM cart_items 
+      WHERE cart_id = $1 AND service_id = $2 AND variant_id IS NOT DISTINCT FROM $3
+    `, [cartId, serviceId, variantId || null]);
+
+    let cartItem;
+    
+    if (existingItem.rows.length > 0) {
+      // Update existing item
+      const newQuantity = existingItem.rows[0].quantity + quantity;
+      const newTotalPrice = existingItem.rows[0].unit_price * newQuantity;
+      
+      const updateResult = await pool.query(`
+        UPDATE cart_items 
+        SET quantity = $1, total_price = $2, updated_at = NOW()
+        WHERE id = $3
+        RETURNING *
+      `, [newQuantity, newTotalPrice, existingItem.rows[0].id]);
+      
+      cartItem = updateResult.rows[0];
+    } else {
+      // Insert new item
+      const insertResult = await pool.query(`
+        INSERT INTO cart_items (
+          cart_id, service_id, service_name, variant_id, quantity, unit_price, total_price, customizations
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, '{}')
+        RETURNING *
+      `, [cartId, serviceId, service.name, variantId || null, quantity, unitPrice, totalPrice]);
+      
+      cartItem = insertResult.rows[0];
+    }
+
+    // Format response
+    const responseItem = {
+      id: cartItem.id,
+      serviceId: cartItem.service_id,
+      serviceName: cartItem.service_name,
+      variantId: cartItem.variant_id,
+      quantity: cartItem.quantity,
+      basePrice: service.base_price,
+      discountedPrice: service.discounted_price,
+      totalPrice: cartItem.total_price,
+      createdAt: cartItem.created_at,
+      updatedAt: cartItem.updated_at
+    };
+    
+    res.status(201).json({
+      success: true,
+      data: responseItem,
+      message: 'Item added to cart successfully'
+    });
+  } catch (error) {
+    console.error('Error adding item to cart:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to add item to cart'
+    });
+  }
+};
+
+// Update cart item quantity
+export const updateCartItem = async (req: Request, res: Response) => {
+  try {
+    
+    const { itemId } = req.params;
+    const { quantity } = req.body;
+    
+    // Get user ID from JWT token
+    const userId = getUserIdFromToken(req);
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication token required'
+      });
+    }
+
+    if (!quantity || quantity < 1) {
+      return res.status(400).json({
+        success: false,
+        error: 'Valid quantity is required'
+      });
+    }
+
+    // Get current item and service details
+    const itemResult = await pool.query(`
+      SELECT ci.*, s.name as service_name, s.base_price, s.discounted_price
+      FROM cart_items ci
+      LEFT JOIN cart c ON ci.cart_id = c.id
+      LEFT JOIN services s ON ci.service_id = s.id
+      WHERE ci.id = $1::uuid AND c.user_id::text = $2
+    `, [itemId, userId]);
+
+    if (itemResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Cart item not found'
+      });
+    }
+
+    const item = itemResult.rows[0];
+
+    const updateResult = await pool.query(`
+      UPDATE cart_items 
+      SET quantity = $1, updated_at = NOW()
+      WHERE id = $2::uuid
+      RETURNING *
+    `, [quantity, itemId]);
+
+    const updatedItem = {
+      id: updateResult.rows[0].id,
+      serviceId: updateResult.rows[0].service_id,
+      serviceName: item.service_name,
+      variantId: updateResult.rows[0].variant_id,
+      quantity: updateResult.rows[0].quantity,
+      basePrice: item.base_price,
+      discountedPrice: item.discounted_price,
+      totalPrice: updateResult.rows[0].unit_price * updateResult.rows[0].quantity,
+      createdAt: updateResult.rows[0].created_at,
+      updatedAt: updateResult.rows[0].updated_at
+    };
+    
+    res.json({
+      success: true,
+      data: updatedItem,
+      message: 'Cart item updated successfully'
+    });
+  } catch (error) {
+    console.error('Error updating cart item:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update cart item'
+    });
+  }
+};
+
+// Remove item from cart
+export const removeFromCart = async (req: Request, res: Response) => {
+  try {
+    
+    const { itemId } = req.params;
+    
+    // Get user ID from JWT token
+    const userId = getUserIdFromToken(req);
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication token required'
+      });
+    }
+
+    const result = await pool.query(`
+      DELETE FROM cart_items 
+      WHERE id = $1::uuid AND cart_id IN (SELECT id FROM cart WHERE user_id::text = $2)
+      RETURNING *
+    `, [itemId, userId]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Cart item not found'
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Item removed from cart successfully'
+    });
+  } catch (error) {
+    console.error('Error removing item from cart:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to remove item from cart'
+    });
+  }
+};
+
+// Clear entire cart
+export const clearCart = async (req: Request, res: Response) => {
+  try {
+    
+    // Get session ID (works for both authenticated and anonymous users)
+    const sessionId = getOrCreateSessionId(req, res);
+
+    await pool.query(`
+      DELETE FROM cart_items 
+      WHERE cart_id IN (SELECT id FROM cart WHERE user_id::text = $1)
+    `, [sessionId]);
+    
+    res.json({
+      success: true,
+      message: 'Cart cleared successfully'
+    });
+  } catch (error) {
+    console.error('Error clearing cart:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to clear cart'
+    });
+  }
+};
+
+// Apply coupon to cart
+export const applyCoupon = async (req: Request, res: Response) => {
+  try {
+    console.log('🎟️ Applying coupon - Request body:', req.body);
+    
+    const { couponCode } = req.body;
+    
+    // Get session ID (works for both authenticated and anonymous users)
+    const sessionId = getOrCreateSessionId(req, res);
+    console.log('🔑 Session ID:', sessionId);
+
+    if (!couponCode) {
+      console.log('❌ No coupon code provided');
+      return res.status(400).json({
+        success: false,
+        error: 'Coupon code is required'
+      });
+    }
+
+    console.log('🎯 Applying coupon:', couponCode);
+    console.log('🆔 Session ID type and value:', typeof sessionId, sessionId);
+    console.log('🔍 Session ID length:', sessionId.length);
+
+    // Validate coupon using correct column names
+    const couponResult = await pool.query(`
+      SELECT 
+        id,
+        code,
+        title,
+        description,
+        discount_type,
+        discount_value,
+        minimum_order_amount,
+        maximum_discount_amount,
+        valid_from,
+        valid_until,
+        usage_limit,
+        usage_count,
+        is_active
+      FROM coupons 
+      WHERE code = $1 AND is_active = true 
+      AND valid_from <= CURRENT_DATE AND valid_until >= CURRENT_DATE
+    `, [couponCode]);
+
+    if (couponResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Invalid or expired coupon code'
+      });
+    }
+
+    const coupon = couponResult.rows[0];
+    
+    // Get cart items with category and service information for validation
+    const cartItemsResult = await pool.query(`
+      SELECT 
+        ci.*,
+        s.category_id,
+        s.id as service_id
+      FROM cart_items ci
+      LEFT JOIN cart c ON ci.cart_id = c.id
+      LEFT JOIN services s ON ci.service_id::uuid = s.id
+      WHERE c.user_id::text = $1
+    `, [sessionId]);
+
+    if (cartItemsResult.rows.length === 0) {
+      return res.status(200).json({
+        success: false,
+        error: 'Cannot apply coupon to empty cart',
+        code: 'EMPTY_CART'
+      });
+    }
+
+    // Get cart total
+    const cartTotal = await pool.query(`
+      SELECT COALESCE(SUM(ci.unit_price * ci.quantity), 0) as total
+      FROM cart_items ci
+      JOIN cart c ON ci.cart_id = c.id
+      WHERE c.user_id::text = $1
+    `, [sessionId]);
+
+    const total = parseFloat(cartTotal.rows[0].total);
+
+    // Check minimum order amount
+    if (total < coupon.minimum_order_amount) {
+      return res.status(400).json({
+        success: false,
+        error: `Minimum order amount of ₹${coupon.minimum_order_amount} required`
+      });
+    }
+
+    // Skip first-time user restriction (column doesn't exist in current schema)
+    // First-time user validation removed - not supported in current database schema
+
+    // Check usage limits
+    if (coupon.usage_limit && coupon.usage_count >= coupon.usage_limit) {
+      return res.status(400).json({
+        success: false,
+        error: 'Coupon usage limit exceeded'
+      });
+    }
+
+    // Skip per-user usage limit (column doesn't exist in current schema)
+    // Per-user usage limit removed - not supported in current database schema
+
+    // Validate coupon applicability to cart items  
+    const cartItems = cartItemsResult.rows;
+
+    // Skip category/service restrictions (columns don't exist in current schema)
+    // Category and service restrictions removed - not supported in current database schema
+
+    // Calculate discount using correct field names
+    let discountAmount = 0;
+    if (coupon.discount_type === 'percentage') {
+      discountAmount = (total * coupon.discount_value) / 100;
+      if (coupon.maximum_discount_amount) {
+        discountAmount = Math.min(discountAmount, coupon.maximum_discount_amount);
+      }
+    } else if (coupon.discount_type === 'fixed_amount') {
+      discountAmount = Math.min(coupon.discount_value, total);
+    } else if (coupon.discount_type === 'free_service') {
+      discountAmount = Math.min(coupon.discount_value, total);
+    }
+
+    // Store applied coupon information
+    userAppliedCoupons.set(sessionId, {
+      couponCode: couponCode,
+      discountAmount: Math.round(discountAmount),
+      appliedAt: new Date()
+    });
+
+    // Return the cart with discount calculated
+    const cart = {
+      id: `cart-${sessionId}`,
+      userId: sessionId,
+      totalAmount: total,
+      discountAmount: Math.round(discountAmount),
+      finalAmount: Math.round(total - discountAmount),
+      appliedCoupon: couponCode
+    };
+
+    res.json({
+      success: true,
+      data: cart,
+      message: `Coupon applied! You save ₹${Math.round(discountAmount)}`
+    });
+  } catch (error) {
+    console.error('💥 Error applying coupon:', error);
+    console.error('💥 Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    res.status(500).json({
+      success: false,
+      error: 'Failed to apply coupon'
+    });
+  }
+};
+
+// Remove coupon from cart
+export const removeCoupon = async (req: Request, res: Response) => {
+  try {
+    
+    // Get session ID (works for both authenticated and anonymous users)
+    const sessionId = getOrCreateSessionId(req, res);
+
+    // Remove applied coupon from memory
+    userAppliedCoupons.delete(sessionId);
+
+    // Get cart total without discount
+    const cartTotal = await pool.query(`
+      SELECT COALESCE(SUM(ci.unit_price * ci.quantity), 0) as total
+      FROM cart_items ci
+      JOIN cart c ON ci.cart_id = c.id
+      WHERE c.user_id::text = $1
+    `, [sessionId]);
+
+    const total = parseFloat(cartTotal.rows[0].total);
+
+    const cart = {
+      id: `cart-${sessionId}`,
+      userId: sessionId,
+      totalAmount: total,
+      discountAmount: 0,
+      finalAmount: total,
+      appliedCoupon: null
+    };
+
+    res.json({
+      success: true,
+      data: cart,
+      message: 'Coupon removed successfully'
+    });
+  } catch (error) {
+    console.error('Error removing coupon:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to remove coupon'
+    });
+  }
+};
+
+// Debug endpoint to clear all in-memory coupon data
+export const clearAllCoupons = async (req: Request, res: Response) => {
+  try {
+    const couponCount = userAppliedCoupons.size;
+    userAppliedCoupons.clear();
+    
+    console.log(`🧹 Cleared ${couponCount} in-memory coupons from cache`);
+    
+    res.json({
+      success: true,
+      message: `Cleared ${couponCount} coupons from memory`,
+      data: { cleared_count: couponCount }
+    });
+  } catch (error) {
+    console.error('Error clearing coupons:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to clear coupons'
+    });
+  }
+};

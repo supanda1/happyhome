@@ -1,0 +1,76 @@
+{
+  "name": "household-services-mobile",
+  "version": "1.0.0",
+  "description": "Household Services Mobile Apps Monorepo",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "bootstrap": "npm install && npm run build:packages",
+    "build:packages": "npm run build:shared && npm run build:ui-kit",
+    "build:shared": "cd packages/shared && npm run build",
+    "build:ui-kit": "cd packages/ui-kit && npm run build",
+    "dev:engineer": "cd apps/engineer-app && npm run start",
+    "dev:customer": "cd apps/customer-app && npm run start",
+    "ios:engineer": "cd apps/engineer-app && npm run ios",
+    "ios:customer": "cd apps/customer-app && npm run ios",
+    "android:engineer": "cd apps/engineer-app && npm run android",
+    "android:customer": "cd apps/customer-app && npm run android",
+    "test": "npm run test:packages && npm run test:apps",
+    "test:packages": "cd packages/shared && npm test && cd ../ui-kit && npm test",
+    "test:apps": "cd apps/engineer-app && npm test && cd ../customer-app && npm test",
+    "test:e2e:engineer": "cd apps/engineer-app && npm run test:e2e",
+    "test:e2e:customer": "cd apps/customer-app && npm run test:e2e",
+    "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
+    "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx --fix",
+    "type-check": "tsc --noEmit",
+    "clean": "npm run clean:node-modules && npm run clean:builds",
+    "clean:node-modules": "find . -name 'node_modules' -type d -exec rm -rf {} +",
+    "clean:builds": "find . -name 'build' -type d -exec rm -rf {} + && find . -name 'dist' -type d -exec rm -rf {} +",
+    "reset": "npm run clean && npm install",
+    "build:release:engineer": "cd apps/engineer-app && npm run build:release",
+    "build:release:customer": "cd apps/customer-app && npm run build:release",
+    "deploy:engineer:staging": "cd apps/engineer-app && npm run deploy:staging",
+    "deploy:customer:staging": "cd apps/customer-app && npm run deploy:staging",
+    "deploy:engineer:prod": "cd apps/engineer-app && npm run deploy:prod",
+    "deploy:customer:prod": "cd apps/customer-app && npm run deploy:prod"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^6.13.1",
+    "@typescript-eslint/parser": "^6.13.1",
+    "eslint": "^8.54.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-prettier": "^5.0.1",
+    "eslint-plugin-react": "^7.33.2",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-native": "^4.1.0",
+    "prettier": "^3.1.0",
+    "typescript": "^5.3.2",
+    "husky": "^8.0.3",
+    "lint-staged": "^15.2.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/your-org/household-services-mobile.git"
+  },
+  "author": "Your Team",
+  "license": "MIT",
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged",
+      "pre-push": "npm run type-check && npm run test"
+    }
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ]
+  }
+}

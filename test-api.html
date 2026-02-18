@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Test</title>
+</head>
+<body>
+    <h1>Backend API Test</h1>
+    <div id="results"></div>
+    
+    <script>
+        const API_BASE = 'https://virtuous-rebirth-production-3277.up.railway.app';
+        const results = document.getElementById('results');
+        
+        async function testAPI() {
+            try {
+                // Test root endpoint
+                console.log('Testing root endpoint...');
+                const rootResponse = await fetch(`${API_BASE}/`);
+                const rootData = await rootResponse.json();
+                results.innerHTML += `<h3>Root Endpoint (/)</h3><pre>${JSON.stringify(rootData, null, 2)}</pre>`;
+                
+                // Test categories
+                console.log('Testing categories...');
+                const categoriesResponse = await fetch(`${API_BASE}/categories`);
+                const categoriesData = await categoriesResponse.json();
+                results.innerHTML += `<h3>Categories (/categories)</h3><pre>${JSON.stringify(categoriesData, null, 2)}</pre>`;
+                
+                // Test services
+                console.log('Testing services...');
+                const servicesResponse = await fetch(`${API_BASE}/services`);
+                const servicesData = await servicesResponse.json();
+                results.innerHTML += `<h3>Services (/services)</h3><pre>${JSON.stringify(servicesData, null, 2)}</pre>`;
+                
+                // Test frontend connection
+                console.log('Testing frontend connection...');
+                const testResponse = await fetch(`${API_BASE}/test-frontend`);
+                const testData = await testResponse.json();
+                results.innerHTML += `<h3>Frontend Test (/test-frontend)</h3><pre>${JSON.stringify(testData, null, 2)}</pre>`;
+                
+            } catch (error) {
+                results.innerHTML += `<h3>Error</h3><pre style="color: red;">${error.message}</pre>`;
+                console.error('API Test Error:', error);
+            }
+        }
+        
+        // Run tests on page load
+        testAPI();
+    </script>
+</body>
+</html>

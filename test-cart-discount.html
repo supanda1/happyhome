@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Cart Discount Display</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-cart { border: 1px solid #ccc; padding: 15px; margin: 10px 0; }
+        .discount { color: green; font-weight: bold; }
+        .total { font-weight: bold; font-size: 1.1em; }
+    </style>
+</head>
+<body>
+    <h2>🧪 Cart Discount Display Test</h2>
+    
+    <div class="test-cart">
+        <h3>Test Case 1: Cart with Discount</h3>
+        <div>Subtotal (2 items): ₹648</div>
+        <div class="discount">Discount (WELCOME50): -₹324</div>
+        <div>GST (18%): ₹58</div>
+        <div>Service charge: ₹79</div>
+        <div class="total">Total: ₹461</div>
+    </div>
+
+    <div class="test-cart">
+        <h3>Test Case 2: Cart without Discount</h3>
+        <div>Subtotal (2 items): ₹648</div>
+        <div>GST (18%): ₹117</div>
+        <div>Service charge: ₹79</div>
+        <div class="total">Total: ₹844</div>
+    </div>
+
+    <h3>📝 Instructions to Test Your App:</h3>
+    <ol>
+        <li><strong>Add Items to Cart</strong>: Go to Services page and add 2 services to cart</li>
+        <li><strong>Go to Cart</strong>: Navigate to cart page</li>
+        <li><strong>Apply Coupon</strong>: Use code <code>WELCOME50</code> or <code>SAVE100</code></li>
+        <li><strong>Check Display</strong>: You should now see the discount line</li>
+        <li><strong>Clear Browser Cache</strong> if needed: Ctrl+F5 or Cmd+Shift+R</li>
+    </ol>
+
+    <h3>🔧 Fixed Code Logic:</h3>
+    <pre>
+// ✅ FIXED: Always show discount when > 0
+{cart.discountAmount > 0 && (
+  &lt;div className="flex justify-between text-green-600"&gt;
+    &lt;span&gt;Discount ({cart.appliedCoupon})&lt;/span&gt;
+    &lt;span&gt;-{formatPrice(cart.discountAmount)}&lt;/span&gt;
+  &lt;/div&gt;
+)}
+    </pre>
+</body>
+</html>
