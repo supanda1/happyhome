@@ -971,7 +971,7 @@ ON CONFLICT (id) DO NOTHING;
 
 -- Insert Service Categories
 INSERT INTO public.service_categories (id, name, description, icon, image_path, sort_order, is_active) VALUES 
-('550e8400-e29b-41d4-a716-446655440001', 'Plumbing', 'Professional plumbing services for your home', '🔧', '/images/categories/plumbing.jpg', 1, true),
+('550e8400-e29b-41d4-a716-446655440001', 'Plumbing', 'Professional plumbing services for your home', '🔧', '/images/categories/plumbing-hero.jpg', 1, true),
 ('550e8400-e29b-41d4-a716-446655440002', 'Electrical', 'Certified electrical services and repairs', '⚡', '/images/categories/electrical.jpg', 2, true),
 ('550e8400-e29b-41d4-a716-446655440003', 'Cleaning', 'Professional cleaning services', '🧹', '/images/categories/cleaning.jpg', 3, true),
 ('550e8400-e29b-41d4-a716-446655440004', 'Call A Service', 'Transportation, delivery and professional services', '📞', '/images/categories/call-service-hero.jpg', 4, true),
@@ -1026,15 +1026,24 @@ ON CONFLICT (id) DO NOTHING;
 -- Copy subcategories to legacy table for compatibility
 INSERT INTO public.subcategories SELECT * FROM public.service_subcategories ON CONFLICT (id) DO NOTHING;
 
+-- Update Plumbing Subcategory Images
+UPDATE service_subcategories SET image_paths = '["images/subcategories/plumbing/bath-fittings/pexels-artbovich-6782356.jpg"]'::jsonb WHERE name = 'Bath Fittings';
+UPDATE service_subcategories SET image_paths = '["images/subcategories/plumbing/basin-sink/pexels-artbovich-6782575.jpg"]'::jsonb WHERE name = 'Basin & Sink';
+UPDATE service_subcategories SET image_paths = '["images/subcategories/plumbing/toilet-classic/pexels-artbovich-6444240.jpg"]'::jsonb WHERE name = 'Toilets';
+UPDATE service_subcategories SET image_paths = '["images/subcategories/plumbing/water-tank/pexels-nc-farm-bureau-mark-7509423.jpg"]'::jsonb WHERE name = 'Water Tank';
+UPDATE service_subcategories SET image_paths = '["images/subcategories/plumbing/pipes/pexels-anilkarakaya-6419128.jpg"]'::jsonb WHERE name = 'Pipes';
+UPDATE service_subcategories SET image_paths = '["images/subcategories/plumbing/grouting/pexels-liliana-drew-9462766.jpg"]'::jsonb WHERE name = 'Grouting';
+
 -- Create alias table for backward compatibility (categories = service_categories)
 CREATE VIEW public.categories AS SELECT * FROM public.service_categories;
 
--- Insert Sample Services (28 services across all categories)
+-- Insert Sample Services (32 services across all categories - includes Toilet Classic & Premium)
 INSERT INTO public.services (id, name, category_id, subcategory_id, description, short_description, base_price, discounted_price, duration, is_active, is_featured) VALUES 
--- Plumbing Services (6 services)
+-- Plumbing Services (7 services - includes Toilet Classic & Premium)
 ('750e8400-e29b-41d4-a716-446655440001', 'Bathroom Tap Installation', '550e8400-e29b-41d4-a716-446655440001', '650e8400-e29b-41d4-a716-446655440001', 'Professional installation of bathroom taps and fixtures', 'Expert tap installation service', 299.00, 249.00, '1-2 hours', true, true),
 ('750e8400-e29b-41d4-a716-446655440002', 'Kitchen Sink Installation', '550e8400-e29b-41d4-a716-446655440001', '650e8400-e29b-41d4-a716-446655440002', 'Complete kitchen sink installation with plumbing connections', 'Kitchen sink setup service', 499.00, 399.00, '2-3 hours', true, false),
-('750e8400-e29b-41d4-a716-446655440003', 'Toilet Installation & Repair', '550e8400-e29b-41d4-a716-446655440001', '650e8400-e29b-41d4-a716-446655440003', 'Professional toilet installation and repair services', 'Complete toilet services', 799.00, 699.00, '2-4 hours', true, true),
+('750e8400-e29b-41d4-a716-446655440003', 'Toilet Service (Classic)', '550e8400-e29b-41d4-a716-446655440001', '650e8400-e29b-41d4-a716-446655440003', 'Professional toilet installation and repair services - Classic package with essential services', 'Classic toilet services', 299.00, 199.00, '2-4 hours', true, true),
+('750e8400-e29b-41d4-a716-446655440099', 'Toilet Service (Premium)', '550e8400-e29b-41d4-a716-446655440001', '650e8400-e29b-41d4-a716-446655440003', 'Premium toilet installation and repair services with advanced features and warranty', 'Premium toilet service with extended warranty', 499.00, 349.00, '2-4 hours', true, true),
 ('750e8400-e29b-41d4-a716-446655440004', 'Water Tank Installation', '550e8400-e29b-41d4-a716-446655440001', '650e8400-e29b-41d4-a716-446655440004', 'Water tank installation and connection services', 'Water tank setup', 999.00, 899.00, '3-5 hours', true, false),
 ('750e8400-e29b-41d4-a716-446655440005', 'Pipe Repair & Installation', '550e8400-e29b-41d4-a716-446655440001', '650e8400-e29b-41d4-a716-446655440005', 'Pipe repair, replacement and new installation', 'Pipe services', 399.00, 349.00, '1-3 hours', true, false),
 ('750e8400-e29b-41d4-a716-446655440006', 'Bathroom Grouting Service', '550e8400-e29b-41d4-a716-446655440001', '650e8400-e29b-41d4-a716-446655440006', 'Professional bathroom tile grouting and sealing', 'Bathroom grouting', 599.00, 549.00, '2-4 hours', true, false),
@@ -1076,6 +1085,62 @@ INSERT INTO public.services (id, name, category_id, subcategory_id, description,
 ('750e8400-e29b-41d4-a716-446655440062', 'Tile & Marble Work', '550e8400-e29b-41d4-a716-446655440007', '650e8400-e29b-41d4-a716-446655440062', 'Professional tile and marble installation services', 'Tile work', 1999.00, 1699.00, '1-3 days', true, false),
 ('750e8400-e29b-41d4-a716-446655440063', 'General Home Repairs', '550e8400-e29b-41d4-a716-446655440007', '650e8400-e29b-41d4-a716-446655440063', 'Comprehensive home repair and maintenance services', 'Home repairs', 899.00, 799.00, '4-8 hours', true, false)
 ON CONFLICT (id) DO NOTHING;
+
+-- Update Service Image Paths for Plumbing Services
+UPDATE services SET image_paths = '[
+  "images/subcategories/plumbing/bath-fittings/pexels-artbovich-6782356.jpg",
+  "images/subcategories/plumbing/bath-fittings/pexels-artbovich-6934233.jpg",
+  "images/subcategories/plumbing/bath-fittings/pexels-artbovich-7061067.jpg",
+  "images/subcategories/plumbing/bath-fittings/pexels-artbovich-8082549.jpg",
+  "images/subcategories/plumbing/bath-fittings/pexels-pixabay-534116.jpg"
+]'::jsonb WHERE name = 'Bathroom Tap Installation';
+
+UPDATE services SET image_paths = '[
+  "images/subcategories/plumbing/basin-sink/pexels-aj-ahamad-767001191-32168954.jpg",
+  "images/subcategories/plumbing/basin-sink/pexels-artbovich-6782575.jpg",
+  "images/subcategories/plumbing/basin-sink/pexels-artbovich-6899441.jpg",
+  "images/subcategories/plumbing/basin-sink/pexels-artbovich-7031908.jpg",
+  "images/subcategories/plumbing/basin-sink/pexels-pu-ca-adryan-163345030-29399427.jpg"
+]'::jsonb WHERE name = 'Kitchen Sink Installation';
+
+UPDATE services SET image_paths = '[
+  "images/subcategories/plumbing/toilet-classic/pexels-artbovich-6444240.jpg",
+  "images/subcategories/plumbing/toilet-classic/pexels-happy-donut-9996232-6226767.jpg",
+  "images/subcategories/plumbing/toilet-classic/pexels-karola-g-4239067.jpg",
+  "images/subcategories/plumbing/toilet-classic/pexels-karola-g-4239090.jpg",
+  "images/subcategories/plumbing/toilet-classic/pexels-polina-zimmerman-4107973.jpg"
+]'::jsonb WHERE name = 'Toilet Service (Classic)';
+
+UPDATE services SET image_paths = '[
+  "images/subcategories/plumbing/toilet-premium/pexels-artbovich-6585618.jpg",
+  "images/subcategories/plumbing/toilet-premium/pexels-artbovich-6933771.jpg",
+  "images/subcategories/plumbing/toilet-premium/pexels-artbovich-7031620.jpg",
+  "images/subcategories/plumbing/toilet-premium/pexels-artbovich-7045911.jpg",
+  "images/subcategories/plumbing/toilet-premium/pexels-karola-g-4239071.jpg"
+]'::jsonb WHERE name = 'Toilet Service (Premium)';
+
+UPDATE services SET image_paths = '[
+  "images/subcategories/plumbing/water-tank/pexels-nc-farm-bureau-mark-7509423.jpg",
+  "images/subcategories/plumbing/water-tank/pexels-magda-ehlers-pexels-28674471.jpg",
+  "images/subcategories/plumbing/water-tank/pexels-joetography-9043542-10934932.jpg",
+  "images/subcategories/plumbing/water-tank/pexels-sashmere-6961082.jpg"
+]'::jsonb WHERE name = 'Water Tank Installation';
+
+UPDATE services SET image_paths = '[
+  "images/subcategories/plumbing/pipes/pexels-anilkarakaya-6419128.jpg",
+  "images/subcategories/plumbing/pipes/pexels-dxaxoxfz-12142829.jpg",
+  "images/subcategories/plumbing/pipes/pexels-maotuizhutuzi-4432160.jpg",
+  "images/subcategories/plumbing/pipes/pexels-shkrabaanthony-4981803.jpg",
+  "images/subcategories/plumbing/pipes/pexels-swastikarora-15206136.jpg"
+]'::jsonb WHERE name = 'Pipe Repair & Installation';
+
+UPDATE services SET image_paths = '[
+  "images/subcategories/plumbing/grouting/pexels-liliana-drew-9462766.jpg",
+  "images/subcategories/plumbing/grouting/pexels-tkirkgoz-14124893.jpg",
+  "images/subcategories/plumbing/grouting/pexels-vladimirsrajber-11806477.jpg",
+  "images/subcategories/plumbing/grouting/pexels-vladimirsrajber-11806482.jpg",
+  "images/subcategories/plumbing/grouting/pexels-vladimirsrajber-11806486.jpg"
+]'::jsonb WHERE name = 'Bathroom Grouting Service';
 
 -- Insert Coupons
 INSERT INTO public.coupons (id, code, title, description, discount_type, discount_value, minimum_order_amount, maximum_discount_amount, usage_limit, usage_count, is_active, valid_from, valid_until, applicable_categories, applicable_services) VALUES 

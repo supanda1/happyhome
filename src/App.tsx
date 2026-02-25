@@ -61,6 +61,7 @@ interface BackendService {
   warranty?: string;
   gallery_images?: string[];
   images?: string[];
+  image_paths?: string[];  // Database field for service-specific images
   faq?: Array<{ question: string; answer: string }>;
 }
 
@@ -92,19 +93,6 @@ const App: React.FC = () => {
   // const { services, loading: servicesLoading } = useServices();
   const [services, setServices] = useState<any[]>([]);
   const [servicesLoading, setServicesLoading] = useState(false);
-  
-  // Debug: Add effect to log services changes
-  useEffect(() => {
-    console.log('🔍 Services state changed:', {
-      servicesCount: services?.length || 0,
-      servicesLoading,
-      sampleService: services?.[0] ? {
-        name: services[0].name,
-        category_name: (services[0] as any).category_name,
-        is_active: (services[0] as any).is_active
-      } : null
-    });
-  }, [services, servicesLoading]);
 
   // Memoized helper function to convert Service[] to BackendService[]
   const convertedBackendServices = useMemo(() => {
@@ -120,7 +108,7 @@ const App: React.FC = () => {
                (service as any).id;
       });
       
-      const convertedServices = filteredServices.map(service => {      
+      const convertedServices = filteredServices.map(service => {
         const apiService = service as any; // Type assertion for API response structure
         return {
           id: apiService.id || '',
@@ -145,25 +133,10 @@ const App: React.FC = () => {
           warranty: apiService.warranty,
           gallery_images: apiService.gallery_images,
           images: apiService.images,
+          image_paths: apiService.image_paths, // CRITICAL: Include image_paths for unique service images
           faq: apiService.faq
         };
       });
-      
-      // Log only when services array changes
-      if (convertedServices.length > 0) {
-        console.log('✅ Services converted successfully:', convertedServices.length);
-        console.log('🔄 Converted services sample:', {
-          totalConverted: convertedServices.length,
-          firstConverted: convertedServices[0] ? {
-            id: convertedServices[0].id,
-            name: convertedServices[0].name,
-            category_name: convertedServices[0].category_name,
-            is_active: convertedServices[0].is_active
-          } : null,
-          categoriesInConverted: [...new Set(convertedServices.map(s => s.category_name))],
-          activeCount: convertedServices.filter(s => s.is_active).length
-        });
-      }
       
       return convertedServices;
     } catch (error) {
@@ -246,9 +219,7 @@ const App: React.FC = () => {
           credentials: 'include'
         });
         
-        if (response.ok) {
-          console.log('Backend health check passed');
-        } else {
+        if (response.ok) {        } else {
           console.warn('Backend health check failed with status:', response.status);
         }
       } catch (error) {
@@ -296,31 +267,11 @@ const App: React.FC = () => {
   // Load categories, subcategories and services from admin data (REAL-TIME API)
   const loadCategoriesAndServices = async (forceRefresh = false) => {
     try {
-      setServicesLoading(true);
-      console.log('🔄 Loading categories and services...', { forceRefresh });
-      
+      setServicesLoading(true);      
       const allCategories = await getCategories();
       const allSubcategories = await getSubcategories();
       const allServices = await getServices();
-      
-      console.log('📊 Raw API data:', {
-        categories: allCategories?.length || 0,
-        subcategories: allSubcategories?.length || 0,
-        services: allServices?.length || 0,
-        sampleService: allServices?.[0]
-      });
-
-      // Debug: Log detailed service data
-      console.log('🔍 All services raw data:', allServices);
-      if (allServices && allServices.length > 0) {
-        console.log('🔍 First service details:', {
-          name: allServices[0]?.name,
-          category_name: allServices[0]?.category_name,
-          category_id: allServices[0]?.category_id,
-          is_active: allServices[0]?.is_active,
-          keys: Object.keys(allServices[0] || {})
-        });
-      }
+      // Services and categories loaded successfully
       
       // Check if we received valid arrays
       if (!Array.isArray(allCategories)) {
@@ -338,32 +289,11 @@ const App: React.FC = () => {
       // Filter only active data with better error handling
       const activeCategories = allCategories.filter(cat => cat && typeof cat === 'object' && cat.is_active);
       const activeSubcategories = allSubcategories.filter(sub => sub && typeof sub === 'object' && sub.is_active);
-      const activeServices = allServices.filter(service => service && typeof service === 'object' && service.is_active);
-      
-      console.log('✅ Filtered active data:', {
-        activeCategories: activeCategories.length,
-        activeSubcategories: activeSubcategories.length,  
-        activeServices: activeServices.length
-      });
-      
+      const activeServices = allServices.filter(service => service && typeof service === 'object' && service.is_active);      
       setCategories(activeCategories);
       setSubcategories(activeSubcategories);
       setServices(activeServices);
       setServicesLoading(false);
-
-      // Debug: Log what we're setting
-      console.log('🎯 Setting frontend state:', {
-        activeCategories: activeCategories.length,
-        activeSubcategories: activeSubcategories.length,
-        activeServices: activeServices.length,
-        categoryNames: activeCategories.map(c => c.name),
-        serviceCategories: activeServices.map(s => ({ name: (s as any).name, category_name: (s as any).category_name })),
-        firstActiveService: activeServices[0] ? {
-          name: activeServices[0].name,
-          category_name: (activeServices[0] as any).category_name,
-          is_active: (activeServices[0] as any).is_active
-        } : null
-      });
       
       // Build service categories object
       const serviceCategoriesObj: Record<string, string[]> = {
@@ -450,23 +380,12 @@ const App: React.FC = () => {
     setShowServicesDropdown(false);
   };
 
-  const navigateToServiceDetail = useCallback((serviceId: string) => {
-    console.log('🚀 Navigation triggered to service detail:', serviceId);
-    console.log('🚀 Current page before change:', currentPage);
-    console.log('🚀 Service ID type:', typeof serviceId);
-    console.log('🚀 Service ID length:', serviceId?.length);
-    
+  const navigateToServiceDetail = useCallback((serviceId: string) => {    
     // Check if this service exists in our current services array
-    const serviceExists = convertedBackendServices?.find(s => s.id === serviceId);
-    console.log('🚀 Service exists in current data:', !!serviceExists);
-    console.log('🚀 Total services available:', convertedBackendServices?.length || 0);
-    
+    const serviceExists = convertedBackendServices?.find(s => s.id === serviceId);    
     setSelectedServiceId(serviceId);
     setCurrentPage('service-detail');
-    setShowServicesDropdown(false);
-    console.log('📄 Page changed to: service-detail');
-    console.log('📄 Selected service ID set to:', serviceId);
-  }, [currentPage, services]);
+    setShowServicesDropdown(false);  }, [currentPage, services]);
 
 
   const navigateToMyBookings = () => {
@@ -730,7 +649,6 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                     <button 
                       className="bg-gray-100 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-200 transition-colors text-sm"
                       onClick={() => {
-                        console.log('🔍 View Details clicked in search results for:', service.name, 'ID:', service.id);
                         navigateToServiceDetail(service.id);
                       }}
                     >
@@ -742,12 +660,6 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                   {cartSuccessMessages[service.id] && (
                     <div className="mt-2 p-2 bg-green-100 border border-green-300 rounded-md">
                       <p className="text-green-800 text-sm font-medium">✓ {cartSuccessMessages[service.id]}</p>
-                    </div>
-                  )}
-                  {/* Debug: Always show if there are any messages */}
-                  {Object.keys(cartSuccessMessages).length > 0 && (
-                    <div className="mt-1 text-xs text-gray-500">
-                      Debug: Messages exist for services: {Object.keys(cartSuccessMessages).join(', ')}
                     </div>
                   )}
                 </div>
@@ -868,17 +780,6 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
     // Find the service from the loaded services
     const service = convertedBackendServices?.find(s => s.id === serviceId);
     
-    // Debug logging for service detail issues
-    console.log('🔍 ServiceDetailPageRoute Debug:', {
-      serviceId,
-      servicesLoading,
-      totalServices: services?.length || 0,
-      convertedServicesCount: convertedBackendServices?.length || 0,
-      serviceFound: !!service,
-      allServiceIds: convertedBackendServices?.map(s => ({ id: s.id, name: s.name })) || [],
-      matchingService: service ? { id: service.id, name: service.name } : null
-    });
-    
     if (!service || servicesLoading) {
       return (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -990,7 +891,12 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
       discountedPrice: adminService.discounted_price || adminService.base_price || 299,
       discount: adminService.discounted_price ? Math.round((1 - adminService.discounted_price / adminService.base_price) * 100) : 0,
       description: adminService.description || `Professional ${serviceName.toLowerCase()} service for your home.`,
-      images: serviceSubcategory?.image_paths || adminService.gallery_images || adminService.images || [],
+      images: (() => {
+        const serviceImages = adminService.image_paths || [];
+        const subcategoryImages = serviceSubcategory?.image_paths || [];
+        const finalImages = serviceImages.length > 0 ? serviceImages : subcategoryImages;
+        return finalImages;
+      })(),
       warranty: adminService.warranty || "30 Days", 
       protection: "₹10,000", 
       verified: true,
@@ -1012,7 +918,9 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
       discountedPrice: 199,
       discount: 33,
       description: `Professional ${serviceName.toLowerCase()} service for your home.`,
-      images: serviceSubcategory?.image_paths || [],
+      images: (adminService?.image_paths && adminService.image_paths.length > 0) 
+        ? adminService.image_paths 
+        : (serviceSubcategory?.image_paths || []),
       warranty: "30 Days", 
       protection: "₹10,000", 
       verified: true,
@@ -1171,6 +1079,7 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                       categoryName={categoryName}
                       serviceName={serviceName}
                       imageIndex={selectedImageIndex}
+                      imagePaths={serviceData.images}
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-purple-900/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -1198,6 +1107,7 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                         categoryName={categoryName}
                         serviceName={serviceName}
                         imageIndex={index}
+                        imagePaths={serviceData.images}
                         className="w-full h-full object-cover"
                       />
                     </button>
@@ -1868,18 +1778,9 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                   service.category_name === category.name && service.is_active
                 );
                 
-                // Debug: Log hasServices check for each category
+                // Check services for category
                 const servicesInThisCategory = convertedBackendServices?.filter(s => s.category_name === category.name) || [];
                 const activeServicesInCategory = convertedBackendServices?.filter(s => s.category_name === category.name && s.is_active) || [];
-                
-                console.log(`🎯 Category "${category.name}" hasServices check:`, {
-                  categoryName: category.name,
-                  hasServices,
-                  convertedServicesCount: convertedBackendServices?.length || 0,
-                  servicesInThisCategory: servicesInThisCategory.map(s => ({ name: s.name, category_name: s.category_name, is_active: s.is_active })),
-                  activeServicesInCategory: activeServicesInCategory.map(s => ({ name: s.name, category_name: s.category_name, is_active: s.is_active })),
-                  allAvailableCategories: [...new Set(convertedBackendServices?.map(s => s.category_name) || [])]
-                });
                 
                 // Get first 2 subcategories for display
                 const categorySubcategories = subcategories.filter(sub => 
@@ -2348,15 +2249,114 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
           {/* Subcategories Grid - Matching Homepage Services Design */}
           {categorySubcategories.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {categorySubcategories.map((subcategory, subcategoryIndex) => {
-                // Find the service for this subcategory
-                const subcategoryService = convertedBackendServices?.find((service) => 
+              {categorySubcategories.flatMap((subcategory, subcategoryIndex) => {
+                // Find all services for this subcategory
+                const subcategoryServices = convertedBackendServices?.filter((service) => 
                   service.subcategory_name === subcategory.name && 
                   service.category_name === categoryName &&
                   service.is_active
-                );
+                ) || [];
 
-                return (
+                // If multiple services exist (like Toilet Classic and Premium), render each separately
+                if (subcategoryServices.length > 1) {
+                  return subcategoryServices.map((subcategoryService, serviceIndex) => (
+                    <div 
+                      key={`${subcategory.id}-${serviceIndex}`}
+                      className="bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden group relative border border-gray-100"
+                    >
+                      {/* Cart Success Message */}
+                      {subcategoryService && subcategoryService.id && cartSuccessMessages[subcategoryService.id] && (
+                        <div className="absolute top-2 right-2 z-10">
+                          <div className="bg-green-500 text-white px-2 py-1 rounded text-xs font-medium shadow-md">
+                            Added!
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Service Image Header */}
+                      <div className="h-32 relative overflow-hidden border-b border-purple-200">
+                        {subcategoryService?.image_paths && subcategoryService.image_paths.length > 0 ? (
+                          <img 
+                            src={`/${subcategoryService.image_paths[0]}`} 
+                            alt={subcategoryService.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-orange-100 via-purple-100 to-blue-100" />
+                        )}
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2">
+                          <span className="text-xs font-semibold text-white">
+                            {subcategory.name}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="p-4">
+                        {/* Rating and Price - matching homepage layout */}
+                        <div className="flex items-center justify-between mb-3">
+                          {subcategoryService?.rating && subcategoryService.rating > 0 && (
+                            <div className="flex items-center">
+                              <span className="text-sm text-amber-500">★</span>
+                              <span className="text-sm text-gray-600 ml-1">{subcategoryService.rating}</span>
+                            </div>
+                          )}
+                          <div className="flex items-center">
+                            <>
+                              <span className="text-lg font-bold text-purple-600">
+                                ₹{subcategoryService.discounted_price || subcategoryService.base_price}
+                              </span>
+                              {subcategoryService.discounted_price && subcategoryService.discounted_price < subcategoryService.base_price && (
+                                <span className="text-sm text-gray-400 line-through ml-2">
+                                  ₹{subcategoryService.base_price}
+                                </span>
+                              )}
+                            </>
+                          </div>
+                        </div>
+                        
+                        {/* Service Name - use actual service name */}
+                        <h3 className="text-base font-semibold text-gray-900 mb-3 line-clamp-2 leading-tight">
+                          {subcategoryService.name}
+                        </h3>
+                        
+                        {/* Action Buttons - same layout as homepage */}
+                        <div className="flex space-x-2">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigateToServiceDetail(subcategoryService.id);
+                            }}
+                            className="flex-1 bg-white border border-purple-300 text-purple-700 hover:bg-purple-50 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
+                          >
+                            View Details
+                          </button>
+                          <button 
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              try {
+                                const cartItem = await addToCart(subcategoryService.id, 1);
+                                if (cartItem) {
+                                  updateGlobalCartCount();
+                                  showCartSuccessMessage(subcategoryService.id, `${subcategoryService.name} added to cart!`);
+                                }
+                              } catch (error) {
+                                console.error('Error adding to cart:', error);
+                              }
+                            }}
+                            className="flex-1 bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 hover:from-orange-600 hover:via-purple-700 hover:to-blue-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
+                          >
+                            Add to Cart
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ));
+                }
+
+                // For single service or no service, render as before
+                const subcategoryService = subcategoryServices[0];
+                
+                return [(
                   <div 
                     key={subcategory.id || subcategoryIndex}
                     className="bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden group relative border border-gray-100"
@@ -2370,11 +2370,22 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                       </div>
                     )}
                     
-                    {/* Category Header with same styling as homepage */}
-                    <div className="h-32 bg-gradient-to-br from-orange-100 via-purple-100 to-blue-100 flex items-center justify-center relative overflow-hidden border-b border-purple-200">
-                      <span className="text-sm font-semibold text-purple-900 text-center px-3 leading-tight bg-white/80 backdrop-blur-sm rounded-md py-1 shadow-sm">
-                        {categoryName}
-                      </span>
+                    {/* Service Image Header */}
+                    <div className="h-32 relative overflow-hidden border-b border-purple-200">
+                      {subcategoryService?.image_paths && subcategoryService.image_paths.length > 0 ? (
+                        <img 
+                          src={`/${subcategoryService.image_paths[0]}`} 
+                          alt={subcategoryService.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-orange-100 via-purple-100 to-blue-100" />
+                      )}
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2">
+                        <span className="text-xs font-semibold text-white">
+                          {subcategory.name}
+                        </span>
+                      </div>
                     </div>
                     
                     <div className="p-4">
@@ -2406,7 +2417,7 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                       
                       {/* Service Name */}
                       <h3 className="text-base font-semibold text-gray-900 mb-3 line-clamp-2 leading-tight">
-                        {subcategory.name === 'Toilets' ? 'Toilet Services (Classic)' : subcategory.name}
+                        {subcategory.name}
                       </h3>
                       
                       {/* Action Buttons - same layout as homepage */}
@@ -2415,43 +2426,12 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                           onClick={(e) => {
                             e.stopPropagation();
                             
-                            // Handle toilet service variants
-                            if (subcategory.name === 'Toilets' || 
-                                subcategory.name.includes('Toilet Service') || 
-                                subcategory.name.includes('toilet')) {
-                              
-                              // If it's already Premium, go directly to Premium page
-                              if (subcategory.name.includes('Premium')) {
-                                setCurrentPage('plumbing-toilets-premium');
-                                return;
-                              }
-                              
-                              // If it's Classic or generic Toilets, show choice dialog
-                              const choice = window.confirm(
-                                '🚽 Toilet Services - Choose Your Package:\n\n' +
-                                '✅ CLASSIC Package - ₹199 (25% OFF from ₹299)\n' +
-                                '   • Standard toilet repair & installation\n' +
-                                '   • Basic warranty coverage\n\n' +
-                                '⭐ PREMIUM Package - ₹299 (25% OFF from ₹399)\n' +
-                                '   • Enhanced toilet services\n' +
-                                '   • Premium warranty & support\n\n' +
-                                'Click OK for PREMIUM (₹299) or Cancel for CLASSIC (₹199)'
-                              );
-                              if (choice) {
-                                setCurrentPage('plumbing-toilets-premium');
-                              } else {
-                                setCurrentPage('plumbing-toilets');
-                              }
+                            // For all services, navigate to service detail if available
+                            if (subcategoryService && subcategoryService.id) {
+                              navigateToServiceDetail(subcategoryService.id);
                             } else {
-                              // For regular services, navigate to service detail if available
-                              if (subcategoryService && subcategoryService.id) {
-                                console.log('🔍 Navigating to service detail for:', subcategoryService.name, 'ID:', subcategoryService.id);
-                                navigateToServiceDetail(subcategoryService.id);
-                              } else {
-                                // Fallback to subcategory page for services without specific service data
-                                console.log('🔍 No service found, navigating to subcategory page:', categoryName, subcategory.name);
-                                navigateToSubcategory(categoryName, subcategory.name);
-                              }
+                              // Fallback to subcategory page for services without specific service data
+                              navigateToSubcategory(categoryName, subcategory.name);
                             }
                           }}
                           className="flex-1 bg-white border border-purple-300 text-purple-700 hover:bg-purple-50 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
@@ -2466,14 +2446,14 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                                 const cartItem = await addToCart(subcategoryService.id, 1);
                                 if (cartItem) {
                                   updateGlobalCartCount();
-                                  showCartSuccessMessage(subcategoryService.id, `${subcategory.name === 'Toilets' ? 'Toilet Services (Classic)' : subcategory.name} added to cart!`);
+                                  showCartSuccessMessage(subcategoryService.id, `${subcategory.name} added to cart!`);
                                 }
                               } catch (error) {
                                 console.error('Error adding to cart:', error);
                               }
                             } else {
                               // For subcategories without services, show a message or redirect to contact
-                              alert(`${subcategory.name === 'Toilets' ? 'Toilet Services (Classic)' : subcategory.name} service will be available soon! Call +91${contactSettings?.emergencyPhone || '9437341234'} for immediate assistance.`);
+                              alert(`${subcategory.name} service will be available soon! Call +91${contactSettings?.emergencyPhone || '9437341234'} for immediate assistance.`);
                             }
                           }}
                           className="flex-1 bg-gradient-to-r from-orange-500 via-purple-600 to-blue-600 hover:from-orange-600 hover:via-purple-700 hover:to-blue-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-200"
@@ -2483,7 +2463,7 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                       </div>
                     </div>
                   </div>
-                );
+                )];
               })}
             </div>
           ) : (
@@ -2790,13 +2770,6 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                 const categoryPageName = category.name.toLowerCase().replace(/\s+/g, '-').replace('&', '&');
                 const isActive = currentPage === categoryPageName || currentPage.startsWith(categoryPageName + '-');
                 
-                // Debug: Log navigation category check
-                console.log(`🚀 Nav Category "${category.name}":`, {
-                  hasServices,
-                  servicesForCategory: convertedBackendServices?.filter(s => s.category_name === category.name),
-                  totalServices: convertedBackendServices?.length || 0
-                });
-                
                 return (
                   <button 
                     key={category.id}
@@ -2882,10 +2855,10 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                   <ServiceDetailPage categoryName="Plumbing" serviceName="Professional Grouting Service" />
                 )}
                 {currentPage === 'plumbing-toilets' && (
-                  <ServiceDetailPage categoryName="Plumbing" serviceName="Toilet Installation & Repair" />
+                  <ServiceDetailPage categoryName="Plumbing" serviceName="Toilet Service (Classic)" />
                 )}
                 {currentPage === 'plumbing-toilets-premium' && (
-                  <ServiceDetailPage categoryName="Plumbing" serviceName="Toilet Services (Premium)" />
+                  <ServiceDetailPage categoryName="Plumbing" serviceName="Toilet Service (Premium)" />
                 )}
                 {currentPage === 'plumbing-pipe-&-connector' && (
                   <ServiceDetailPage categoryName="Plumbing" serviceName="Pipe & Connector Installation" />

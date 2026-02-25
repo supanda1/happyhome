@@ -2,15 +2,15 @@
 FROM node:18-alpine
 
 # Set environment variables
-ENV NODE_ENV=development \
-    NPM_CONFIG_LOGLEVEL=warn \
+ENV NPM_CONFIG_LOGLEVEL=warn \
     NPM_CONFIG_COLOR=false
 
-# Install system dependencies including PostgreSQL client
+# Install system dependencies including PostgreSQL client and PM2
 RUN apk add --no-cache \
     postgresql-client \
     curl \
-    bash
+    bash \
+    && npm install -g pm2
 
 # Create app directory
 WORKDIR /app
@@ -19,19 +19,24 @@ WORKDIR /app
 COPY package*.json ./
 COPY tsconfig.json ./
 
-# Install dependencies (including dev dependencies for build)
+# Install all dependencies (need devDependencies for TypeScript build)
 RUN npm ci && npm cache clean --force
 
 # Copy application source
 COPY src/ ./src/
 COPY migrations/ ./migrations/
 COPY scripts/ ./scripts/
+COPY ecosystem.config.js ./
 
 # Make scripts executable
 RUN chmod +x ./scripts/*.sh
 
 # Build TypeScript
 RUN npm run build
+
+# Remove dev dependencies after build and set production mode
+RUN npm prune --omit=dev
+ENV NODE_ENV=production
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
@@ -48,5 +53,5 @@ EXPOSE 8001
 HEALTHCHECK --interval=30s --timeout=30s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:8001/health || exit 1
 
-# Wait for migration to complete, then start API server  
-CMD ["sh", "-c", "echo 'Waiting for database to be ready...' && sleep 10 && npm start"]
+# Start with PM2 in cluster mode
+CMD ["pm2-runtime", "ecosystem.config.js"]

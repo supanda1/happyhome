@@ -22,10 +22,10 @@ COUPONS_COUNT=$(psql -h postgres -U postgres -d household_services -t -c "SELECT
 echo "📊 Current data: Categories=$CATEGORIES_COUNT, Services=$SERVICES_COUNT, Users=$USERS_COUNT, Banners=$BANNERS_COUNT, Coupons=$COUPONS_COUNT"
 
 # If we don't have the expected data, run migration
-if [ "$CATEGORIES_COUNT" != "7" ] || [ "$SERVICES_COUNT" != "31" ] || [ "$USERS_COUNT" != "3" ] || [ "$BANNERS_COUNT" != "3" ] || [ "$COUPONS_COUNT" != "6" ]; then
+if [ "$CATEGORIES_COUNT" != "7" ] || [ "$SERVICES_COUNT" != "32" ] || [ "$USERS_COUNT" != "3" ] || [ "$BANNERS_COUNT" != "3" ] || [ "$COUPONS_COUNT" != "6" ]; then
     echo "⚠️ Incomplete data detected. Running migration..."
     
-    # Run the complete setup migration
+    # Run the complete setup migration (includes service image paths)
     psql -h postgres -U postgres -d household_services -f /migrations/final_complete_setup.sql
     
     # Verify after migration

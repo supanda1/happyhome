@@ -68,7 +68,7 @@ services:
       - ./backend/scripts:/app/scripts
       - ./public:/app/public  # Mount public images directory
       - /app/node_modules  # Anonymous volume for node_modules
-    command: sh -c "echo 'Waiting for database to be ready...' && sleep 10 && npm run dev"
+    command: sh -c "pm2-runtime ecosystem.config.js"
     depends_on:
       postgres:
         condition: service_healthy

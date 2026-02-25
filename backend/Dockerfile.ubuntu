@@ -1,0 +1,88 @@
+# Ubuntu 24.04 Production Backend Dockerfile
+# Platform: linux/amd64
+# Optimized for Ubuntu server deployment
+
+FROM node:18-alpine AS base
+LABEL maintainer="Happy Homes Team"
+LABEL platform="linux/amd64"
+LABEL environment="ubuntu-production"
+
+# Set platform
+PLATFORM linux/amd64
+
+# Ubuntu-specific environment variables
+ENV NPM_CONFIG_LOGLEVEL=warn \
+    NPM_CONFIG_COLOR=false \
+    NODE_ENV=production \
+    TZ=Asia/Kolkata \
+    DEBIAN_FRONTEND=noninteractive
+
+# Install system dependencies optimized for Ubuntu deployment
+RUN apk add --no-cache \
+    postgresql-client \
+    curl \
+    wget \
+    bash \
+    tzdata \
+    ca-certificates \
+    && npm install -g pm2@5.3.0 \
+    && npm cache clean --force
+
+# Set timezone for India
+RUN cp /usr/share/zoneinfo/Asia/Kolkata /etc/localtime && \
+    echo "Asia/Kolkata" > /etc/timezone
+
+# Create app directory with proper permissions
+WORKDIR /app
+
+# Create logs directory
+RUN mkdir -p /app/logs && \
+    chmod 755 /app/logs
+
+# Copy package files
+COPY package*.json ./
+COPY tsconfig.json ./
+
+# Install dependencies with Ubuntu optimizations
+RUN npm ci --only=production --no-audit --no-fund && \
+    npm cache clean --force
+
+# Install dev dependencies temporarily for build
+RUN npm ci && npm cache clean --force
+
+# Copy application source
+COPY src/ ./src/
+COPY migrations/ ./migrations/
+COPY scripts/ ./scripts/
+COPY ecosystem.config.js ./
+
+# Make scripts executable
+RUN chmod +x ./scripts/*.sh
+
+# Build TypeScript
+RUN npm run build
+
+# Remove dev dependencies after build
+RUN npm prune --omit=dev
+
+# Create non-root user for Ubuntu security
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodeuser -u 1001 -G nodejs
+
+# Create production directories
+RUN mkdir -p /app/dist /app/logs /app/tmp && \
+    chown -R nodeuser:nodejs /app && \
+    chmod -R 755 /app
+
+# Switch to non-root user
+USER nodeuser
+
+# Expose port
+EXPOSE 8001
+
+# Ubuntu-specific health check with longer timeout
+HEALTHCHECK --interval=45s --timeout=30s --start-period=120s --retries=3 \
+    CMD curl -f http://localhost:8001/health || exit 1
+
+# Ubuntu production startup with PM2 cluster mode
+CMD ["pm2-runtime", "start", "ecosystem.config.js", "--env", "production"]

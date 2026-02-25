@@ -188,6 +188,7 @@ interface ServiceImageProps {
   imageIndex?: number;
   className?: string;
   onClick?: () => void;
+  imagePaths?: string[]; // NEW: Accept image paths from database
 }
 
 export const ServiceImage: React.FC<ServiceImageProps> = ({
@@ -195,7 +196,8 @@ export const ServiceImage: React.FC<ServiceImageProps> = ({
   serviceName,
   imageIndex = 0,
   className = 'w-full h-48 rounded-lg',
-  onClick
+  onClick,
+  imagePaths // NEW: Use database image paths
 }) => {
   // Get all images for this service/subcategory
   // Note: This now uses the database-driven approach with newly downloaded images
@@ -407,12 +409,16 @@ export const ServiceImage: React.FC<ServiceImageProps> = ({
     return imageArrayMap[subcategoryName] || ['/images/subcategories/plumbing/bath-fittings/bath-fittings-1.jpg'];
   };
 
-  const serviceKey = `${categoryName.toLowerCase().replace(/\s+/g, '-')}-${serviceName.toLowerCase().replace(/\s+/g, '-')}`;
-  const availableImages = getSubcategoryImages(serviceName);
+  // PRIORITY 1: Use database image_paths if provided
+  // PRIORITY 2: Fall back to hardcoded subcategory mappings
+  const availableImages = imagePaths && imagePaths.length > 0 
+    ? imagePaths.map(path => path.startsWith('/') ? path : `/${path}`) // Ensure leading slash
+    : getSubcategoryImages(serviceName);
+  
   const selectedImageSrc = availableImages[imageIndex] || availableImages[0] || '/images/subcategories/plumbing/pipes.jpg';
   
   const imageConfig = {
-    id: `service-${serviceKey}-${imageIndex}`,
+    id: `service-${categoryName.toLowerCase()}-${serviceName.toLowerCase()}-${imageIndex}`,
     src: selectedImageSrc,
     alt: `${serviceName} - ${categoryName} Service`,
     type: 'stock-photo' as const,

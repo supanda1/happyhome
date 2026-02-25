@@ -1,0 +1,118 @@
+# Ubuntu 24.04 Production Docker Compose
+# Platform: linux/amd64
+# Use: docker compose -f docker-compose.ubuntu.yml up -d
+
+services:
+  # PostgreSQL Database - Ubuntu specific
+  postgres:
+    image: postgres:15-alpine
+    platform: linux/amd64
+    container_name: happyhomes_db_ubuntu
+    env_file: .env.ubuntu
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data_ubuntu:/var/lib/postgresql/data
+      - ./ubuntu-deploy/migrations:/docker-entrypoint-initdb.d
+    networks:
+      - happyhomes_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d household_services"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+    restart: unless-stopped
+    # Ubuntu-specific resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+
+  # Node.js Backend API - Ubuntu optimized
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.ubuntu
+      platform: linux/amd64
+    container_name: happyhomes_api_ubuntu
+    env_file: .env.ubuntu
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./public:/app/public:ro  # Read-only public assets
+      - api_logs:/app/logs       # Separate log volume
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - happyhomes_network
+    restart: unless-stopped
+    # Ubuntu production optimizations
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '2.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 60s
+
+  # React Frontend - Ubuntu optimized
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.ubuntu
+      platform: linux/amd64
+    container_name: happyhomes_frontend_ubuntu
+    env_file: .env.ubuntu
+    ports:
+      - "3001:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - happyhomes_network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+        reservations:
+          memory: 128M
+          cpus: '0.25'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  postgres_data_ubuntu:
+    driver: local
+    driver_opts:
+      type: 'none'
+      o: 'bind'
+      device: '/opt/happyhomes/data/postgres'
+  api_logs:
+    driver: local
+
+networks:
+  happyhomes_network:
+    driver: bridge
+    name: happyhomes_net_ubuntu
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

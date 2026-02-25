@@ -1,7 +1,9 @@
 import express from 'express';
+import compression from 'compression';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import pool from './config/database';
 
@@ -39,6 +41,27 @@ const PORT = process.env.PORT || 8001;
 
 // Middleware
 app.use(helmet()); // Security headers
+app.use(compression()); // Gzip/deflate compression
+
+// Rate limiting - global: 100 requests per minute per IP
+const globalLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many requests, please try again later' },
+});
+app.use(globalLimiter);
+
+// Stricter rate limit for auth routes: 10 requests per minute per IP
+const authLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many authentication attempts, please try again later' },
+});
+
 app.use(cors({
   origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3001', 'http://localhost:3000', 'http://localhost:3002'],
   credentials: true
@@ -128,7 +151,7 @@ app.get('/admin/system/containers', async (req, res) => {
 // =============================================================================
 
 // Core API routes (RESTful structure)
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/categories', categoriesRoutes);
 app.use('/api/subcategories', subcategoriesRoutes);
 app.use('/api/services', servicesRoutes);

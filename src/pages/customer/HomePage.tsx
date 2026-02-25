@@ -28,6 +28,18 @@ const HomePage: React.FC<HomePageProps> = ({
     loadServices();
   }, [loadCategories, loadServices]);
 
+  // Debug what services we have
+  useEffect(() => {
+    if (services.length > 0) {
+      console.log('🔍 HOMEPAGE DEBUG: Services loaded:', services.length);
+      console.log('🔍 HOMEPAGE DEBUG: First 3 services:', services.slice(0, 3).map(s => ({
+        name: s.name,
+        photosCount: s.photos.length,
+        firstPhotoUrl: s.photos[0]?.url || 'NO PHOTO'
+      })));
+    }
+  }, [services]);
+
   const handleAddToCart = async (serviceId: string, serviceName: string) => {
     try {
       setAddingToCart(serviceId);
@@ -134,8 +146,18 @@ const HomePage: React.FC<HomePageProps> = ({
                   key={category.id}
                   className="group cursor-pointer"
                 >
-                  <Card hover className="text-center h-full transition-transform group-hover:scale-105">
-                    <CardContent>
+                  <Card hover className="overflow-hidden h-full transition-transform group-hover:scale-105">
+                    {category.imagePath && (
+                      <div className="w-full h-40 overflow-hidden">
+                        <img
+                          src={category.imagePath}
+                          alt={category.name}
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
+                      </div>
+                    )}
+                    <CardContent className="text-center">
                       <h3 className="font-semibold text-gray-900 mb-2">
                         {category.name}
                       </h3>
@@ -182,11 +204,16 @@ const HomePage: React.FC<HomePageProps> = ({
                   
                   <div className="aspect-w-16 aspect-h-9 bg-gray-200">
                     {service.photos[0] ? (
-                      <img
-                        src={service.photos[0].url}
-                        alt={service.photos[0].altText}
-                        className="w-full h-48 object-cover"
-                      />
+                      (() => {
+                        console.log(`🖼️ RENDER DEBUG: "${service.name}" -> ${service.photos[0].url}`);
+                        return (
+                          <img
+                            src={service.photos[0].url}
+                            alt={service.photos[0].altText}
+                            className="w-full h-48 object-cover"
+                          />
+                        );
+                      })()
                     ) : (
                       <div className="w-full h-48 bg-gradient-to-br from-orange-100 to-purple-200 flex items-center justify-center">
                         <span className="text-lg font-semibold text-gray-700">{service.category.name}</span>
@@ -286,11 +313,16 @@ const HomePage: React.FC<HomePageProps> = ({
               <Card key={service.id} hover className="overflow-hidden">
                 <div className="aspect-w-16 aspect-h-9 bg-gray-200">
                   {service.photos[0] ? (
-                    <img
-                      src={service.photos[0].url}
-                      alt={service.photos[0].altText}
-                      className="w-full h-48 object-cover"
-                    />
+                    (() => {
+                      console.log(`🎯 FEATURED RENDER DEBUG: "${service.name}" -> ${service.photos[0].url}`);
+                      return (
+                        <img
+                          src={service.photos[0].url}
+                          alt={service.photos[0].altText}
+                          className="w-full h-48 object-cover"
+                        />
+                      );
+                    })()
                   ) : (
                     <div className="w-full h-48 bg-gradient-to-br from-orange-100 to-purple-200 flex items-center justify-center">
                       <span className="text-lg font-semibold text-gray-700">{service.category.name}</span>

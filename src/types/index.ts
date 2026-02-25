@@ -22,6 +22,7 @@ export interface ServiceCategory {
   name: string;
   description: string;
   icon: string;
+  imagePath?: string;
   isActive: boolean;
   sortOrder: number;
   createdAt: Date;

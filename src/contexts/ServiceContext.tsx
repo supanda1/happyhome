@@ -235,6 +235,11 @@ export const ServiceProvider: React.FC<ServiceProviderProps> = ({ children }) =>
       const backendServices = await getServices();
       
       // Convert backend Service[] to match ServiceContext Service[] format
+      console.log('🔍 DEBUG: Raw backend services data:', backendServices.slice(0, 3).map(s => ({
+        name: s.name,
+        image_paths: s.image_paths
+      })));
+
       const services: Service[] = backendServices.map(service => ({
         id: service.id,
         name: service.name,
@@ -258,14 +263,18 @@ export const ServiceProvider: React.FC<ServiceProviderProps> = ({ children }) =>
         exclusions: service.exclusions || [],
         requirements: service.requirements || [],
         tags: service.tags || [],
-        photos: (service.image_paths || []).map((url: string, index: number) => ({
-          id: `${service.id}-photo-${index}`,
-          serviceId: service.id,
-          url: url.startsWith('http') ? url : `/${url}`,
-          altText: `${service.name} photo ${index + 1}`,
-          isPrimary: index === 0,
-          sortOrder: index
-        })),
+        photos: (service.image_paths || []).map((url: string, index: number) => {
+          const photoUrl = url.startsWith('http') ? url : `/${url}`;
+          console.log(`🖼️ DEBUG: ${service.name} -> Photo ${index}: ${photoUrl}`);
+          return {
+            id: `${service.id}-photo-${index}`,
+            serviceId: service.id,
+            url: photoUrl,
+            altText: `${service.name} photo ${index + 1}`,
+            isPrimary: index === 0,
+            sortOrder: index
+          };
+        }),
         availability: {
           isAvailable: service.is_active,
           timeSlots: [],
@@ -304,6 +313,7 @@ export const ServiceProvider: React.FC<ServiceProviderProps> = ({ children }) =>
         name: cat.name,
         description: cat.description || '',
         icon: cat.icon || '',
+        imagePath: cat.image_path || '',
         isActive: cat.is_active || true,
         sortOrder: cat.sort_order || 0,
         createdAt: new Date(cat.created_at || Date.now()),
