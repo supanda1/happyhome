@@ -1142,6 +1142,171 @@ UPDATE services SET image_paths = '[
   "images/subcategories/plumbing/grouting/pexels-vladimirsrajber-11806486.jpg"
 ]'::jsonb WHERE name = 'Bathroom Grouting Service';
 
+-- ELECTRICAL SERVICES
+UPDATE services SET image_paths = '[
+  "images/subcategories/electrical/wiring/pexels-aizat-ramlan-1291546-9679179.jpg",
+  "images/subcategories/electrical/wiring/pexels-kseniachernaya-5691588.jpg",
+  "images/subcategories/electrical/wiring/wiring-installation-1.jpg",
+  "images/subcategories/electrical/wiring/wiring-installation-3.jpg"
+]'::jsonb WHERE name = 'House Wiring Installation';
+
+UPDATE services SET image_paths = '[
+  "images/subcategories/electrical/appliance-repair/pexels-bulat369-1243575272-31499909.jpg",
+  "images/subcategories/electrical/appliance-repair/pexels-bulat369-1243575272-32391511.jpg",
+  "images/subcategories/electrical/appliance-repair/pexels-bulat369-1243575272-32588553.jpg",
+  "images/subcategories/electrical/appliance-repair/pexels-kleison-leopoldino-219870943-31701039.jpg",
+  "images/subcategories/electrical/appliance-repair/pexels-kseniachernaya-5691589.jpg"
+]'::jsonb WHERE name = 'Appliance Repair Service';
+
+UPDATE services SET image_paths = '[
+  "images/subcategories/electrical/switches-sockets/pexels-aizat-ramlan-1291546-9679179.jpg",
+  "images/subcategories/electrical/switches-sockets/pexels-artempodrez-8986042.jpg",
+  "images/subcategories/electrical/switches-sockets/pexels-lamiko-3615711.jpg",
+  "images/subcategories/electrical/switches-sockets/pexels-nikitaxnikitin-8101107.jpg",
+  "images/subcategories/electrical/switches-sockets/pexels-smart-me-ag-2155714756-35573433.jpg"
+]'::jsonb WHERE name = 'Switch & Socket Installation';
+
+UPDATE services SET image_paths = '[
+  "images/subcategories/electrical/fans/pexels-enriquezafra-3675622.jpg",
+  "images/subcategories/electrical/fans/pexels-pavel-danilyuk-6926600.jpg",
+  "images/subcategories/electrical/fans/pexels-zeleboba-28163245.jpg",
+  "images/subcategories/electrical/fans/pexels-zeleboba-32959141.jpg"
+]'::jsonb WHERE name = 'Ceiling Fan Installation';
+
+UPDATE services SET image_paths = '[
+  "images/subcategories/electrical/lighting/pexels-adonyi-foto-1400140.jpg",
+  "images/subcategories/electrical/lighting/pexels-anete-lusina-4792522.jpg",
+  "images/subcategories/electrical/lighting/pexels-brett-sayles-1073050.jpg",
+  "images/subcategories/electrical/lighting/pexels-pixabay-266688.jpg",
+  "images/subcategories/electrical/lighting/pexels-shkrabaanthony-4981794.jpg",
+  "images/subcategories/electrical/lighting/pexels-tima-miroshnichenko-6499175.jpg"
+]'::jsonb WHERE name = 'LED Light Installation';
+
+-- CLEANING SERVICES
+UPDATE services SET image_paths = '[
+  "images/subcategories/cleaning/bathroom-cleaning/pexels-karola-g-4239091.jpg",
+  "images/subcategories/cleaning/bathroom-cleaning/pexels-karola-g-4239130.jpg",
+  "images/subcategories/cleaning/bathroom-cleaning/pexels-karola-g-4239141.jpg",
+  "images/subcategories/cleaning/bathroom-cleaning/pexels-liliana-drew-9462638.jpg",
+  "images/subcategories/cleaning/bathroom-cleaning/pexels-pixabay-534116.jpg"
+]'::jsonb WHERE name = 'Bathroom Deep Cleaning';
+
+UPDATE services SET image_paths = '[
+  "images/subcategories/cleaning/ac-cleaning/pexels-artbovich-7587368.jpg",
+  "images/subcategories/cleaning/ac-cleaning/pexels-fox-58267-1163109.jpg",
+  "images/subcategories/cleaning/ac-cleaning/pexels-jose-andres-pacheco-cortes-3641213-5463575.jpg",
+  "images/subcategories/cleaning/ac-cleaning/pexels-jose-andres-pacheco-cortes-3641213-5463576.jpg",
+  "images/subcategories/cleaning/ac-cleaning/pexels-jose-andres-pacheco-cortes-3641213-5463580.jpg"
+]'::jsonb WHERE name = 'AC Service & Cleaning';
+
+UPDATE services SET image_paths = '[
+  "images/subcategories/cleaning/water-tank-cleaning/pexels-gene-samit-546626702-30327222.jpg",
+  "images/subcategories/cleaning/water-tank-cleaning/pexels-shubhamprajapat-27566315.jpg"
+]'::jsonb WHERE name = 'Water Tank Cleaning';
+
+UPDATE services SET image_paths = '[
+  "images/subcategories/cleaning/car-wash/pexels-karola-g-4870700.jpg",
+  "images/subcategories/cleaning/car-wash/pexels-karola-g-4870707.jpg",
+  "images/subcategories/cleaning/car-wash/pexels-tima-miroshnichenko-6872146.jpg",
+  "images/subcategories/cleaning/car-wash/pexels-tima-miroshnichenko-6872580.jpg",
+  "images/subcategories/cleaning/car-wash/pexels-tima-miroshnichenko-6873191.jpg"
+]'::jsonb WHERE name = 'Car Washing Service';
+
+UPDATE services SET image_paths = '[
+  "images/subcategories/cleaning/septic-tank/pexels-davidmcelwee-12191394.jpg",
+  "images/subcategories/cleaning/septic-tank/pexels-nc-farm-bureau-mark-7509423.jpg",
+  "images/subcategories/cleaning/septic-tank/pexels-paolobrt-16286165.jpg"
+]'::jsonb WHERE name = 'Septic Tank Cleaning';
+
+UPDATE services SET image_paths = '[
+  "images/subcategories/cleaning/water-purifier/pexels-pixabay-279947.jpg"
+]'::jsonb WHERE name = 'Water Purifier Service';
+
+-- CIVIL WORK SERVICES
+UPDATE services SET image_paths = '[
+  "images/subcategories/civil-work/painting/pexels-blue-bird-7218008.jpg",
+  "images/subcategories/civil-work/painting/pexels-ivan-s-5798984.jpg",
+  "images/subcategories/civil-work/painting/pexels-kseniachernaya-5691603.jpg",
+  "images/subcategories/civil-work/painting/pexels-kseniachernaya-5691625.jpg",
+  "images/subcategories/civil-work/painting/pexels-polina-tankilevitch-5583116.jpg",
+  "images/subcategories/civil-work/painting/house-painting-3.jpg"
+]'::jsonb WHERE name = 'House Painting Service';
+
+UPDATE services SET image_paths = '[
+  "images/subcategories/civil-work/tile-work/pexels-kseniachernaya-5691686.jpg",
+  "images/subcategories/civil-work/tile-work/pexels-marina-zasorina-9423038.jpg",
+  "images/subcategories/civil-work/tile-work/pexels-tima-miroshnichenko-6474340.jpg",
+  "images/subcategories/civil-work/tile-work/pexels-vladimirsrajber-11806476.jpg"
+]'::jsonb WHERE name = 'Tile & Marble Work';
+
+UPDATE services SET image_paths = '[
+  "images/subcategories/civil-work/home-repairs/pexels-kseniachernaya-5691686.jpg",
+  "images/subcategories/civil-work/home-repairs/pexels-kseniachernaya-5768284.jpg",
+  "images/subcategories/civil-work/home-repairs/pexels-monica-4817843.jpg",
+  "images/subcategories/civil-work/home-repairs/pexels-tima-miroshnichenko-6474295.jpg"
+]'::jsonb WHERE name = 'General Home Repairs';
+
+-- CALL A SERVICE
+UPDATE services SET image_paths = '[
+  "images/subcategories/call-a-service/courier/pexels-kindelmedia-6867939.jpg",
+  "images/subcategories/call-a-service/courier/pexels-mizunokozuki-13456097.jpg",
+  "images/subcategories/call-a-service/courier/pexels-pixabay-279947.jpg",
+  "images/subcategories/call-a-service/courier/pexels-tima-miroshnichenko-6169047.jpg",
+  "images/subcategories/call-a-service/courier/pexels-tima-miroshnichenko-6169059.jpg"
+]'::jsonb WHERE name = 'Courier & Delivery';
+
+UPDATE services SET image_paths = '[
+  "images/subcategories/call-a-service/cab-booking/pexels-necip-duman-3299706-13716328.jpg",
+  "images/subcategories/call-a-service/cab-booking/pexels-neosiam-590059.jpg",
+  "images/subcategories/call-a-service/cab-booking/pexels-ono-kosuki-5647593.jpg",
+  "images/subcategories/call-a-service/cab-booking/pexels-sarah-claude-levesque-st-louis-156920272-13740327.jpg",
+  "images/subcategories/call-a-service/cab-booking/pexels-uriel-mont-6280718.jpg"
+]'::jsonb WHERE name = 'Taxi Booking Service';
+
+UPDATE services SET image_paths = '[
+  "images/subcategories/call-a-service/vehicle-breakdown/pexels-a-q-91521018-18863497.jpg",
+  "images/subcategories/call-a-service/vehicle-breakdown/pexels-introspectivedsgn-8718525.jpg",
+  "images/subcategories/call-a-service/vehicle-breakdown/pexels-jonathan-reynaga-861774-17429097.jpg",
+  "images/subcategories/call-a-service/vehicle-breakdown/pexels-mart-production-8869193.jpg",
+  "images/subcategories/call-a-service/vehicle-breakdown/pexels-talal-5403208.jpg"
+]'::jsonb WHERE name = 'Vehicle Breakdown Assistance';
+
+UPDATE services SET image_paths = '[
+  "images/subcategories/call-a-service/photographer/pexels-amina-filkins-5561156.jpg",
+  "images/subcategories/call-a-service/photographer/pexels-atccommphoto-302355.jpg",
+  "images/subcategories/call-a-service/photographer/pexels-marcelochagas-1854897.jpg",
+  "images/subcategories/call-a-service/photographer/pexels-maxzal-2953179.jpg",
+  "images/subcategories/call-a-service/photographer/pexels-rb-audiovisual-1728163.jpg"
+]'::jsonb WHERE name = 'Photography Service';
+
+-- FINANCE & INSURANCE
+UPDATE services SET image_paths = '[
+  "images/subcategories/finance-insurance/gst-registration/pexels-anete-lusina-4792285.jpg",
+  "images/subcategories/finance-insurance/gst-registration/pexels-cottonbro-6538428.jpg",
+  "images/subcategories/finance-insurance/gst-registration/pexels-n-voitkevich-6863332.jpg"
+]'::jsonb WHERE name = 'GST Registration Service';
+
+UPDATE services SET image_paths = '[
+  "images/subcategories/finance-insurance/stamp-paper/pexels-anntarazevich-6358840.jpg",
+  "images/subcategories/finance-insurance/stamp-paper/pexels-mart-production-7333505.jpg",
+  "images/subcategories/finance-insurance/stamp-paper/stamp-paper-agreement-2.jpg",
+  "images/subcategories/finance-insurance/stamp-paper/stamp-paper-agreement-3.jpg"
+]'::jsonb WHERE name = 'PAN Card Application';
+
+UPDATE services SET image_paths = '[
+  "images/subcategories/finance-insurance/itr-filing/pexels-leeloothefirst-8970296.jpg",
+  "images/subcategories/finance-insurance/itr-filing/pexels-mark-youso-420893752-15116664.jpg",
+  "images/subcategories/finance-insurance/itr-filing/pexels-n-voitkevich-6863259.jpg",
+  "images/subcategories/finance-insurance/itr-filing/pexels-n-voitkevich-6863330.jpg",
+  "images/subcategories/finance-insurance/itr-filing/itr-filing-3.jpg"
+]'::jsonb WHERE name = 'ITR Filing Service';
+
+UPDATE services SET image_paths = '[
+  "images/subcategories/finance-insurance/legal-documentation/pexels-ekaterina-bolovtsova-6077476.jpg",
+  "images/subcategories/finance-insurance/legal-documentation/pexels-pixabay-48148.jpg",
+  "images/subcategories/finance-insurance/legal-documentation/pexels-rdne-7821937.jpg"
+]'::jsonb WHERE name = 'Legal Documentation';
+
 -- Insert Coupons
 INSERT INTO public.coupons (id, code, title, description, discount_type, discount_value, minimum_order_amount, maximum_discount_amount, usage_limit, usage_count, is_active, valid_from, valid_until, applicable_categories, applicable_services) VALUES 
 ('54615e55-a281-422e-9e11-1f54bb03c2c7', 'WELCOME50', 'Welcome Offer', 'Get 50% off on your first service booking', 'percentage', 50.00, 199.00, NULL, 1000, 0, true, '2025-10-29', '2025-11-28', '[]'::JSONB, '[]'::JSONB),
