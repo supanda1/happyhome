@@ -88,6 +88,20 @@ const App: React.FC = () => {
   const [contactSettings, setContactSettings] = useState<ContactSettings | null>(null);
   const [cartSuccessMessages, setCartSuccessMessages] = useState<{[serviceId: string]: string}>({});
   const [isCartCollapsed, setIsCartCollapsed] = useState(false);
+  const [iciciCallbackPage, setIciciCallbackPage] = useState<'success' | 'failed' | null>(null);
+  const [iciciCallbackParams, setIciciCallbackParams] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash.includes('checkout-success') || hash.includes('checkout-failed')) {
+      const isSuccess = hash.includes('checkout-success');
+      const queryString = hash.split('?')[1] ?? '';
+      const params = Object.fromEntries(new URLSearchParams(queryString).entries());
+      setIciciCallbackPage(isSuccess ? 'success' : 'failed');
+      setIciciCallbackParams(params);
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  }, []);
 
   // Get real backend services data (disabled to prevent conflicts with adminDataManager)
   // const { services, loading: servicesLoading } = useServices();
@@ -1636,10 +1650,25 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                       </div>
                     )}
                     
-                    <div className="h-32 bg-gradient-to-br from-orange-100 via-purple-100 to-blue-100 flex items-center justify-center relative overflow-hidden border-b border-purple-200">
-                      <span className="text-sm font-semibold text-purple-900 text-center px-3 leading-tight bg-white/80 backdrop-blur-sm rounded-md py-1 shadow-sm">
-                        {service.category_name}
-                      </span>
+                    <div className="h-32 relative overflow-hidden border-b border-purple-200">
+                      {service.image_paths && service.image_paths.length > 0 ? (
+                        <img 
+                          src={`/${service.image_paths[0]}`} 
+                          alt={service.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-orange-100 via-purple-100 to-blue-100 flex items-center justify-center">
+                          <span className="text-sm font-semibold text-purple-900 text-center px-3 leading-tight bg-white/80 backdrop-blur-sm rounded-md py-1 shadow-sm">
+                            {service.category_name}
+                          </span>
+                        </div>
+                      )}
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2">
+                        <span className="text-xs font-semibold text-white">
+                          {service.category_name}
+                        </span>
+                      </div>
                     </div>
                     
                     <div className="p-4">
@@ -1795,11 +1824,26 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                       hasServices ? 'cursor-pointer' : 'cursor-not-allowed opacity-75'
                     }`}
                   >
-                    {/* Category Header with same styling as services */}
-                    <div className="h-32 bg-gradient-to-br from-orange-100 via-purple-100 to-blue-100 flex items-center justify-center relative overflow-hidden border-b border-purple-200">
-                      <span className="text-sm font-semibold text-purple-900 text-center px-3 leading-tight bg-white/80 backdrop-blur-sm rounded-md py-1 shadow-sm">
-                        {category.name}
-                      </span>
+                    {/* Category Header with image */}
+                    <div className="h-32 relative overflow-hidden border-b border-purple-200">
+                      {category.image_path ? (
+                        <img 
+                          src={category.image_path} 
+                          alt={category.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-orange-100 via-purple-100 to-blue-100 flex items-center justify-center">
+                          <span className="text-sm font-semibold text-purple-900 text-center px-3 leading-tight bg-white/80 backdrop-blur-sm rounded-md py-1 shadow-sm">
+                            {category.name}
+                          </span>
+                        </div>
+                      )}
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2">
+                        <span className="text-xs font-semibold text-white">
+                          {category.name}
+                        </span>
+                      </div>
                       {!hasServices && (
                         <span className="absolute top-2 right-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-bold">
                           Soon
@@ -3065,6 +3109,55 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
           // Normal layout for non-category pages (Home, Login, Cart, etc.)
           return (
             <main className="transition-all duration-300">
+              {iciciCallbackPage && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+                  <div className="bg-white rounded-2xl shadow-2xl p-10 max-w-md w-full mx-4 text-center">
+                    {iciciCallbackPage === 'success' ? (
+                      <>
+                        <div className="text-7xl mb-4 animate-bounce">✅</div>
+                        <h2 className="text-2xl font-bold text-green-600 mb-2">Payment Successful!</h2>
+                        <p className="text-gray-600 mb-4">
+                          Your payment of ₹{iciciCallbackParams.amount || ''} was processed successfully via ICICI Bank.
+                        </p>
+                        {iciciCallbackParams.transactionId && (
+                          <p className="text-xs text-gray-400 mb-6">Txn: {iciciCallbackParams.transactionId}</p>
+                        )}
+                        <button
+                          onClick={() => { setIciciCallbackPage(null); navigateToMyBookings(); }}
+                          className="w-full py-3 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition-colors"
+                        >
+                          View My Bookings
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <div className="text-7xl mb-4">❌</div>
+                        <h2 className="text-2xl font-bold text-red-600 mb-2">Payment Failed</h2>
+                        <p className="text-gray-600 mb-2">
+                          Your payment could not be processed.
+                        </p>
+                        {iciciCallbackParams.reason && (
+                          <p className="text-sm text-gray-500 mb-6">Reason: {decodeURIComponent(iciciCallbackParams.reason)}</p>
+                        )}
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => { setIciciCallbackPage(null); navigateToCheckout(); }}
+                            className="flex-1 py-3 bg-orange-600 text-white rounded-xl font-semibold hover:bg-orange-700 transition-colors"
+                          >
+                            Try Again
+                          </button>
+                          <button
+                            onClick={() => { setIciciCallbackPage(null); navigateToHome(); }}
+                            className="flex-1 py-3 bg-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-300 transition-colors"
+                          >
+                            Go Home
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
               {currentPage === 'home' && (
                 <HomePage 
                   navigateToServiceDetail={navigateToServiceDetail} 
