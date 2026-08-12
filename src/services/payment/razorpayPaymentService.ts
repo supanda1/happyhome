@@ -20,7 +20,7 @@ import type {
 import type { RazorpaySuccessResponse } from '../../types/razorpay';
 import { getPaymentConfig } from '../../config/payment.config';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8001';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://happyhomesworld.com';
 
 /**
  * Map Razorpay status to our PaymentStatus

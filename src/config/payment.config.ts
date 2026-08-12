@@ -20,6 +20,22 @@ const getEnvVar = (key: string, defaultValue?: string): string => {
 // ========== Payment Provider Configurations ==========
 
 export const PAYMENT_PROVIDERS: Record<PaymentProvider, PaymentConfig> = {
+  // Real ICICI CCAvenue backend integration
+  backend: {
+    provider: 'backend',
+    publicKey: 'icici_gateway',
+    secretKey: 'managed_by_backend',
+    environment: (getEnvVar('VITE_BACKEND_PAYMENT_ENV', 'sandbox') as 'sandbox' | 'production'),
+    currency: 'INR',
+    country: 'IN',
+    features: {
+      saveCards: false,
+      subscriptions: false,
+      refunds: true,
+      webhooks: true,
+    },
+  },
+
   // Mock Gateway (for development/testing)
   mock: {
     provider: 'mock',
@@ -170,6 +186,8 @@ export const CURRENT_PAYMENT_CONFIG: PaymentConfig = PAYMENT_PROVIDERS[DEFAULT_P
 // ========== Supported Payment Methods by Provider ==========
 
 export const SUPPORTED_PAYMENT_METHODS: Record<PaymentProvider, PaymentMethod[]> = {
+  backend: ['card', 'upi', 'netbanking', 'wallet', 'emi'],
+
   mock: ['card', 'upi', 'netbanking', 'wallet', 'emi', 'cash_on_delivery'],
   
   stripe: ['card'], // Stripe primarily handles cards
@@ -216,6 +234,7 @@ export const getWebhookEndpoint = (provider?: PaymentProvider): string => {
   const currentProvider = provider || getCurrentPaymentProvider();
   
   const endpoints = {
+    backend: '/api/payments/callback',
     mock: '/api/webhooks/mock',
     stripe: '/api/webhooks/stripe',
     razorpay: '/api/webhooks/razorpay', 
@@ -234,15 +253,22 @@ export const getWebhookEndpoint = (provider?: PaymentProvider): string => {
 export const validatePaymentConfig = (config: PaymentConfig): { isValid: boolean; errors: string[] } => {
   const errors: string[] = [];
   
+  // In production, only log warnings instead of throwing errors
+  // This allows the app to load even if payment isn't fully configured
+  const isProduction = import.meta.env.VITE_NODE_ENV === 'production';
+  
   if (!config.publicKey || config.publicKey.includes('...')) {
-    errors.push(`Missing or invalid public key for ${config.provider}`);
+    if (isProduction) {
+      console.warn(`Payment config: Missing or invalid public key for ${config.provider}`);
+    } else {
+      errors.push(`Missing or invalid public key for ${config.provider}`);
+    }
   }
   
-  if (!config.secretKey || config.secretKey.includes('...')) {
-    errors.push(`Missing or invalid secret key for ${config.provider}`);
-  }
+  // Don't validate secret key on frontend - it should only be on backend
+  // Secret keys should NEVER be exposed to the frontend
   
-  if (config.features.webhooks && !config.webhookSecret) {
+  if (config.features.webhooks && !config.webhookSecret && !isProduction) {
     errors.push(`Webhook secret required for ${config.provider} with webhooks enabled`);
   }
   

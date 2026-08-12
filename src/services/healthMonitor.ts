@@ -73,14 +73,14 @@ class HealthMonitorService {
     },
     backend_node: {
       name: 'Backend (Node.js)',
-      url: import.meta.env.VITE_BACKEND_NODE_URL || 'http://localhost:8001', 
+      url: import.meta.env.VITE_API_BASE_URL || 'https://happyhomesworld.com/api', 
       healthEndpoint: '/health',
       timeout: parseInt(import.meta.env.VITE_HEALTH_TIMEOUT || '5000'),
       critical: true
     },
     database: {
       name: 'PostgreSQL Database',
-      url: import.meta.env.VITE_BACKEND_NODE_URL || 'http://localhost:8001',
+      url: import.meta.env.VITE_API_BASE_URL || 'https://happyhomesworld.com/api',
       healthEndpoint: '/health/db',
       timeout: parseInt(import.meta.env.VITE_HEALTH_TIMEOUT || '3000'),
       critical: true,
@@ -272,7 +272,7 @@ class HealthMonitorService {
 
     try {
       // Try to check if Docker containers are running via backend API
-      const response = await fetch(`${import.meta.env.VITE_BACKEND_NODE_URL || 'http://localhost:8001'}/admin/system/containers`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'https://happyhomesworld.com/api'}/admin/system/containers`, {
         credentials: 'include'
       } as RequestInit);
 
@@ -399,7 +399,7 @@ class HealthMonitorService {
   private async sendAlertNotification(alert: HealthAlert): Promise<void> {
     try {
       // Send to backend notification system
-      await fetch(`${import.meta.env.VITE_BACKEND_NODE_URL || 'http://localhost:8001'}/admin/notifications/alerts`, {
+      await fetch(`${import.meta.env.VITE_API_BASE_URL || 'https://happyhomesworld.com/api'}/admin/notifications/alerts`, {
         method: 'POST',
         credentials: 'include',
         headers: {
