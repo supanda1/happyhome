@@ -1,5 +1,6 @@
 import express from 'express';
 import compression from 'compression';
+import path from 'path';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -10,6 +11,7 @@ import pool from './config/database';
 // Import routes
 import ordersRoutes from './routes/orders';
 import engineersRoutes from './routes/engineersRoutes';
+import engineerJobsRoutes from './routes/engineerJobs';
 import categoriesRoutes from './routes/categories';
 import subcategoriesRoutes from './routes/subcategories';
 import couponsRoutes from './routes/coupons';
@@ -28,6 +30,9 @@ import smsConfigRoutes from './routes/smsConfig';
 import userManagementRoutes from './routes/userManagement';
 import configRoutes from './routes/config';
 import paymentsRoutes from './routes/payments';
+import reviewsRoutes from './routes/reviews';
+import razorpayRoutes from './routes/razorpay';
+import webhooksRoutes from './routes/webhooks';
 
 // Load environment variables
 dotenv.config();
@@ -70,8 +75,7 @@ app.use(morgan('combined')); // Logging
 app.use(express.json({ limit: '10mb' })); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true, limit: '10mb' })); // Parse URL-encoded bodies
 
-// Serve static images
-app.use('/images', express.static('public/images'));
+app.use('/images', express.static(path.join(__dirname, '../public/images')));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -161,6 +165,7 @@ app.use('/api/orders', ordersRoutes);
 app.use('/api/payments', paymentsRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/engineers', engineersRoutes);
+app.use('/api/engineer', engineerJobsRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/banners', bannersRoutes);
@@ -171,6 +176,9 @@ app.use('/api/sms-providers', smsProvidersRoutes);
 app.use('/api/sms-config', smsConfigRoutes);
 app.use('/api/super-admin', userManagementRoutes);
 app.use('/api/config', configRoutes);
+app.use('/api/reviews', reviewsRoutes);
+app.use('/api/razorpay', razorpayRoutes);
+app.use('/api/webhooks', webhooksRoutes);
 
 // Admin API routes (same handlers, different prefix for frontend compatibility)
 app.use('/api/admin/categories', categoriesRoutes);

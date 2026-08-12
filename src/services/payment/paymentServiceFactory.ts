@@ -8,13 +8,9 @@
 import type { PaymentService, PaymentProvider } from '../../types/payment';
 import { getCurrentPaymentProvider, getPaymentConfig } from '../../config/payment.config';
 
-// Import payment service implementations
 import { mockPaymentService } from './mockPaymentService';
-
-// Import stubs for real payment services (to be implemented)
-// import { StripePaymentService } from './stripePaymentService';
-// import { RazorpayPaymentService } from './razorpayPaymentService';
-// import { PayPalPaymentService } from './paypalPaymentService';
+import { backendPaymentService } from './backendPaymentService';
+import { razorpayPaymentService } from './razorpayPaymentService';
 
 /**
  * Create payment service instance based on provider
@@ -26,6 +22,9 @@ export function createPaymentService(provider?: PaymentProvider): PaymentService
   console.log(`🏭 Creating payment service for provider: ${currentProvider}`);
 
   switch (currentProvider) {
+    case 'backend':
+      return backendPaymentService;
+
     case 'mock':
       return mockPaymentService;
 
@@ -36,10 +35,7 @@ export function createPaymentService(provider?: PaymentProvider): PaymentService
       return mockPaymentService;
 
     case 'razorpay':
-      // TODO: Implement Razorpay service
-      // return new RazorpayPaymentService(config);
-      console.warn('⚠️ Razorpay service not implemented yet, falling back to mock');
-      return mockPaymentService;
+      return razorpayPaymentService;
 
     case 'paypal':
       // TODO: Implement PayPal service

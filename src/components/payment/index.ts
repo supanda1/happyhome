@@ -20,6 +20,7 @@ export {
 
 // Integration components
 export { CheckoutPayment } from './CheckoutPayment';
+export { RazorpayCheckout } from './RazorpayCheckout';
 
 // Re-export payment context and hooks
 export { usePayment, usePaymentReady, usePaymentStatus } from '../../contexts/PaymentContext';
