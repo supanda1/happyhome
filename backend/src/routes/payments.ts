@@ -240,54 +240,7 @@ router.get('/callback/failed', (req, res) => {
 });
 
 // =====================================================================
-// AUTHENTICATED USER ROUTES
-// =====================================================================
-
-// POST /api/payments/initiate - Initiate payment for an order
-router.post('/initiate', requireAuth, ...initiatePaymentValidation, PaymentsController.initiatePayment);
-
-// GET /api/payments/history - Get payment history for current user
-router.get('/history', requireAuth, ...paymentHistoryValidation, PaymentsController.getPaymentHistory);
-
-// GET /api/payments/:id - Get payment details by ID
-router.get('/:id', requireAuth, ...validateUUID('id'), (req: Request, res: Response) => {
-  res.status(501).json({ success: false, error: 'Payment details endpoint not implemented yet' });
-});
-
-// POST /api/payments/verify - Verify payment status with gateway
-router.post('/verify', requireAuth, [
-  body('transaction_id').notEmpty().withMessage('Transaction ID is required'),
-  handleValidationErrors
-], (req: Request, res: Response) => {
-  res.status(501).json({ success: false, error: 'Payment verification endpoint not implemented yet' });
-});
-
-// =====================================================================
-// ADMIN ONLY ROUTES
-// =====================================================================
-
-// POST /api/payments/refund - Process refund for a payment (Admin only)
-router.post('/refund', requireAdminAuth, [
-  body('payment_id').isUUID(4).withMessage('Payment ID must be a valid UUID'),
-  body('refund_amount').isFloat({ min: 0.01 }).withMessage('Refund amount must be greater than 0'),
-  body('refund_reason').notEmpty().withMessage('Refund reason is required'),
-  handleValidationErrors
-], (req: Request, res: Response) => {
-  res.status(501).json({ success: false, error: 'Payment refund endpoint not implemented yet' });
-});
-
-// POST /api/payments/webhook - Handle payment webhook from gateway (Admin/System)
-router.post('/webhook', (req: Request, res: Response) => {
-  res.status(501).json({ success: false, error: 'Payment webhook endpoint not implemented yet' });
-});
-
-// GET /api/payments/stats - Get payment statistics (Admin only)
-router.get('/stats', requireAdminAuth, (req: Request, res: Response) => {
-  res.status(501).json({ success: false, error: 'Payment stats endpoint not implemented yet' });
-});
-
-// =====================================================================
-// PAYMENT AUDIT ROUTES (Admin only) - For PaymentAuditManagement.tsx
+// PAYMENT AUDIT ROUTES (Admin only) - MUST be before /:id route
 // =====================================================================
 
 // GET /api/admin/payments/audit - Get paginated payments list with filters
@@ -299,7 +252,6 @@ router.get('/audit', requireAdminAuth, async (req: Request, res: Response) => {
     const perPage = Math.min(parseInt(req.query.per_page as string) || 20, 10000);
     const offset = (page - 1) * perPage;
     
-    // Build WHERE conditions
     const conditions: string[] = [];
     const params: any[] = [];
     let paramIndex = 1;
@@ -325,44 +277,40 @@ router.get('/audit', requireAdminAuth, async (req: Request, res: Response) => {
     }
     
     if (req.query.customer_email) {
-      conditions.push(`LOWER(u.email) LIKE LOWER($${paramIndex++})`);
+      conditions.push(`LOWER(p.customer_email) LIKE LOWER($${paramIndex++})`);
       params.push(`%${req.query.customer_email}%`);
     }
     
     if (req.query.has_refund === 'true') {
-      conditions.push(`p.refund_amount > 0`);
+      conditions.push(`p.payment_status = 'refunded'`);
     } else if (req.query.has_refund === 'false') {
-      conditions.push(`(p.refund_amount IS NULL OR p.refund_amount = 0)`);
+      conditions.push(`p.payment_status != 'refunded'`);
     }
     
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
     
-    // Get total count
     const countQuery = `
       SELECT COUNT(*) as total
       FROM payments p
-      LEFT JOIN users u ON p.user_id = u.id
       LEFT JOIN orders o ON p.order_id = o.id
       ${whereClause}
     `;
     const countResult = await pool.query(countQuery, params);
     const total = parseInt(countResult.rows[0].total);
     
-    // Get summary for filtered results
     const summaryQuery = `
       SELECT 
         COUNT(*) as total_transactions,
         COALESCE(SUM(CASE WHEN p.payment_status = 'success' THEN p.amount ELSE 0 END), 0) as total_received,
-        COALESCE(SUM(p.refund_amount), 0) as total_refunded,
-        COALESCE(SUM(CASE WHEN p.payment_status = 'success' THEN p.amount ELSE 0 END), 0) - COALESCE(SUM(p.refund_amount), 0) as net_received
+        COALESCE(SUM(CASE WHEN p.payment_status = 'refunded' THEN p.amount ELSE 0 END), 0) as total_refunded,
+        COALESCE(SUM(CASE WHEN p.payment_status = 'success' THEN p.amount ELSE 0 END), 0) - 
+        COALESCE(SUM(CASE WHEN p.payment_status = 'refunded' THEN p.amount ELSE 0 END), 0) as net_received
       FROM payments p
-      LEFT JOIN users u ON p.user_id = u.id
       LEFT JOIN orders o ON p.order_id = o.id
       ${whereClause}
     `;
     const summaryResult = await pool.query(summaryQuery, params);
     
-    // Get paginated payments
     const paymentsQuery = `
       SELECT 
         p.id,
@@ -372,18 +320,18 @@ router.get('/audit', requireAdminAuth, async (req: Request, res: Response) => {
         p.currency,
         p.payment_method,
         p.payment_status,
-        COALESCE(u.name, 'Guest') as customer_name,
-        COALESCE(u.email, '') as customer_email,
-        COALESCE(u.phone, '') as customer_phone,
+        COALESCE(p.customer_name, 'Guest') as customer_name,
+        COALESCE(p.customer_email, '') as customer_email,
+        COALESCE(p.customer_phone, '') as customer_phone,
         COALESCE(p.gateway_name, 'Razorpay') as gateway_name,
         p.gateway_transaction_id,
-        p.razorpay_order_id,
-        p.razorpay_payment_id,
-        p.refund_id,
-        COALESCE(p.refund_amount, 0) as refund_amount,
-        p.refund_status,
-        p.refund_reason,
-        p.refunded_at,
+        NULL as razorpay_order_id,
+        NULL as razorpay_payment_id,
+        NULL as refund_id,
+        CASE WHEN p.payment_status = 'refunded' THEN p.amount ELSE 0 END as refund_amount,
+        CASE WHEN p.payment_status = 'refunded' THEN 'completed' ELSE NULL END as refund_status,
+        NULL as refund_reason,
+        NULL as refunded_at,
         p.initiated_at,
         p.completed_at,
         p.failed_at,
@@ -394,7 +342,6 @@ router.get('/audit', requireAdminAuth, async (req: Request, res: Response) => {
         o.total_amount as order_amount,
         o.status as order_status
       FROM payments p
-      LEFT JOIN users u ON p.user_id = u.id
       LEFT JOIN orders o ON p.order_id = o.id
       ${whereClause}
       ORDER BY p.created_at DESC
@@ -436,7 +383,6 @@ router.get('/audit/stats', requireAdminAuth, async (req: Request, res: Response)
     const pool = require('../config/database').default;
     const period = req.query.period as string || '30d';
     
-    // Calculate date range
     let dateFilter = '';
     let days = 30;
     switch (period) {
@@ -452,18 +398,18 @@ router.get('/audit/stats', requireAdminAuth, async (req: Request, res: Response)
       dateFilter = `WHERE p.created_at >= NOW() - INTERVAL '${days} days'`;
     }
     
-    // Overview stats
     const overviewQuery = `
       SELECT 
         COUNT(*) as total_transactions,
         COALESCE(SUM(p.amount), 0) as gross_amount,
         COALESCE(SUM(CASE WHEN p.payment_status = 'success' THEN p.amount ELSE 0 END), 0) as total_received,
-        COALESCE(SUM(p.refund_amount), 0) as total_refunded,
-        COALESCE(SUM(CASE WHEN p.payment_status = 'success' THEN p.amount ELSE 0 END), 0) - COALESCE(SUM(p.refund_amount), 0) as net_received,
+        COALESCE(SUM(CASE WHEN p.payment_status = 'refunded' THEN p.amount ELSE 0 END), 0) as total_refunded,
+        COALESCE(SUM(CASE WHEN p.payment_status = 'success' THEN p.amount ELSE 0 END), 0) - 
+        COALESCE(SUM(CASE WHEN p.payment_status = 'refunded' THEN p.amount ELSE 0 END), 0) as net_received,
         COUNT(CASE WHEN p.payment_status = 'success' THEN 1 END) as successful_count,
         COUNT(CASE WHEN p.payment_status = 'failed' THEN 1 END) as failed_count,
         COUNT(CASE WHEN p.payment_status IN ('pending', 'initiated', 'processing') THEN 1 END) as pending_count,
-        COUNT(CASE WHEN p.refund_amount > 0 THEN 1 END) as refund_count,
+        COUNT(CASE WHEN p.payment_status = 'refunded' THEN 1 END) as refund_count,
         ROUND(
           COUNT(CASE WHEN p.payment_status = 'success' THEN 1 END)::numeric * 100 / 
           NULLIF(COUNT(*)::numeric, 0), 2
@@ -476,7 +422,6 @@ router.get('/audit/stats', requireAdminAuth, async (req: Request, res: Response)
     `;
     const overviewResult = await pool.query(overviewQuery);
     
-    // By gateway stats
     const gatewayQuery = `
       SELECT 
         COALESCE(p.gateway_name, 'Unknown') as gateway,
@@ -495,7 +440,6 @@ router.get('/audit/stats', requireAdminAuth, async (req: Request, res: Response)
     `;
     const gatewayResult = await pool.query(gatewayQuery);
     
-    // By payment method stats
     const methodQuery = `
       SELECT 
         COALESCE(p.payment_method, 'unknown') as method,
@@ -510,7 +454,6 @@ router.get('/audit/stats', requireAdminAuth, async (req: Request, res: Response)
     `;
     const methodResult = await pool.query(methodQuery);
     
-    // Daily breakdown (last 30 days max)
     const dailyDays = Math.min(days || 30, 30);
     const dailyQuery = `
       SELECT 
@@ -518,7 +461,7 @@ router.get('/audit/stats', requireAdminAuth, async (req: Request, res: Response)
         COUNT(*) as transactions,
         COALESCE(SUM(CASE WHEN p.payment_status = 'success' THEN p.amount ELSE 0 END), 0) as amount_received,
         COUNT(CASE WHEN p.payment_status = 'success' THEN 1 END) as successful,
-        COUNT(CASE WHEN p.refund_amount > 0 THEN 1 END) as refunded
+        COUNT(CASE WHEN p.payment_status = 'refunded' THEN 1 END) as refunded
       FROM payments p
       WHERE p.created_at >= NOW() - INTERVAL '${dailyDays} days'
       GROUP BY DATE(p.created_at)
@@ -584,22 +527,19 @@ router.get('/audit/:paymentId', requireAdminAuth, async (req: Request, res: Resp
     const pool = require('../config/database').default;
     const { paymentId } = req.params;
     
-    // Get payment details
     const paymentQuery = `
       SELECT 
         p.*,
-        COALESCE(u.name, 'Guest') as customer_name,
-        COALESCE(u.email, '') as customer_email,
-        COALESCE(u.phone, '') as customer_phone,
+        COALESCE(p.customer_name, 'Guest') as customer_name,
+        COALESCE(p.customer_email, '') as customer_email,
+        COALESCE(p.customer_phone, '') as customer_phone,
         o.order_number,
         o.total_amount as order_amount,
         o.status as order_status,
         o.created_at as order_created_at,
-        refund_user.name as refunded_by_name
+        NULL as refunded_by_name
       FROM payments p
-      LEFT JOIN users u ON p.user_id = u.id
       LEFT JOIN orders o ON p.order_id = o.id
-      LEFT JOIN users refund_user ON p.refunded_by = refund_user.id
       WHERE p.id = $1
     `;
     const paymentResult = await pool.query(paymentQuery, [paymentId]);
@@ -611,7 +551,6 @@ router.get('/audit/:paymentId', requireAdminAuth, async (req: Request, res: Resp
       });
     }
     
-    // Check if payment_audit_log table exists, if not return empty audit trail
     let auditTrail: any[] = [];
     try {
       const auditQuery = `
@@ -623,7 +562,7 @@ router.get('/audit/:paymentId', requireAdminAuth, async (req: Request, res: Resp
           al.previous_status,
           al.new_status,
           al.amount,
-          al.refund_amount,
+          0 as refund_amount,
           al.gateway_name,
           al.gateway_transaction_id,
           al.triggered_by,
@@ -639,8 +578,7 @@ router.get('/audit/:paymentId', requireAdminAuth, async (req: Request, res: Resp
       const auditResult = await pool.query(auditQuery, [paymentId]);
       auditTrail = auditResult.rows;
     } catch (auditError) {
-      // Table might not exist, continue with empty audit trail
-      console.log('Payment audit log table may not exist:', auditError);
+      console.log('Payment audit log table may not exist');
     }
     
     res.json({
@@ -657,6 +595,53 @@ router.get('/audit/:paymentId', requireAdminAuth, async (req: Request, res: Resp
       error: 'Failed to fetch payment details'
     });
   }
+});
+
+// =====================================================================
+// AUTHENTICATED USER ROUTES
+// =====================================================================
+
+// POST /api/payments/initiate - Initiate payment for an order
+router.post('/initiate', requireAuth, ...initiatePaymentValidation, PaymentsController.initiatePayment);
+
+// GET /api/payments/history - Get payment history for current user
+router.get('/history', requireAuth, ...paymentHistoryValidation, PaymentsController.getPaymentHistory);
+
+// GET /api/payments/:id - Get payment details by ID
+router.get('/:id', requireAuth, ...validateUUID('id'), (req: Request, res: Response) => {
+  res.status(501).json({ success: false, error: 'Payment details endpoint not implemented yet' });
+});
+
+// POST /api/payments/verify - Verify payment status with gateway
+router.post('/verify', requireAuth, [
+  body('transaction_id').notEmpty().withMessage('Transaction ID is required'),
+  handleValidationErrors
+], (req: Request, res: Response) => {
+  res.status(501).json({ success: false, error: 'Payment verification endpoint not implemented yet' });
+});
+
+// =====================================================================
+// ADMIN ONLY ROUTES
+// =====================================================================
+
+// POST /api/payments/refund - Process refund for a payment (Admin only)
+router.post('/refund', requireAdminAuth, [
+  body('payment_id').isUUID(4).withMessage('Payment ID must be a valid UUID'),
+  body('refund_amount').isFloat({ min: 0.01 }).withMessage('Refund amount must be greater than 0'),
+  body('refund_reason').notEmpty().withMessage('Refund reason is required'),
+  handleValidationErrors
+], (req: Request, res: Response) => {
+  res.status(501).json({ success: false, error: 'Payment refund endpoint not implemented yet' });
+});
+
+// POST /api/payments/webhook - Handle payment webhook from gateway (Admin/System)
+router.post('/webhook', (req: Request, res: Response) => {
+  res.status(501).json({ success: false, error: 'Payment webhook endpoint not implemented yet' });
+});
+
+// GET /api/payments/stats - Get payment statistics (Admin only)
+router.get('/stats', requireAdminAuth, (req: Request, res: Response) => {
+  res.status(501).json({ success: false, error: 'Payment stats endpoint not implemented yet' });
 });
 
 // GET /api/payments/order/:orderId - Get order with all its payments
