@@ -115,6 +115,24 @@ app.get('/health/db', async (req, res) => {
   }
 });
 
+// Database health check with /api prefix
+app.get('/api/health/db', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT NOW() as timestamp');
+    res.json({
+      status: 'OK',
+      message: 'Database connection is healthy',
+      timestamp: result.rows[0].timestamp
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'ERROR',
+      message: 'Database connection failed',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 // Container status endpoint for health monitoring
 app.get('/admin/system/containers', async (req, res) => {
   try {
@@ -134,6 +152,45 @@ app.get('/admin/system/containers', async (req, res) => {
         image: 'myapp-api:latest',
         uptime: '2d 14h 33m',
         ports: ['8001:8001']
+      }
+    ];
+
+    res.json({
+      success: true,
+      data: containers
+    });
+  } catch (error) {
+    console.error('Error fetching container status:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch container status'
+    });
+  }
+});
+
+app.get('/api/admin/system/containers', async (req, res) => {
+  try {
+    const containers = [
+      {
+        name: 'happyhomes_db_ubuntu',
+        status: 'running',
+        image: 'postgres:15-alpine',
+        uptime: 'N/A',
+        ports: ['5433:5432']
+      },
+      {
+        name: 'happyhomes_api_ubuntu',
+        status: 'running',
+        image: 'happyhomes-api:latest',
+        uptime: 'N/A',
+        ports: ['8001:8001']
+      },
+      {
+        name: 'happyhomes_frontend_ubuntu',
+        status: 'running',
+        image: 'happyhomes-frontend:latest',
+        uptime: 'N/A',
+        ports: ['3001:80']
       }
     ];
 
@@ -193,6 +250,7 @@ app.use('/api/admin/review-settings', reviewSettingsRoutes);
 app.use('/api/admin/offer-plans', offerPlansRoutes);
 app.use('/api/admin/analytics', analyticsRoutes);
 app.use('/api/admin/users', userRoutes);
+app.use('/api/admin/payments', paymentsRoutes);
 
 // Legacy v1 API routes for backward compatibility
 app.use('/v1/orders', ordersRoutes);

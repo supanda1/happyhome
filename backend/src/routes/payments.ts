@@ -286,6 +286,379 @@ router.get('/stats', requireAdminAuth, (req: Request, res: Response) => {
   res.status(501).json({ success: false, error: 'Payment stats endpoint not implemented yet' });
 });
 
+// =====================================================================
+// PAYMENT AUDIT ROUTES (Admin only) - For PaymentAuditManagement.tsx
+// =====================================================================
+
+// GET /api/admin/payments/audit - Get paginated payments list with filters
+router.get('/audit', requireAdminAuth, async (req: Request, res: Response) => {
+  try {
+    const pool = require('../config/database').default;
+    
+    const page = parseInt(req.query.page as string) || 1;
+    const perPage = Math.min(parseInt(req.query.per_page as string) || 20, 10000);
+    const offset = (page - 1) * perPage;
+    
+    // Build WHERE conditions
+    const conditions: string[] = [];
+    const params: any[] = [];
+    let paramIndex = 1;
+    
+    if (req.query.status) {
+      conditions.push(`p.payment_status = $${paramIndex++}`);
+      params.push(req.query.status);
+    }
+    
+    if (req.query.gateway) {
+      conditions.push(`LOWER(p.gateway_name) = LOWER($${paramIndex++})`);
+      params.push(req.query.gateway);
+    }
+    
+    if (req.query.date_from) {
+      conditions.push(`p.created_at >= $${paramIndex++}`);
+      params.push(req.query.date_from);
+    }
+    
+    if (req.query.date_to) {
+      conditions.push(`p.created_at <= $${paramIndex++}::date + interval '1 day'`);
+      params.push(req.query.date_to);
+    }
+    
+    if (req.query.customer_email) {
+      conditions.push(`LOWER(u.email) LIKE LOWER($${paramIndex++})`);
+      params.push(`%${req.query.customer_email}%`);
+    }
+    
+    if (req.query.has_refund === 'true') {
+      conditions.push(`p.refund_amount > 0`);
+    } else if (req.query.has_refund === 'false') {
+      conditions.push(`(p.refund_amount IS NULL OR p.refund_amount = 0)`);
+    }
+    
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    
+    // Get total count
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM payments p
+      LEFT JOIN users u ON p.user_id = u.id
+      LEFT JOIN orders o ON p.order_id = o.id
+      ${whereClause}
+    `;
+    const countResult = await pool.query(countQuery, params);
+    const total = parseInt(countResult.rows[0].total);
+    
+    // Get summary for filtered results
+    const summaryQuery = `
+      SELECT 
+        COUNT(*) as total_transactions,
+        COALESCE(SUM(CASE WHEN p.payment_status = 'success' THEN p.amount ELSE 0 END), 0) as total_received,
+        COALESCE(SUM(p.refund_amount), 0) as total_refunded,
+        COALESCE(SUM(CASE WHEN p.payment_status = 'success' THEN p.amount ELSE 0 END), 0) - COALESCE(SUM(p.refund_amount), 0) as net_received
+      FROM payments p
+      LEFT JOIN users u ON p.user_id = u.id
+      LEFT JOIN orders o ON p.order_id = o.id
+      ${whereClause}
+    `;
+    const summaryResult = await pool.query(summaryQuery, params);
+    
+    // Get paginated payments
+    const paymentsQuery = `
+      SELECT 
+        p.id,
+        p.order_id,
+        p.transaction_id,
+        p.amount,
+        p.currency,
+        p.payment_method,
+        p.payment_status,
+        COALESCE(u.name, 'Guest') as customer_name,
+        COALESCE(u.email, '') as customer_email,
+        COALESCE(u.phone, '') as customer_phone,
+        COALESCE(p.gateway_name, 'Razorpay') as gateway_name,
+        p.gateway_transaction_id,
+        p.razorpay_order_id,
+        p.razorpay_payment_id,
+        p.refund_id,
+        COALESCE(p.refund_amount, 0) as refund_amount,
+        p.refund_status,
+        p.refund_reason,
+        p.refunded_at,
+        p.initiated_at,
+        p.completed_at,
+        p.failed_at,
+        p.failure_reason,
+        p.created_at,
+        p.updated_at,
+        o.order_number,
+        o.total_amount as order_amount,
+        o.status as order_status
+      FROM payments p
+      LEFT JOIN users u ON p.user_id = u.id
+      LEFT JOIN orders o ON p.order_id = o.id
+      ${whereClause}
+      ORDER BY p.created_at DESC
+      LIMIT $${paramIndex++} OFFSET $${paramIndex++}
+    `;
+    
+    const paymentsResult = await pool.query(paymentsQuery, [...params, perPage, offset]);
+    
+    res.json({
+      success: true,
+      data: {
+        payments: paymentsResult.rows,
+        pagination: {
+          page,
+          per_page: perPage,
+          total,
+          total_pages: Math.ceil(total / perPage)
+        },
+        summary: {
+          total_transactions: parseInt(summaryResult.rows[0].total_transactions),
+          total_received: parseFloat(summaryResult.rows[0].total_received),
+          total_refunded: parseFloat(summaryResult.rows[0].total_refunded),
+          net_received: parseFloat(summaryResult.rows[0].net_received)
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching payment audit:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch payment audit data'
+    });
+  }
+});
+
+// GET /api/admin/payments/audit/stats - Get payment statistics
+router.get('/audit/stats', requireAdminAuth, async (req: Request, res: Response) => {
+  try {
+    const pool = require('../config/database').default;
+    const period = req.query.period as string || '30d';
+    
+    // Calculate date range
+    let dateFilter = '';
+    let days = 30;
+    switch (period) {
+      case '7d': days = 7; break;
+      case '30d': days = 30; break;
+      case '90d': days = 90; break;
+      case '1y': days = 365; break;
+      case 'all': days = 0; break;
+      default: days = 30;
+    }
+    
+    if (days > 0) {
+      dateFilter = `WHERE p.created_at >= NOW() - INTERVAL '${days} days'`;
+    }
+    
+    // Overview stats
+    const overviewQuery = `
+      SELECT 
+        COUNT(*) as total_transactions,
+        COALESCE(SUM(p.amount), 0) as gross_amount,
+        COALESCE(SUM(CASE WHEN p.payment_status = 'success' THEN p.amount ELSE 0 END), 0) as total_received,
+        COALESCE(SUM(p.refund_amount), 0) as total_refunded,
+        COALESCE(SUM(CASE WHEN p.payment_status = 'success' THEN p.amount ELSE 0 END), 0) - COALESCE(SUM(p.refund_amount), 0) as net_received,
+        COUNT(CASE WHEN p.payment_status = 'success' THEN 1 END) as successful_count,
+        COUNT(CASE WHEN p.payment_status = 'failed' THEN 1 END) as failed_count,
+        COUNT(CASE WHEN p.payment_status IN ('pending', 'initiated', 'processing') THEN 1 END) as pending_count,
+        COUNT(CASE WHEN p.refund_amount > 0 THEN 1 END) as refund_count,
+        ROUND(
+          COUNT(CASE WHEN p.payment_status = 'success' THEN 1 END)::numeric * 100 / 
+          NULLIF(COUNT(*)::numeric, 0), 2
+        ) as success_rate,
+        ROUND(
+          COALESCE(AVG(CASE WHEN p.payment_status = 'success' THEN p.amount END), 0)::numeric, 2
+        ) as avg_transaction_value
+      FROM payments p
+      ${dateFilter}
+    `;
+    const overviewResult = await pool.query(overviewQuery);
+    
+    // By gateway stats
+    const gatewayQuery = `
+      SELECT 
+        COALESCE(p.gateway_name, 'Unknown') as gateway,
+        COUNT(*) as transactions,
+        COALESCE(SUM(CASE WHEN p.payment_status = 'success' THEN p.amount ELSE 0 END), 0) as amount_received,
+        COUNT(CASE WHEN p.payment_status = 'success' THEN 1 END) as successful,
+        COUNT(CASE WHEN p.payment_status = 'failed' THEN 1 END) as failed,
+        ROUND(
+          COUNT(CASE WHEN p.payment_status = 'success' THEN 1 END)::numeric * 100 / 
+          NULLIF(COUNT(*)::numeric, 0), 2
+        )::text as success_rate
+      FROM payments p
+      ${dateFilter}
+      GROUP BY p.gateway_name
+      ORDER BY transactions DESC
+    `;
+    const gatewayResult = await pool.query(gatewayQuery);
+    
+    // By payment method stats
+    const methodQuery = `
+      SELECT 
+        COALESCE(p.payment_method, 'unknown') as method,
+        COUNT(*) as transactions,
+        COALESCE(SUM(CASE WHEN p.payment_status = 'success' THEN p.amount ELSE 0 END), 0) as amount_received,
+        COUNT(CASE WHEN p.payment_status = 'success' THEN 1 END) as successful,
+        COUNT(CASE WHEN p.payment_status = 'failed' THEN 1 END) as failed
+      FROM payments p
+      ${dateFilter}
+      GROUP BY p.payment_method
+      ORDER BY transactions DESC
+    `;
+    const methodResult = await pool.query(methodQuery);
+    
+    // Daily breakdown (last 30 days max)
+    const dailyDays = Math.min(days || 30, 30);
+    const dailyQuery = `
+      SELECT 
+        DATE(p.created_at) as date,
+        COUNT(*) as transactions,
+        COALESCE(SUM(CASE WHEN p.payment_status = 'success' THEN p.amount ELSE 0 END), 0) as amount_received,
+        COUNT(CASE WHEN p.payment_status = 'success' THEN 1 END) as successful,
+        COUNT(CASE WHEN p.refund_amount > 0 THEN 1 END) as refunded
+      FROM payments p
+      WHERE p.created_at >= NOW() - INTERVAL '${dailyDays} days'
+      GROUP BY DATE(p.created_at)
+      ORDER BY date DESC
+    `;
+    const dailyResult = await pool.query(dailyQuery);
+    
+    const overview = overviewResult.rows[0];
+    
+    res.json({
+      success: true,
+      data: {
+        period,
+        overview: {
+          total_transactions: parseInt(overview.total_transactions) || 0,
+          gross_amount: parseFloat(overview.gross_amount) || 0,
+          total_received: parseFloat(overview.total_received) || 0,
+          total_refunded: parseFloat(overview.total_refunded) || 0,
+          net_received: parseFloat(overview.net_received) || 0,
+          successful_count: parseInt(overview.successful_count) || 0,
+          failed_count: parseInt(overview.failed_count) || 0,
+          pending_count: parseInt(overview.pending_count) || 0,
+          refund_count: parseInt(overview.refund_count) || 0,
+          success_rate: parseFloat(overview.success_rate) || 0,
+          avg_transaction_value: parseFloat(overview.avg_transaction_value) || 0
+        },
+        by_gateway: gatewayResult.rows.map((row: Record<string, string>) => ({
+          gateway: row.gateway,
+          transactions: parseInt(row.transactions),
+          amount_received: parseFloat(row.amount_received),
+          successful: parseInt(row.successful),
+          failed: parseInt(row.failed),
+          success_rate: row.success_rate
+        })),
+        by_payment_method: methodResult.rows.map((row: Record<string, string>) => ({
+          method: row.method,
+          transactions: parseInt(row.transactions),
+          amount_received: parseFloat(row.amount_received),
+          successful: parseInt(row.successful),
+          failed: parseInt(row.failed)
+        })),
+        daily_breakdown: dailyResult.rows.map((row: Record<string, string>) => ({
+          date: row.date,
+          transactions: parseInt(row.transactions),
+          amount_received: parseFloat(row.amount_received),
+          successful: parseInt(row.successful),
+          refunded: parseInt(row.refunded)
+        }))
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching payment stats:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch payment statistics'
+    });
+  }
+});
+
+// GET /api/admin/payments/audit/:paymentId - Get payment details with audit trail
+router.get('/audit/:paymentId', requireAdminAuth, async (req: Request, res: Response) => {
+  try {
+    const pool = require('../config/database').default;
+    const { paymentId } = req.params;
+    
+    // Get payment details
+    const paymentQuery = `
+      SELECT 
+        p.*,
+        COALESCE(u.name, 'Guest') as customer_name,
+        COALESCE(u.email, '') as customer_email,
+        COALESCE(u.phone, '') as customer_phone,
+        o.order_number,
+        o.total_amount as order_amount,
+        o.status as order_status,
+        o.created_at as order_created_at,
+        refund_user.name as refunded_by_name
+      FROM payments p
+      LEFT JOIN users u ON p.user_id = u.id
+      LEFT JOIN orders o ON p.order_id = o.id
+      LEFT JOIN users refund_user ON p.refunded_by = refund_user.id
+      WHERE p.id = $1
+    `;
+    const paymentResult = await pool.query(paymentQuery, [paymentId]);
+    
+    if (paymentResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Payment not found'
+      });
+    }
+    
+    // Check if payment_audit_log table exists, if not return empty audit trail
+    let auditTrail: any[] = [];
+    try {
+      const auditQuery = `
+        SELECT 
+          al.id,
+          al.payment_id,
+          al.order_id,
+          al.action,
+          al.previous_status,
+          al.new_status,
+          al.amount,
+          al.refund_amount,
+          al.gateway_name,
+          al.gateway_transaction_id,
+          al.triggered_by,
+          u.name as triggered_by_user_name,
+          u.email as triggered_by_user_email,
+          al.reason,
+          al.created_at
+        FROM payment_audit_log al
+        LEFT JOIN users u ON al.triggered_by = u.id
+        WHERE al.payment_id = $1
+        ORDER BY al.created_at DESC
+      `;
+      const auditResult = await pool.query(auditQuery, [paymentId]);
+      auditTrail = auditResult.rows;
+    } catch (auditError) {
+      // Table might not exist, continue with empty audit trail
+      console.log('Payment audit log table may not exist:', auditError);
+    }
+    
+    res.json({
+      success: true,
+      data: {
+        payment: paymentResult.rows[0],
+        audit_trail: auditTrail
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching payment details:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch payment details'
+    });
+  }
+});
+
 // GET /api/payments/order/:orderId - Get order with all its payments
 router.get('/order/:orderId', requireAuth, ...validateUUID('orderId'), (req: Request, res: Response) => {
   res.status(501).json({ success: false, error: 'Order payments endpoint not implemented yet' });
