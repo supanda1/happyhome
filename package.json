@@ -25,11 +25,13 @@
   "dependencies": {
     "@tanstack/react-query": "^5.17.0",
     "@tanstack/react-query-devtools": "^5.17.0",
+    "@types/qrcode": "^1.5.6",
     "axios": "^1.6.5",
     "clsx": "^2.0.0",
     "date-fns": "^3.0.6",
     "jwt-decode": "^4.0.0",
     "pg": "^8.16.3",
+    "qrcode": "^1.5.4",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-error-boundary": "^4.0.13",
@@ -40,6 +42,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",
+    "@types/minimatch": "^5.1.2",
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",
     "@vitejs/plugin-react": "^5.0.0",

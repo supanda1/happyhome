@@ -148,7 +148,7 @@ export class BackendPaymentService implements PaymentService {
     if (!data.payment_form) {
       throw makePaymentError(
         'gateway_unavailable',
-        'The ICICI payment gateway is temporarily unavailable. Please try again in a few minutes.'
+        'The payment gateway is temporarily unavailable. Please try again in a few minutes.'
       );
     }
 

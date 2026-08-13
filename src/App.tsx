@@ -88,8 +88,8 @@ const App: React.FC = () => {
   const [contactSettings, setContactSettings] = useState<ContactSettings | null>(null);
   const [cartSuccessMessages, setCartSuccessMessages] = useState<{[serviceId: string]: string}>({});
   const [isCartCollapsed, setIsCartCollapsed] = useState(false);
-  const [iciciCallbackPage, setIciciCallbackPage] = useState<'success' | 'failed' | null>(null);
-  const [iciciCallbackParams, setIciciCallbackParams] = useState<Record<string, string>>({});
+  const [paymentCallbackPage, setPaymentCallbackPage] = useState<'success' | 'failed' | null>(null);
+  const [paymentCallbackParams, setPaymentCallbackParams] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const hash = window.location.hash;
@@ -97,8 +97,8 @@ const App: React.FC = () => {
       const isSuccess = hash.includes('checkout-success');
       const queryString = hash.split('?')[1] ?? '';
       const params = Object.fromEntries(new URLSearchParams(queryString).entries());
-      setIciciCallbackPage(isSuccess ? 'success' : 'failed');
-      setIciciCallbackParams(params);
+      setPaymentCallbackPage(isSuccess ? 'success' : 'failed');
+      setPaymentCallbackParams(params);
       window.history.replaceState(null, '', window.location.pathname);
     }
   }, []);
@@ -3109,21 +3109,21 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
           // Normal layout for non-category pages (Home, Login, Cart, etc.)
           return (
             <main className="transition-all duration-300">
-              {iciciCallbackPage && (
+              {paymentCallbackPage && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
                   <div className="bg-white rounded-2xl shadow-2xl p-10 max-w-md w-full mx-4 text-center">
-                    {iciciCallbackPage === 'success' ? (
+                    {paymentCallbackPage === 'success' ? (
                       <>
                         <div className="text-7xl mb-4 animate-bounce">✅</div>
                         <h2 className="text-2xl font-bold text-green-600 mb-2">Payment Successful!</h2>
                         <p className="text-gray-600 mb-4">
-                          Your payment of ₹{iciciCallbackParams.amount || ''} was processed successfully via ICICI Bank.
+                          Your payment of ₹{paymentCallbackParams.amount || ''} was processed successfully.
                         </p>
-                        {iciciCallbackParams.transactionId && (
-                          <p className="text-xs text-gray-400 mb-6">Txn: {iciciCallbackParams.transactionId}</p>
+                        {paymentCallbackParams.transactionId && (
+                          <p className="text-xs text-gray-400 mb-6">Txn: {paymentCallbackParams.transactionId}</p>
                         )}
                         <button
-                          onClick={() => { setIciciCallbackPage(null); navigateToMyBookings(); }}
+                          onClick={() => { setPaymentCallbackPage(null); navigateToMyBookings(); }}
                           className="w-full py-3 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition-colors"
                         >
                           View My Bookings
@@ -3136,18 +3136,18 @@ Generated: ${pdfData.exportDate} at ${pdfData.exportTime}
                         <p className="text-gray-600 mb-2">
                           Your payment could not be processed.
                         </p>
-                        {iciciCallbackParams.reason && (
-                          <p className="text-sm text-gray-500 mb-6">Reason: {decodeURIComponent(iciciCallbackParams.reason)}</p>
+                        {paymentCallbackParams.reason && (
+                          <p className="text-sm text-gray-500 mb-6">Reason: {decodeURIComponent(paymentCallbackParams.reason)}</p>
                         )}
                         <div className="flex gap-3">
                           <button
-                            onClick={() => { setIciciCallbackPage(null); navigateToCheckout(); }}
+                            onClick={() => { setPaymentCallbackPage(null); navigateToCheckout(); }}
                             className="flex-1 py-3 bg-orange-600 text-white rounded-xl font-semibold hover:bg-orange-700 transition-colors"
                           >
                             Try Again
                           </button>
                           <button
-                            onClick={() => { setIciciCallbackPage(null); navigateToHome(); }}
+                            onClick={() => { setPaymentCallbackPage(null); navigateToHome(); }}
                             className="flex-1 py-3 bg-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-300 transition-colors"
                           >
                             Go Home

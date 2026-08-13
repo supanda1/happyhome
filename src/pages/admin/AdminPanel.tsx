@@ -17,6 +17,7 @@ import OffersManagement from './OffersManagement';
 import EmployeesManagement from './EmployeesManagement';
 import OrdersManagement from './OrdersManagement';
 import EngineersWorkloadDashboard from './EngineersWorkloadDashboard';
+import PaymentAuditManagement from './PaymentAuditManagement';
 import NotificationsManagement from './NotificationsManagement';
 import ImageManagement from './ImageManagement';
 import SMSProviders from './SMSProviders';
@@ -153,6 +154,18 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onCategoryChange, onContactChan
           icon: (
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          )
+        },
+        { 
+          id: 'payment-audit', 
+          name: 'Payment Audit', 
+          color: 'green', 
+          component: PaymentAuditManagement,
+          icon: (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2" />
             </svg>
           )
         }

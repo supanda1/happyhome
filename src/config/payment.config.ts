@@ -20,10 +20,10 @@ const getEnvVar = (key: string, defaultValue?: string): string => {
 // ========== Payment Provider Configurations ==========
 
 export const PAYMENT_PROVIDERS: Record<PaymentProvider, PaymentConfig> = {
-  // Real ICICI CCAvenue backend integration
+  // Backend payment integration (Razorpay)
   backend: {
     provider: 'backend',
-    publicKey: 'icici_gateway',
+    publicKey: 'razorpay_gateway',
     secretKey: 'managed_by_backend',
     environment: (getEnvVar('VITE_BACKEND_PAYMENT_ENV', 'sandbox') as 'sandbox' | 'production'),
     currency: 'INR',

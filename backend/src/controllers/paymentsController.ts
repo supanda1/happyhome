@@ -1,23 +1,13 @@
 import { Request, Response } from 'express';
-import crypto from 'crypto';
 import pool from '../config/database';
 
-interface PaymentMethod {
+interface PaymentMethodInfo {
   method: string;
   name: string;
   description: string;
   icon: string;
   gateway: string;
   is_default: string;
-}
-
-interface ICICIPaymentConfig {
-  merchantId: string;
-  accessCode: string;
-  workingKey: string;
-  gatewayUrl: string;
-  returnUrl: string;
-  cancelUrl: string;
 }
 
 interface PaymentInitiateRequest {
@@ -28,65 +18,56 @@ interface PaymentInitiateRequest {
 }
 
 export class PaymentsController {
-  
-  private static iciciConfig: ICICIPaymentConfig = {
-    merchantId: process.env.ICICI_MERCHANT_ID || '3067604',
-    accessCode: process.env.ICICI_ACCESS_CODE || 'AVQX19JC44AV68QVXA',
-    workingKey: process.env.ICICI_WORKING_KEY || 'E5BBC03C454D6E46A5B9DBC04B8316F3',
-    gatewayUrl: 'https://test.ccavenue.com/transaction/transaction.do?command=initiateTransaction',
-    returnUrl: 'http://localhost:8001/api/payments/callback',
-    cancelUrl: 'http://localhost:8001/api/payments/callback/failed'
-  };
 
   static async getPaymentMethods(req: Request, res: Response) {
     try {
-      const paymentMethods: PaymentMethod[] = [
+      const paymentMethods: PaymentMethodInfo[] = [
         {
           method: 'credit_card',
-          name: 'Credit Card (ICICI Secure)',
-          description: 'Visa, MasterCard, American Express, RuPay - Powered by ICICI Bank',
+          name: 'Credit Card',
+          description: 'Visa, MasterCard, American Express, RuPay',
           icon: 'credit-card',
-          gateway: 'ICICI',
+          gateway: 'Razorpay',
           is_default: 'true'
         },
         {
           method: 'debit_card',
-          name: 'Debit Card (ICICI Secure)',
-          description: 'All major bank debit cards - Powered by ICICI Bank',
+          name: 'Debit Card',
+          description: 'All major bank debit cards',
           icon: 'debit-card',
-          gateway: 'ICICI',
+          gateway: 'Razorpay',
           is_default: 'true'
         },
         {
           method: 'net_banking',
-          name: 'Net Banking (ICICI Gateway)',
-          description: '50+ banks including ICICI, SBI, HDFC - Secure ICICI Gateway',
+          name: 'Net Banking',
+          description: '50+ banks including SBI, HDFC, Axis',
           icon: 'bank',
-          gateway: 'ICICI',
+          gateway: 'Razorpay',
           is_default: 'true'
         },
         {
           method: 'upi',
-          name: 'UPI (ICICI Secure)',
-          description: 'PhonePe, GPay, Paytm, BHIM - Processed via ICICI Gateway',
+          name: 'UPI',
+          description: 'PhonePe, GPay, Paytm, BHIM',
           icon: 'upi',
-          gateway: 'ICICI',
+          gateway: 'Razorpay',
           is_default: 'true'
         },
         {
           method: 'wallet',
-          name: 'Digital Wallets (ICICI)',
-          description: 'Paytm Wallet, MobiKwik, Amazon Pay - Via ICICI Gateway',
+          name: 'Digital Wallets',
+          description: 'Paytm Wallet, MobiKwik, Amazon Pay',
           icon: 'wallet',
-          gateway: 'ICICI',
+          gateway: 'Razorpay',
           is_default: 'true'
         },
         {
           method: 'emi',
-          name: 'EMI Options (ICICI)',
-          description: 'Credit card EMI and cardless EMI - ICICI Gateway',
+          name: 'EMI Options',
+          description: 'Credit card EMI and cardless EMI',
           icon: 'emi',
-          gateway: 'ICICI',
+          gateway: 'Razorpay',
           is_default: 'true'
         }
       ];
@@ -109,16 +90,16 @@ export class PaymentsController {
       res.json({
         success: true,
         gateway: {
-          name: 'ICICI Bank',
-          provider: 'ICICI',
-          type: 'Bank Gateway',
-          description: 'All payments are processed securely through ICICI Bank\'s certified payment gateway',
+          name: 'Razorpay',
+          provider: 'Razorpay',
+          type: 'Payment Gateway',
+          description: 'All payments are processed securely through Razorpay\'s certified payment gateway',
           supported_methods: ['Credit Cards', 'Debit Cards', 'Net Banking', 'UPI', 'Digital Wallets', 'EMI'],
           security_features: ['SSL Encryption', 'PCI DSS Compliant', '3D Secure', 'Fraud Detection'],
           is_default: true,
           test_mode: process.env.NODE_ENV === 'development',
-          display_message: '🔒 Secure payments powered by ICICI Bank',
-          logo_url: '/static/images/icici-logo.png'
+          display_message: '🔒 Secure payments powered by Razorpay',
+          logo_url: '/static/images/razorpay-logo.png'
         }
       });
     } catch (error) {
@@ -135,11 +116,11 @@ export class PaymentsController {
       res.json({
         success: true,
         config: {
-          default_gateway: 'ICICI',
-          gateway_display_name: 'ICICI Secure Gateway',
+          default_gateway: 'Razorpay',
+          gateway_display_name: 'Razorpay Secure Gateway',
           show_gateway_selection: false,
           display_gateway_info: true,
-          gateway_badge: '🏦 ICICI Bank Secure',
+          gateway_badge: '🔒 Razorpay Secure',
           trust_indicators: [
             '🔒 Bank-Grade Security',
             '✅ PCI DSS Certified',
@@ -161,10 +142,10 @@ export class PaymentsController {
     try {
       const { order_id, payment_method, return_url, customer_data }: PaymentInitiateRequest = req.body;
 
-      console.log('🚀 ICICI Payment Initiation Request:', {
+      console.log('🚀 Payment Initiation Request:', {
         order_id,
         payment_method,
-        gateway: 'ICICI Bank',
+        gateway: 'Razorpay',
         timestamp: new Date().toISOString()
       });
 
@@ -219,7 +200,7 @@ export class PaymentsController {
           gateway_name, initiated_at, created_at, updated_at
         ) VALUES (
           gen_random_uuid(), $1, $2, $3, 'INR', $4, 'initiated',
-          $5, $6, $7, 'ICICI', NOW(), NOW(), NOW()
+          $5, $6, $7, 'Razorpay', NOW(), NOW(), NOW()
         ) RETURNING *
       `;
       
@@ -236,46 +217,14 @@ export class PaymentsController {
 
       const payment = paymentResult.rows[0];
 
-      // Prepare ICICI payment parameters
-      const paymentParams = {
-        merchant_id: PaymentsController.iciciConfig.merchantId,
-        order_id: transactionId,
-        amount: order.final_amount,
-        currency: 'INR',
-        redirect_url: PaymentsController.iciciConfig.returnUrl,
-        cancel_url: PaymentsController.iciciConfig.cancelUrl,
-        billing_name: customerName,
-        billing_email: order.email,
-        billing_tel: order.phone,
-        delivery_name: customerName,
-        delivery_tel: order.phone,
-        merchant_param1: order_id,
-        merchant_param2: payment_method
-      };
-
-      // Encrypt payment data for ICICI
-      const encryptedData = PaymentsController.encryptPaymentData(paymentParams);
-      
-      // Generate payment form HTML
-      const paymentForm = `
-        <form id="iciciPaymentForm" method="post" action="${PaymentsController.iciciConfig.gatewayUrl}">
-          <input type="hidden" name="encRequest" value="${encryptedData}">
-          <input type="hidden" name="access_code" value="${PaymentsController.iciciConfig.accessCode}">
-        </form>
-        <script>
-          console.log('🏦 Redirecting to ICICI Payment Gateway...');
-          document.getElementById('iciciPaymentForm').submit();
-        </script>
-      `;
-
-      console.log('✅ ICICI Payment Initiated Successfully:', {
+      console.log('✅ Payment Initiated Successfully:', {
         transaction_id: transactionId,
         amount: order.final_amount,
         customer: customerName,
-        payment_method,
-        gateway_url: PaymentsController.iciciConfig.gatewayUrl
+        payment_method
       });
 
+      // Return payment details - frontend will use Razorpay checkout
       res.json({
         success: true,
         payment: {
@@ -289,13 +238,11 @@ export class PaymentsController {
           customer_email: order.email,
           created_at: payment.created_at
         },
-        payment_form: paymentForm,
-        gateway_url: PaymentsController.iciciConfig.gatewayUrl,
-        message: 'Payment initiated successfully via ICICI Secure Gateway'
+        message: 'Payment initiated successfully'
       });
 
     } catch (error) {
-      console.error('❌ ICICI Payment Initiation Error:', error);
+      console.error('❌ Payment Initiation Error:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to initiate payment'
@@ -305,27 +252,20 @@ export class PaymentsController {
 
   static async handlePaymentCallback(req: Request, res: Response) {
     try {
-      const { encResp } = req.body;
+      const { transaction_id, status, razorpay_payment_id, razorpay_order_id, razorpay_signature } = req.body;
       
-      console.log('🔄 ICICI Payment Callback Received:', {
+      console.log('🔄 Payment Callback Received:', {
         timestamp: new Date().toISOString(),
-        has_encrypted_response: !!encResp
+        transaction_id,
+        status
       });
 
-      if (!encResp) {
+      if (!transaction_id) {
         return res.status(400).json({
           success: false,
-          error: 'Missing encrypted response from payment gateway'
+          error: 'Missing transaction ID'
         });
       }
-
-      // Decrypt response from ICICI
-      const decryptedData = PaymentsController.decryptPaymentData(encResp);
-      console.log('🔓 Decrypted ICICI Response:', decryptedData);
-
-      const transactionId = decryptedData.order_id;
-      const orderStatus = decryptedData.order_status;
-      const orderId = decryptedData.merchant_param1;
 
       // Update payment status
       const updateQuery = `
@@ -341,15 +281,14 @@ export class PaymentsController {
         RETURNING *
       `;
 
-      const paymentStatus = orderStatus === 'Success' ? 'success' : 'failed';
-      const gatewayTxnId = decryptedData.tracking_id || decryptedData.bank_ref_no;
+      const paymentStatus = status === 'success' ? 'success' : 'failed';
       
       const paymentResult = await pool.query(updateQuery, [
         paymentStatus,
-        gatewayTxnId,
-        orderStatus,
-        JSON.stringify(decryptedData),
-        transactionId
+        razorpay_payment_id || null,
+        status,
+        JSON.stringify({ razorpay_order_id, razorpay_signature }),
+        transaction_id
       ]);
 
       if (paymentResult.rows.length === 0) {
@@ -367,39 +306,89 @@ export class PaymentsController {
           UPDATE orders 
           SET is_paid = true, payment_status = 'paid', updated_at = NOW() 
           WHERE id = $1
-        `, [orderId]);
+        `, [payment.order_id]);
         
         console.log('✅ Order Payment Completed:', {
-          order_id: orderId,
-          transaction_id: transactionId,
-          gateway_txn_id: gatewayTxnId,
+          order_id: payment.order_id,
+          transaction_id,
+          razorpay_payment_id,
           amount: payment.amount
         });
       } else {
         console.log('❌ Payment Failed:', {
-          order_id: orderId,
-          transaction_id: transactionId,
-          reason: orderStatus
+          order_id: payment.order_id,
+          transaction_id,
+          reason: status
         });
       }
 
-      // Redirect back to React frontend with order information
-      const frontendBaseUrl = 'http://localhost:3000'; // React frontend URL
-      
-      if (paymentStatus === 'success') {
-        console.log(`🎯 Redirecting to frontend success page with Order ID: ${orderId}`);
-        res.redirect(`${frontendBaseUrl}/#checkout-success?orderId=${orderId}&amount=${payment.amount}&transactionId=${transactionId}&paymentStatus=success`);
-      } else {
-        console.log(`❌ Redirecting to frontend failed page with Order ID: ${orderId}`);
-        res.redirect(`${frontendBaseUrl}/#checkout-failed?orderId=${orderId}&amount=${payment.amount}&transactionId=${transactionId}&paymentStatus=failed&reason=${encodeURIComponent(orderStatus)}`);
-      }
+      res.json({
+        success: true,
+        payment_status: paymentStatus,
+        order_id: payment.order_id
+      });
 
     } catch (error) {
-      console.error('❌ ICICI Payment Callback Error:', error);
+      console.error('❌ Payment Callback Error:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to process payment callback'
       });
+    }
+  }
+
+  static async generateUPIQR(req: Request, res: Response) {
+    try {
+      const { order_id, amount } = req.query as { order_id?: string; amount?: string };
+
+      const parsedAmount = parseFloat(amount || '0');
+      if (!parsedAmount || parsedAmount <= 0) {
+        return res.status(400).json({ success: false, error: 'Valid amount is required' });
+      }
+
+      const merchantUpiId = process.env.MERCHANT_UPI_ID || 'happyhomes@upi';
+      const merchantName = process.env.MERCHANT_NAME || 'Happy Homes Services';
+      const transactionNote = order_id ? `Order ${order_id}` : 'Happy Homes Payment';
+
+      const upiUri = [
+        `upi://pay?pa=${encodeURIComponent(merchantUpiId)}`,
+        `pn=${encodeURIComponent(merchantName)}`,
+        `am=${parsedAmount.toFixed(2)}`,
+        `cu=INR`,
+        `tn=${encodeURIComponent(transactionNote)}`,
+      ].join('&');
+
+      let qrCodeLib: typeof import('qrcode');
+      try {
+        qrCodeLib = await import('qrcode');
+      } catch {
+        return res.status(500).json({ success: false, error: 'QR code service is unavailable. Please use the UPI ID to pay manually.' });
+      }
+
+      let qrDataUrl: string;
+      try {
+        qrDataUrl = await qrCodeLib.toDataURL(upiUri, {
+          width: 300,
+          margin: 2,
+          errorCorrectionLevel: 'H',
+          color: { dark: '#1a1a2e', light: '#ffffff' },
+        });
+      } catch {
+        return res.status(500).json({ success: false, error: 'Failed to generate QR code. Please use the UPI ID to pay manually.' });
+      }
+
+      res.json({
+        success: true,
+        upi_uri: upiUri,
+        qr_data_url: qrDataUrl,
+        merchant_upi_id: merchantUpiId,
+        merchant_name: merchantName,
+        amount: parsedAmount,
+        order_id: order_id || null,
+      });
+    } catch (error) {
+      console.error('UPI QR generation error:', error);
+      res.status(500).json({ success: false, error: 'Failed to generate UPI QR code' });
     }
   }
 
@@ -432,7 +421,6 @@ export class PaymentsController {
 
       const result = await pool.query(query, params);
       
-      // Get total count
       let countQuery = `
         SELECT COUNT(*) 
         FROM payments p 
@@ -465,63 +453,6 @@ export class PaymentsController {
         success: false,
         error: 'Failed to fetch payment history'
       });
-    }
-  }
-
-  private static encryptPaymentData(data: any): string {
-    try {
-      const workingKey = PaymentsController.iciciConfig.workingKey;
-      const plainText = new URLSearchParams(data).toString();
-      
-      // Create a 16-byte key from working key (pad or truncate as needed)
-      const key = Buffer.alloc(16);
-      const workingKeyBuffer = Buffer.from(workingKey, 'utf8');
-      workingKeyBuffer.copy(key, 0, 0, Math.min(16, workingKeyBuffer.length));
-      
-      // Generate random IV
-      const iv = crypto.randomBytes(16);
-      
-      const cipher = crypto.createCipheriv('aes-128-cbc', key, iv);
-      let encrypted = cipher.update(plainText, 'utf8', 'hex');
-      encrypted += cipher.final('hex');
-      
-      // Prepend IV to encrypted data
-      return iv.toString('hex') + encrypted;
-    } catch (error) {
-      console.error('Encryption error:', error);
-      throw error;
-    }
-  }
-
-  private static decryptPaymentData(encryptedData: string): any {
-    try {
-      const workingKey = PaymentsController.iciciConfig.workingKey;
-      
-      // Create a 16-byte key from working key (pad or truncate as needed)
-      const key = Buffer.alloc(16);
-      const workingKeyBuffer = Buffer.from(workingKey, 'utf8');
-      workingKeyBuffer.copy(key, 0, 0, Math.min(16, workingKeyBuffer.length));
-      
-      // Extract IV from the beginning of encrypted data (first 32 hex chars = 16 bytes)
-      const iv = Buffer.from(encryptedData.substring(0, 32), 'hex');
-      const encrypted = encryptedData.substring(32);
-      
-      const decipher = crypto.createDecipheriv('aes-128-cbc', key, iv);
-      let decrypted = decipher.update(encrypted, 'hex', 'utf8');
-      decrypted += decipher.final('utf8');
-      
-      // Parse the decrypted response
-      const params = new URLSearchParams(decrypted);
-      const result: any = {};
-      
-      for (const [key, value] of params.entries()) {
-        result[key] = value;
-      }
-      
-      return result;
-    } catch (error) {
-      console.error('Decryption error:', error);
-      throw error;
     }
   }
 }

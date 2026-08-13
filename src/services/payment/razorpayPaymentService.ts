@@ -21,6 +21,7 @@ import type { RazorpaySuccessResponse } from '../../types/razorpay';
 import { getPaymentConfig } from '../../config/payment.config';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://happyhomesworld.com';
+const API_ENDPOINT = API_BASE_URL.endsWith('/api') ? API_BASE_URL : `${API_BASE_URL}/api`;
 
 /**
  * Map Razorpay status to our PaymentStatus
@@ -54,7 +55,7 @@ class RazorpayPaymentService implements PaymentService {
    */
   async createPaymentIntent(request: CreatePaymentIntentRequest): Promise<PaymentIntentResponse> {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/razorpay/orders`, {
+      const response = await fetch(`${API_ENDPOINT}/razorpay/create-order`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -63,7 +64,7 @@ class RazorpayPaymentService implements PaymentService {
         body: JSON.stringify({
           amount: request.amount,
           currency: request.currency,
-          orderId: request.orderId,
+          order_id: request.orderId, // Backend expects snake_case and UUID
           customerId: request.customerId,
           customerEmail: request.customerEmail,
           customerPhone: request.customerPhone,
@@ -218,7 +219,7 @@ class RazorpayPaymentService implements PaymentService {
    */
   async createRefund(request: CreateRefundRequest): Promise<Refund> {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/razorpay/refunds`, {
+      const response = await fetch(`${API_ENDPOINT}/razorpay/refund`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

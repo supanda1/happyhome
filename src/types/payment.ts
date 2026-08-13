@@ -34,6 +34,7 @@ export type Currency = 'INR' | 'USD' | 'EUR' | 'GBP';
 
 export type PaymentProvider = 
   | 'mock'              // Mock for testing
+  | 'backend'           // Backend payment integration (Razorpay)
   | 'stripe'            // Stripe
   | 'razorpay'          // Razorpay (India)
   | 'paypal'            // PayPal

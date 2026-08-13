@@ -600,7 +600,7 @@ export class OrdersController {
           requires_payment: true,
           payment_options: {
             methods: ['credit_card', 'debit_card', 'net_banking', 'upi', 'wallet'],
-            gateway: 'ICICI',
+            gateway: 'Razorpay',
             amount: order.final_amount
           }
         },
@@ -712,7 +712,7 @@ export class OrdersController {
       
       if (updates.assigned_engineer_id) {
         // Get engineer details (handle both UUID and string IDs)
-        const engineerResult = await pool.query('SELECT id, name FROM engineers WHERE (id::text = $1 OR employee_id = $1)', [updates.assigned_engineer_id]);
+        const engineerResult = await pool.query('SELECT id, name FROM engineers WHERE (id::text = $1 OR engineer_id = $1)', [updates.assigned_engineer_id]);
         if (engineerResult.rows.length > 0) {
           const engineer = engineerResult.rows[0];
           
@@ -944,7 +944,7 @@ export class OrdersController {
         FROM engineers e
         LEFT JOIN order_items oi ON e.id = oi.assigned_engineer_id 
                                   AND oi.item_status = 'scheduled'
-        WHERE (e.id::text = $1 OR e.employee_id = $1) AND e.is_active = true
+        WHERE (e.id::text = $1 OR e.engineer_id = $1) AND e.is_active = true
         GROUP BY e.id, e.name, e.expertise, e.phone, e.email
       `, [engineer_id]);
       
@@ -1175,7 +1175,7 @@ export class OrdersController {
         try {
           // Validate engineer exists and is active (handle both UUID and string IDs)
           const engineerResult = await client.query(
-            'SELECT id, name, expertise FROM engineers WHERE (id::text = $1 OR employee_id = $1) AND is_active = true',
+            'SELECT id, name, expertise FROM engineers WHERE (id::text = $1 OR engineer_id = $1) AND is_active = true',
             [assignment.engineer_id]
           );
           
@@ -1967,7 +1967,7 @@ export class OrdersController {
       const query = `
         SELECT 
           e.id,
-          e.employee_id,
+          e.engineer_id,
           e.name,
           e.expertise as expertise_areas,
           array_to_string(ARRAY(SELECT jsonb_array_elements_text(e.expertise)), ', ') as expert,
@@ -2004,7 +2004,7 @@ export class OrdersController {
         LEFT JOIN order_items oi ON e.id = oi.assigned_engineer_id
         LEFT JOIN orders o ON oi.order_id = o.id
         WHERE e.is_active = true
-        GROUP BY e.id, e.employee_id, e.name, e.expertise, e.phone, e.email, e.is_active
+        GROUP BY e.id, e.engineer_id, e.name, e.expertise, e.phone, e.email, e.is_active
         ORDER BY active_tasks DESC, completed_tasks DESC, e.name ASC
       `;
       
@@ -2079,7 +2079,7 @@ export class OrdersController {
             DATE_TRUNC('week', COALESCE(oi.scheduled_date::timestamp, oi.created_at)) + INTERVAL '6 days' as report_period_end,
             'week' as report_type,
           `;
-          groupByClause = `GROUP BY e.id, e.employee_id, e.name, e.expertise, e.phone, e.email, e.is_active, 
+          groupByClause = `GROUP BY e.id, e.engineer_id, e.name, e.expertise, e.phone, e.email, e.is_active, 
                           DATE_TRUNC('week', COALESCE(oi.scheduled_date::timestamp, oi.created_at))`;
           break;
         case 'monthly':
@@ -2089,7 +2089,7 @@ export class OrdersController {
             DATE_TRUNC('month', COALESCE(oi.scheduled_date::timestamp, oi.created_at)) + INTERVAL '1 month' - INTERVAL '1 day' as report_period_end,
             'month' as report_type,
           `;
-          groupByClause = `GROUP BY e.id, e.employee_id, e.name, e.expertise, e.phone, e.email, e.is_active, 
+          groupByClause = `GROUP BY e.id, e.engineer_id, e.name, e.expertise, e.phone, e.email, e.is_active, 
                           DATE_TRUNC('month', COALESCE(oi.scheduled_date::timestamp, oi.created_at))`;
           break;
         default: // daily
@@ -2099,7 +2099,7 @@ export class OrdersController {
             DATE(COALESCE(oi.scheduled_date::timestamp, oi.created_at)) as report_date,
             'daily' as report_type,
           `;
-          groupByClause = `GROUP BY e.id, e.employee_id, e.name, e.expertise, e.phone, e.email, e.is_active, 
+          groupByClause = `GROUP BY e.id, e.engineer_id, e.name, e.expertise, e.phone, e.email, e.is_active, 
                           DATE(COALESCE(oi.scheduled_date::timestamp, oi.created_at))`;
       }
 
@@ -2114,7 +2114,7 @@ export class OrdersController {
       const query = `
         SELECT 
           e.id,
-          e.employee_id,
+          e.engineer_id,
           e.name,
           e.expertise as expertise_areas,
           array_to_string(ARRAY(SELECT jsonb_array_elements_text(e.expertise)), ', ') as expert,
@@ -2187,7 +2187,7 @@ export class OrdersController {
         if (!engineerSummary.has(engineerId)) {
           engineerSummary.set(engineerId, {
             id: row.id,
-            employee_id: row.employee_id,
+            engineer_id: row.engineer_id,
             name: row.name,
             total_active_tasks: 0,
             total_completed_tasks: 0,

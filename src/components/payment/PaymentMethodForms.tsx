@@ -513,7 +513,7 @@ export function NetBankingPaymentForm({ onSubmit, isLoading = false }: NetBankin
   const banks = [
     { code: 'SBI', name: 'State Bank of India' },
     { code: 'HDFC', name: 'HDFC Bank' },
-    { code: 'ICICI', name: 'ICICI Bank' },
+    { code: 'Razorpay', name: 'Razorpay' },
     { code: 'AXIS', name: 'Axis Bank' },
     { code: 'PNB', name: 'Punjab National Bank' },
     { code: 'BOB', name: 'Bank of Baroda' },

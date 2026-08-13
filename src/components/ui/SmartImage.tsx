@@ -15,6 +15,21 @@ const getImageSrc = (imageConfig: ImageConfig): string => {
   return imageConfig.src || '';
 };
 
+// Convert JPG path to WebP path for modern browsers
+const getWebPSrc = (src: string): string => {
+  if (!src) return '';
+  return src.replace(/\.jpg$/i, '.webp');
+};
+
+// Check if browser supports WebP
+const supportsWebP = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  const canvas = document.createElement('canvas');
+  canvas.width = 1;
+  canvas.height = 1;
+  return canvas.toDataURL('image/webp').indexOf('data:image/webp') === 0;
+};
+
 // Utility function to check if image exists (currently unused but kept for future use)
 // const imageExists = (src: string): boolean => {
 //   if (!src) return false;
@@ -98,9 +113,11 @@ export const SmartImage: React.FC<SmartImageProps> = ({
     );
   }
 
+  const webpSrc = getWebPSrc(imageSrc);
+  const useWebP = supportsWebP() && webpSrc !== imageSrc;
+
   return (
     <div className={`relative ${className}`} onClick={onClick}>
-      {/* Loading placeholder */}
       {isLoading && (
         <div className="absolute inset-0 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 animate-pulse rounded-lg flex items-center justify-center">
           <span className="text-2xl opacity-50">
@@ -109,18 +126,21 @@ export const SmartImage: React.FC<SmartImageProps> = ({
         </div>
       )}
       
-      {/* Actual image */}
-      <img
-        src={imageSrc}
-        alt={imageConfig.alt}
-        loading={loading}
-        onLoad={handleImageLoad}
-        onError={handleImageError}
-        className={`w-full h-full object-cover transition-opacity duration-300 ${
-          imageLoaded ? 'opacity-100' : 'opacity-0'
-        }`}
-      />
-      
+      <picture>
+        {useWebP && <source srcSet={webpSrc} type="image/webp" />}
+        <img
+          src={imageSrc}
+          alt={imageConfig.alt}
+          loading={loading}
+          decoding="async"
+          fetchPriority={loading === 'eager' ? 'high' : 'auto'}
+          onLoad={handleImageLoad}
+          onError={handleImageError}
+          className={`w-full h-full object-cover transition-opacity duration-300 ${
+            imageLoaded ? 'opacity-100' : 'opacity-0'
+          }`}
+        />
+      </picture>
     </div>
   );
 };

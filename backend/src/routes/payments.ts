@@ -47,10 +47,13 @@ router.get('/methods', PaymentsController.getPaymentMethods);
 // GET /api/payments/gateway-info - Get payment gateway information  
 router.get('/gateway-info', PaymentsController.getGatewayInfo);
 
+// GET /api/payments/upi-qr - Generate UPI QR code for a given amount/order
+router.get('/upi-qr', PaymentsController.generateUPIQR);
+
 // GET /api/payments/config - Get payment configuration for frontend
 router.get('/config', PaymentsController.getPaymentConfig);
 
-// POST /api/payments/callback - Handle payment callback from ICICI Gateway
+// POST /api/payments/callback - Handle payment callback from gateway
 router.post('/callback', PaymentsController.handlePaymentCallback);
 
 // GET /api/payments/callback/success - Payment success page
@@ -131,11 +134,11 @@ router.get('/callback/success', (req, res) => {
         <div class="container">
             <div class="success-icon">✓</div>
             <h1>Payment Successful!</h1>
-            <p>Your payment has been processed successfully through ICICI Bank's secure gateway. You will receive a confirmation email shortly.</p>
+            <p>Your payment has been processed successfully. You will receive a confirmation email shortly.</p>
             <a href="/orders" class="btn">View My Orders</a>
             <div class="gateway-info">
-                🏦 Secured by ICICI Bank Payment Gateway<br>
-                🔒 Your transaction is protected with bank-grade security
+                🔒 Secure Payment Gateway<br>
+                Your transaction is protected with bank-grade security
             </div>
         </div>
     </body>
@@ -222,12 +225,12 @@ router.get('/callback/failed', (req, res) => {
         <div class="container">
             <div class="error-icon">✗</div>
             <h1>Payment Failed</h1>
-            <p>Your payment could not be processed through ICICI Bank's gateway. This might be due to insufficient funds, network issues, or other banking restrictions. Please try again or use a different payment method.</p>
+            <p>Your payment could not be processed. This might be due to insufficient funds, network issues, or other banking restrictions. Please try again or use a different payment method.</p>
             <a href="/orders" class="btn btn-primary">View Orders</a>
             <a href="javascript:history.back()" class="btn btn-retry">Try Again</a>
             <div class="gateway-info">
-                🏦 ICICI Bank Payment Gateway<br>
-                💳 Try different payment method or contact your bank
+                🔒 Secure Payment Gateway<br>
+                💳 Try a different payment method or contact your bank
             </div>
         </div>
     </body>
@@ -273,7 +276,7 @@ router.post('/refund', requireAdminAuth, [
   res.status(501).json({ success: false, error: 'Payment refund endpoint not implemented yet' });
 });
 
-// POST /api/payments/webhook - Handle payment webhook from ICICI Gateway (Admin/System)
+// POST /api/payments/webhook - Handle payment webhook from gateway (Admin/System)
 router.post('/webhook', (req: Request, res: Response) => {
   res.status(501).json({ success: false, error: 'Payment webhook endpoint not implemented yet' });
 });
