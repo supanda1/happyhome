@@ -15,20 +15,10 @@ const getImageSrc = (imageConfig: ImageConfig): string => {
   return imageConfig.src || '';
 };
 
-// Convert JPG path to WebP path for modern browsers
-const getWebPSrc = (src: string): string => {
-  if (!src) return '';
-  return src.replace(/\.jpg$/i, '.webp');
-};
-
-// Check if browser supports WebP
-const supportsWebP = (): boolean => {
-  if (typeof window === 'undefined') return false;
-  const canvas = document.createElement('canvas');
-  canvas.width = 1;
-  canvas.height = 1;
-  return canvas.toDataURL('image/webp').indexOf('data:image/webp') === 0;
-};
+// WebP support disabled - server only has JPG files
+// Keeping functions as stubs for future use if webp files are added
+const getWebPSrc = (_src: string): string => '';
+const supportsWebP = (): boolean => false;
 
 // Utility function to check if image exists (currently unused but kept for future use)
 // const imageExists = (src: string): boolean => {

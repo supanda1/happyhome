@@ -107,20 +107,14 @@ const ServiceDetailPage: React.FC<ServiceDetailPageProps> = ({ serviceId }) => {
             <Card className="overflow-hidden mb-6">
               <div className="aspect-w-16 aspect-h-9">
                 {service.photos.length > 0 ? (
-                  <picture>
-                    <source 
-                      srcSet={service.photos[selectedImageIndex]?.url.replace(/\.jpg$/i, '.webp') || service.photos[0].url.replace(/\.jpg$/i, '.webp')} 
-                      type="image/webp" 
-                    />
-                    <img
-                      src={service.photos[selectedImageIndex]?.url || service.photos[0].url}
-                      alt={service.photos[selectedImageIndex]?.altText || service.photos[0].altText}
-                      className="w-full h-96 object-cover"
-                      loading="eager"
-                      decoding="async"
-                      fetchPriority="high"
-                    />
-                  </picture>
+                  <img
+                    src={service.photos[selectedImageIndex]?.url || service.photos[0].url}
+                    alt={service.photos[selectedImageIndex]?.altText || service.photos[0].altText}
+                    className="w-full h-96 object-cover"
+                    loading="eager"
+                    decoding="async"
+                    fetchPriority="high"
+                  />
                 ) : (
                   <div className="w-full h-96 bg-gradient-to-br from-primary-100 to-primary-200 flex items-center justify-center">
                     <span className="text-lg font-semibold text-gray-700">{service.category.name}</span>
@@ -142,16 +136,13 @@ const ServiceDetailPage: React.FC<ServiceDetailPageProps> = ({ serviceId }) => {
                             : 'border-gray-200 hover:border-gray-300'
                         }`}
                       >
-                        <picture>
-                          <source srcSet={photo.url.replace(/\.jpg$/i, '.webp')} type="image/webp" />
-                          <img
-                            src={photo.url}
-                            alt={photo.altText}
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                            decoding="async"
-                          />
-                        </picture>
+                        <img
+                          src={photo.url}
+                          alt={photo.altText}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                          decoding="async"
+                        />
                       </button>
                     ))}
                   </div>
