@@ -15,11 +15,31 @@ import Razorpay from 'razorpay';
 import crypto from 'crypto';
 import pool from '../config/database';
 
-// Initialize Razorpay instance
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID || '',
-  key_secret: process.env.RAZORPAY_KEY_SECRET || '',
-});
+// Lazy-initialized Razorpay instance (prevents crash on startup if keys missing)
+let razorpayInstance: Razorpay | null = null;
+
+function getRazorpayInstance(): Razorpay {
+  if (razorpayInstance) {
+    return razorpayInstance;
+  }
+  
+  const keyId = process.env.RAZORPAY_KEY_ID;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  
+  if (!keyId || !keySecret) {
+    throw new Error('Razorpay is not configured. RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET are required.');
+  }
+  
+  razorpayInstance = new Razorpay({
+    key_id: keyId,
+    key_secret: keySecret,
+  });
+  
+  return razorpayInstance;
+}
+
+// Alias for backward compatibility in this file
+const getRazorpay = getRazorpayInstance;
 
 // Types
 interface CreateOrderRequest {
@@ -163,7 +183,7 @@ export class RazorpayController {
         const existingRazorpayOrderId = existingResult.rows[0].razorpay_order_id;
         
         try {
-          const existingOrder = await razorpay.orders.fetch(existingRazorpayOrderId);
+          const existingOrder = await getRazorpay().orders.fetch(existingRazorpayOrderId);
           
           if (existingOrder.status === 'created') {
             console.log('♻️ Returning existing Razorpay order:', existingRazorpayOrderId);
@@ -191,7 +211,7 @@ export class RazorpayController {
       const amountInPaise = Math.round(amount * 100);
       const receipt = `order_${order_id.slice(-8)}_${Date.now()}`;
 
-      const razorpayOrder = await razorpay.orders.create({
+      const razorpayOrder = await getRazorpay().orders.create({
         amount: amountInPaise,
         currency,
         receipt,
@@ -368,7 +388,7 @@ export class RazorpayController {
       }
 
       // Fetch payment details from Razorpay to confirm status
-      const razorpayPayment = await razorpay.payments.fetch(razorpay_payment_id) as {
+      const razorpayPayment = await getRazorpay().payments.fetch(razorpay_payment_id) as {
         status: string;
         method: string;
         amount: number;
@@ -466,7 +486,7 @@ export class RazorpayController {
       }
 
       // Fetch from Razorpay
-      const payment = await razorpay.payments.fetch(payment_id) as {
+      const payment = await getRazorpay().payments.fetch(payment_id) as {
         id: string;
         order_id: string;
         status: string;
@@ -531,7 +551,7 @@ export class RazorpayController {
       }
 
       // Fetch payment to verify it can be refunded
-      const payment = await razorpay.payments.fetch(payment_id) as {
+      const payment = await getRazorpay().payments.fetch(payment_id) as {
         status: string;
         amount: number;
       };
@@ -549,7 +569,7 @@ export class RazorpayController {
         : payment.amount; // Full refund if amount not specified
 
       // Create refund
-      const refund = await razorpay.payments.refund(payment_id, {
+      const refund = await getRazorpay().payments.refund(payment_id, {
         amount: refundAmountPaise,
         speed: 'normal', // 'normal' or 'optimum' (instant)
         receipt: `refund_${payment_id}_${Date.now()}`,
@@ -639,7 +659,7 @@ export class RazorpayController {
         });
       }
 
-      const refund = await razorpay.refunds.fetch(refund_id) as {
+      const refund = await getRazorpay().refunds.fetch(refund_id) as {
         id: string;
         payment_id: string;
         amount: number;
