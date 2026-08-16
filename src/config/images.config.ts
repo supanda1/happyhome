@@ -115,35 +115,35 @@ export const serviceImages: Record<string, ImageConfig[]> = {
   'plumbing-basin-sink-drainage': [
     {
       id: 'basin-sink-1',
-      src: '/images/subcategories/plumbing/basin-sink-drainage-1.jpg',
+      src: '/images/subcategories/plumbing/basin-sink/pexels-aj-ahamad-767001191-32168954.jpg',
       alt: 'Professional basin and sink installation services',
       type: 'pexels-stock',
       fallbackEmoji: '🚰'
     },
     {
       id: 'basin-sink-2',
-      src: '/images/subcategories/plumbing/basin-sink-drainage-2.jpg',
+      src: '/images/subcategories/plumbing/basin-sink/pexels-pu-ca-adryan-163345030-29399427.jpg',
       alt: 'Kitchen sink installation and repair services',
       type: 'pexels-stock',
       fallbackEmoji: '🪠'
     },
     {
       id: 'basin-sink-3',
-      src: '/images/subcategories/plumbing/basin-sink-drainage-3.jpg',
+      src: '/images/subcategories/plumbing/basin-sink/pexels-artbovich-6782575.jpg',
       alt: 'Bathroom basin and drainage solutions',
       type: 'pexels-stock',
       fallbackEmoji: '🚿'
     },
     {
       id: 'basin-sink-4',
-      src: '/images/subcategories/plumbing/basin-sink-drainage-4.jpg',
+      src: '/images/subcategories/plumbing/basin-sink/pexels-artbovich-7031908.jpg',
       alt: 'Professional drainage cleaning and maintenance',
       type: 'pexels-stock',
       fallbackEmoji: '🔧'
     },
     {
       id: 'basin-sink-5',
-      src: '/images/subcategories/plumbing/basin-sink-drainage-5.jpg',
+      src: '/images/subcategories/plumbing/basin-sink/pexels-artbovich-6899441.jpg',
       alt: 'Complete plumbing solutions for sinks and basins',
       type: 'pexels-stock',
       fallbackEmoji: '✅'
@@ -305,38 +305,24 @@ export const serviceImages: Record<string, ImageConfig[]> = {
   'plumbing-others': [
     {
       id: 'plumbing-others-1',
-      src: '/images/subcategories/plumbing/others/others-1.jpg',
+      src: '/images/subcategories/plumbing/bath-fittings/pexels-artbovich-6934233.jpg',
       alt: 'General plumbing services and repairs',
       type: 'pexels-stock',
       fallbackEmoji: '🔧'
     },
     {
       id: 'plumbing-others-2',
-      src: '/images/subcategories/plumbing/others/others-2.jpg',
+      src: '/images/subcategories/plumbing/pipes/pexels-maotuizhutuzi-4432160.jpg',
       alt: 'Professional plumbing maintenance',
       type: 'pexels-stock',
       fallbackEmoji: '⚙️'
     },
     {
       id: 'plumbing-others-3',
-      src: '/images/subcategories/plumbing/others/others-3.jpg',
+      src: '/images/subcategories/plumbing/basin-sink/pexels-artbovich-6782575.jpg',
       alt: 'Custom plumbing solutions',
       type: 'pexels-stock',
       fallbackEmoji: '🏠'
-    },
-    {
-      id: 'plumbing-others-4',
-      src: '/images/subcategories/plumbing/others/others-4.jpg',
-      alt: 'Residential plumbing services',
-      type: 'pexels-stock',
-      fallbackEmoji: '🚿'
-    },
-    {
-      id: 'plumbing-others-5',
-      src: '/images/subcategories/plumbing/others/others-5.jpg',
-      alt: 'Professional plumbing solutions',
-      type: 'pexels-stock',
-      fallbackEmoji: '✅'
     }
   ],
 

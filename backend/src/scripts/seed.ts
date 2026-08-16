@@ -258,11 +258,11 @@ const seedDatabase = async () => {
         requirements: JSON.stringify(['Access to plumbing area', 'Water connection', 'Drainage access']),
         tags: JSON.stringify(['plumbing', 'basin', 'sink', 'drainage', 'repair']),
         image_paths: JSON.stringify([
-          '/images/subcategories/plumbing/basin-sink-drainage-1.jpg',
-          '/images/subcategories/plumbing/basin-sink-drainage-2.jpg',
-          '/images/subcategories/plumbing/basin-sink-drainage-3.jpg',
-          '/images/subcategories/plumbing/basin-sink-drainage-4.jpg',
-          '/images/subcategories/plumbing/basin-sink-drainage-5.jpg'
+          'images/subcategories/plumbing/basin-sink/pexels-aj-ahamad-767001191-32168954.jpg',
+          'images/subcategories/plumbing/basin-sink/pexels-pu-ca-adryan-163345030-29399427.jpg',
+          'images/subcategories/plumbing/basin-sink/pexels-artbovich-6782575.jpg',
+          'images/subcategories/plumbing/basin-sink/pexels-artbovich-7031908.jpg',
+          'images/subcategories/plumbing/basin-sink/pexels-artbovich-6899441.jpg'
         ]),
         rating: 4.5,
         review_count: 0,
@@ -378,11 +378,9 @@ const seedDatabase = async () => {
         requirements: JSON.stringify(['Access to problem area', 'Service description', 'Basic utilities']),
         tags: JSON.stringify(['plumbing', 'repair', 'maintenance', 'general', 'service']),
         image_paths: JSON.stringify([
-          '/images/subcategories/plumbing/others/others-1.jpg',
-          '/images/subcategories/plumbing/others/others-2.jpg',
-          '/images/subcategories/plumbing/others/others-3.jpg',
-          '/images/subcategories/plumbing/others/others-4.jpg',
-          '/images/subcategories/plumbing/others/others-5.jpg'
+          'images/subcategories/plumbing/bath-fittings/pexels-artbovich-6934233.jpg',
+          'images/subcategories/plumbing/pipes/pexels-maotuizhutuzi-4432160.jpg',
+          'images/subcategories/plumbing/basin-sink/pexels-artbovich-6782575.jpg'
         ]),
         rating: 4.5,
         review_count: 0,
